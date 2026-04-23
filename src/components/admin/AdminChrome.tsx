@@ -7,6 +7,8 @@ import { useCallback, useLayoutEffect, useState } from "react";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser, useLogout } from "@/hooks/useAuth";
+import { useAdminUnreadMessageCount } from "@/hooks/useAdminMessages";
+import { useAdminMessagesRealtime } from "@/hooks/useAdminMessagesRealtime";
 import { Button } from "@/components/ui/button";
 import { AdminTopBar } from "@/components/admin/AdminTopBar";
 import { AdminTreeSetupBanner } from "@/components/AdminTreeSetupBanner";
@@ -56,6 +58,8 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading } = useCurrentUser();
   const logout = useLogout();
   const { collapsed, toggleCollapsed } = useSidebarCollapsed();
+  const unread = useAdminUnreadMessageCount();
+  useAdminMessagesRealtime(Boolean(user) && !isLoading);
 
   return (
     <div className="drawer lg:drawer-open min-h-screen bg-base-100">
@@ -67,6 +71,7 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
           isLoading={isLoading}
           onLogout={() => logout.mutate()}
           logoutPending={logout.isPending}
+          unreadDirectMessages={typeof unread.data === "number" ? unread.data : 0}
         />
         <main className="min-h-0 flex-1 overflow-auto bg-base-100 p-4 md:p-6 lg:p-8">
           <AdminTreeSetupBanner />
@@ -144,6 +149,11 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
                 pathname={pathname}
                 collapsed={collapsed}
                 onNavigate={closeAdminDrawer}
+                unreadBadge={
+                  item.href === "/admin/messages" && typeof unread.data === "number"
+                    ? unread.data
+                    : undefined
+                }
               />
             ))}
           </nav>
@@ -164,25 +174,36 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
   );
 }
 
+function formatSidebarUnread(n: number): string {
+  if (n > 99) return "99+";
+  return String(n);
+}
+
 function SidebarNavLink({
   item,
   pathname,
   collapsed,
   onNavigate,
+  unreadBadge,
 }: {
   item: AdminNavItem;
   pathname: string;
   collapsed: boolean;
   onNavigate: () => void;
+  /** Unread count for Messages link only. */
+  unreadBadge?: number;
 }) {
   const { href, label, icon: Icon } = item;
   const active = isAdminNavActive(href, pathname);
+  const unread = unreadBadge && unreadBadge > 0 ? unreadBadge : 0;
+  const aria =
+    unread > 0 && href === "/admin/messages" ? `${label}, ${unread} unread` : label;
 
   return (
     <Link
       href={href}
       title={collapsed ? label : undefined}
-      aria-label={label}
+      aria-label={aria}
       onClick={onNavigate}
       className={cn(
         "flex items-center rounded-box text-sm font-medium transition-colors duration-150",
@@ -198,17 +219,30 @@ function SidebarNavLink({
             : "border-transparent text-base-content/70 hover:bg-base-200/60 hover:text-base-content"
       )}
     >
-      <Icon
-        className={cn("size-[1.125rem] shrink-0 sm:size-4", active ? "opacity-90" : "opacity-65")}
-        aria-hidden
-      />
+      <span className={cn("relative shrink-0", collapsed && unread > 0 && "inline-flex")}>
+        <Icon
+          className={cn("size-[1.125rem] sm:size-4", active ? "opacity-90" : "opacity-65")}
+          aria-hidden
+        />
+        {collapsed && unread > 0 ? (
+          <span
+            className="absolute -right-1 -top-1 flex size-2 rounded-full bg-error shadow-sm"
+            aria-hidden
+          />
+        ) : null}
+      </span>
       <span
         className={cn(
-          "truncate transition-[opacity,width] duration-150",
+          "flex min-w-0 flex-1 items-center gap-2 truncate transition-[opacity,width] duration-150",
           collapsed ? "sr-only w-0 opacity-0" : "opacity-100"
         )}
       >
         {label}
+        {!collapsed && unread > 0 ? (
+          <span className="badge badge-error badge-sm shrink-0 font-bold tabular-nums">
+            {formatSidebarUnread(unread)}
+          </span>
+        ) : null}
       </span>
     </Link>
   );

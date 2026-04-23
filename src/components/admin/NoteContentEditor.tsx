@@ -84,7 +84,7 @@ export function NoteContentEditor({
   return (
     <div
       className={cn(
-        "note-mdx-editor rounded-lg border border-[color-mix(in_oklch,var(--color-base-content)_34%,var(--color-base-300))] lemonade:border-[color-mix(in_oklch,var(--color-base-content)_26%,var(--color-base-300))] bg-base-100 overflow-hidden",
+        "note-mdx-editor rounded-lg border border-[color-mix(in_oklch,var(--color-base-content)_34%,var(--color-base-300))] app-light:border-[color-mix(in_oklch,var(--color-base-content)_26%,var(--color-base-300))] bg-base-100 overflow-hidden",
         "[&_.mdxeditor]:bg-base-100 [&_.mdxeditor-toolbar]:bg-base-200/80 [&_.mdxeditor-toolbar]:border-base-content/10",
         "[&_.mdxeditor-popup-container]:z-50",
         className,

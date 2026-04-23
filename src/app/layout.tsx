@@ -29,6 +29,25 @@ const inter = Inter({
   weight: ["400", "500", "600"],
 });
 
+/** Runs before paint; must stay in sync with `ThemeProvider` / `getInitialTheme` keys. */
+const INLINE_THEME_BOOTSTRAP = `(function(){
+  try {
+    var k = 'gonsalves-theme';
+    var map = { dark: 'business', parchment: 'parchment', verdure: 'verdure', stone: 'stone' };
+    var darkThemes = ['dark'];
+    var t = localStorage.getItem(k);
+    if (t === 'light') { t = 'parchment'; localStorage.setItem(k, 'parchment'); }
+    if (!t || !(t in map)) { t = 'dark'; localStorage.setItem(k, t); }
+    var wantDark = darkThemes.indexOf(t) !== -1;
+    document.documentElement.classList.toggle('dark', wantDark);
+    document.documentElement.setAttribute('data-theme', map[t]);
+    document.documentElement.style.colorScheme = wantDark ? 'dark' : 'light';
+  } catch(e) {
+    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'business');
+  }
+})();`;
+
 export const metadata: Metadata = {
   title: "Gonsalves Family Admin",
   description: "Administration for The Gonsalves Family tree",
@@ -54,11 +73,7 @@ export default function RootLayout({
       className={cn("dark", "font-sans", geist.variable)}
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var k='gonsalves-theme';var t=localStorage.getItem(k);if(t==null||t===''){localStorage.setItem(k,'dark');t='dark';}var wantDark=t!=='light';document.documentElement.classList.toggle('dark',wantDark);document.documentElement.setAttribute('data-theme',wantDark?'business':'lemonade');}catch(e){document.documentElement.classList.add('dark');document.documentElement.setAttribute('data-theme','business');}})();`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: INLINE_THEME_BOOTSTRAP }} />
       </head>
       <body
         className={`${playfair.variable} ${cormorant.variable} ${inter.variable} antialiased`}

@@ -144,7 +144,7 @@ export function DataViewerTable<TRecord>({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-box border border-base-content/[0.08] bg-base-100 lemonade:bg-base-content/[0.065] shadow-md shadow-black/15">
+      <div className="overflow-hidden rounded-box border border-base-content/[0.08] bg-base-100 app-light:bg-base-content/[0.065] shadow-md shadow-black/15">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

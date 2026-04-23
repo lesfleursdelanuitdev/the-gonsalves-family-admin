@@ -1,70 +1,102 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from "react";
 
-/** Set to true to re-enable dark mode and the theme toggle */
+/** Set to false to lock to parchment (light) only */
 export const DARK_MODE_ENABLED = true;
 
-type Theme = 'light' | 'dark';
+export type AppTheme = "dark" | "parchment" | "verdure" | "stone";
 
 type ThemeContextType = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: AppTheme;
+  setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
+  isDark: boolean;
 };
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
-const STORAGE_KEY = 'gonsalves-theme';
+const STORAGE_KEY = "gonsalves-theme";
 
-/** DaisyUI theme name for each app mode */
-export function daisyDataTheme(mode: Theme): 'lemonade' | 'business' {
-  return mode === 'dark' ? 'business' : 'lemonade';
+export const THEME_CONFIG: Record<
+  AppTheme,
+  { label: string; description: string; daisyTheme: string; dark: boolean }
+> = {
+  dark: {
+    label: "Dark",
+    description: "Dark charcoal canvas with forest green & crimson",
+    daisyTheme: "business",
+    dark: true,
+  },
+  parchment: {
+    label: "Parchment",
+    description: "Warm aged vellum — light mode default",
+    daisyTheme: "parchment",
+    dark: false,
+  },
+  verdure: {
+    label: "Verdure",
+    description: "Pale forest green — cool heraldic light",
+    daisyTheme: "verdure",
+    dark: false,
+  },
+  stone: {
+    label: "Stone & Crimson",
+    description: "Neutral stone grey with crimson accents",
+    daisyTheme: "stone",
+    dark: false,
+  },
+};
+
+function isAppTheme(s: string | null): s is AppTheme {
+  return s != null && s in THEME_CONFIG;
 }
 
-function getInitialTheme(): Theme {
-  if (!DARK_MODE_ENABLED) return 'light';
-  if (typeof window === 'undefined') return 'dark';
+function getInitialTheme(): AppTheme {
+  if (!DARK_MODE_ENABLED) return "parchment";
+  if (typeof window === "undefined") return "dark";
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'light') return 'light';
-  if (stored == null || stored === '') {
-    localStorage.setItem(STORAGE_KEY, 'dark');
+  if (stored === "light") {
+    localStorage.setItem(STORAGE_KEY, "parchment");
+    return "parchment";
   }
-  return 'dark';
+  if (isAppTheme(stored)) return stored;
+  localStorage.setItem(STORAGE_KEY, "dark");
+  return "dark";
 }
 
-function applyColorScheme(mode: Theme) {
-  document.documentElement.style.colorScheme = mode === 'dark' ? 'dark' : 'light';
+function applyTheme(theme: AppTheme) {
+  const config = THEME_CONFIG[theme];
+  document.documentElement.classList.toggle("dark", config.dark);
+  document.documentElement.setAttribute("data-theme", config.daisyTheme);
+  document.documentElement.style.colorScheme = config.dark ? "dark" : "light";
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-  const [mounted, setMounted] = useState(false);
+  const [theme, setThemeState] = useState<AppTheme>("dark");
 
   useEffect(() => {
     const initial = getInitialTheme();
     setThemeState(initial);
-    document.documentElement.classList.toggle('dark', initial === 'dark');
-    document.documentElement.setAttribute('data-theme', daisyDataTheme(initial));
-    applyColorScheme(initial);
-    setMounted(true);
+    applyTheme(initial);
   }, []);
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = (newTheme: AppTheme) => {
     if (!DARK_MODE_ENABLED) return;
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEY, newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    document.documentElement.setAttribute('data-theme', daisyDataTheme(newTheme));
-    applyColorScheme(newTheme);
+    applyTheme(newTheme);
   };
 
+  /** Primary toggle: cycles between dark and parchment only */
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(theme === "dark" ? "parchment" : "dark");
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, setTheme, toggleTheme, isDark: THEME_CONFIG[theme].dark }}
+    >
       {children}
     </ThemeContext.Provider>
   );
@@ -72,6 +104,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
   return ctx;
 }

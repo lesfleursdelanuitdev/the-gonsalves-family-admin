@@ -298,7 +298,7 @@ function buildEventsConfig(
           ) : null}
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <p className="flex items-center gap-1.5 rounded-md bg-white/8 px-5 py-3.5 text-sm font-bold leading-none text-white lemonade:bg-black/[0.07] lemonade:text-base-content/90">
+          <p className="flex items-center gap-1.5 rounded-md bg-white/8 px-5 py-3.5 text-sm font-bold leading-none text-white app-light:bg-black/[0.07] app-light:text-base-content/90">
             <Link2 className="size-3.5 shrink-0" aria-hidden />
             Linked To
           </p>

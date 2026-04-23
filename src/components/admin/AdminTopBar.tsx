@@ -55,12 +55,27 @@ type Props = {
   isLoading: boolean;
   onLogout: () => void;
   logoutPending: boolean;
+  /** Tree-scoped unread direct messages for the signed-in user (navbar badge). */
+  unreadDirectMessages?: number;
 };
 
-export function AdminTopBar({ drawerId, user, isLoading, onLogout, logoutPending }: Props) {
+function formatUnreadBadge(n: number): string {
+  if (n < 1) return "";
+  if (n > 99) return "99+";
+  return String(n);
+}
+
+export function AdminTopBar({
+  drawerId,
+  user,
+  isLoading,
+  onLogout,
+  logoutPending,
+  unreadDirectMessages = 0,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
   const close = () => closeDrawer(drawerId);
   const [mobileUtilitiesOpen, setMobileUtilitiesOpen] = useState(false);
 
@@ -115,22 +130,34 @@ export function AdminTopBar({ drawerId, user, isLoading, onLogout, logoutPending
             type="button"
             className={circleGhostBtn}
             onClick={() => toggleTheme()}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {theme === "dark" ? <Sun className="size-[1.15rem]" /> : <Moon className="size-[1.15rem]" />}
+            {isDark ? <Sun className="size-[1.15rem]" /> : <Moon className="size-[1.15rem]" />}
           </button>
         ) : null}
 
         <Link
           href="/admin/messages"
-          className={circleGhostBtn}
-          aria-label="Messages"
+          className={cn(circleGhostBtn, "relative")}
+          aria-label={
+            unreadDirectMessages > 0
+              ? `Messages, ${unreadDirectMessages} unread`
+              : "Messages"
+          }
           onClick={() => {
             close();
             setMobileUtilitiesOpen(false);
           }}
         >
           <MessageSquare className="size-[1.15rem]" />
+          {unreadDirectMessages > 0 ? (
+            <span
+              className="absolute -right-0.5 -top-0.5 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold leading-none text-error-content shadow-sm"
+              aria-hidden
+            >
+              {formatUnreadBadge(unreadDirectMessages)}
+            </span>
+          ) : null}
         </Link>
 
         {isLoading ? (
