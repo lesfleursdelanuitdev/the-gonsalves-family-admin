@@ -1,0 +1,873 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant lemonade (&:where([data-theme="lemonade"], [data-theme="lemonade"] *));
+@plugin "daisyui" {
+  themes: lemonade, business;
+}
+
+/* Light mode (DaisyUI) — used when `data-theme="lemonade"` */
+@plugin "daisyui/theme" {
+  name: "lemonade";
+  default: false;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: oklch(98.71% 0.02 123.72);
+  --color-base-200: oklch(91.8% 0.018 123.72);
+  --color-base-300: oklch(84.89% 0.017 123.72);
+  --color-base-content: oklch(19.742% 0.004 123.72);
+  --color-primary: oklch(58.92% 0.199 134.6);
+  --color-primary-content: oklch(11.784% 0.039 134.6);
+  --color-secondary: oklch(77.75% 0.196 111.09);
+  --color-secondary-content: oklch(15.55% 0.039 111.09);
+  --color-accent: oklch(85.39% 0.201 100.73);
+  --color-accent-content: oklch(17.078% 0.04 100.73);
+  --color-neutral: oklch(30.98% 0.075 108.6);
+  --color-neutral-content: oklch(86.196% 0.015 108.6);
+  --color-info: oklch(86.19% 0.047 224.14);
+  --color-info-content: oklch(17.238% 0.009 224.14);
+  --color-success: oklch(86.19% 0.047 157.85);
+  --color-success-content: oklch(17.238% 0.009 157.85);
+  --color-warning: oklch(86.19% 0.047 102.15);
+  --color-warning-content: oklch(17.238% 0.009 102.15);
+  --color-error: oklch(86.19% 0.047 25.85);
+  --color-error-content: oklch(17.238% 0.009 25.85);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/*
+ * Custom `business`: neutral dark-grey canvas + green primary + berry accent (dark mode)
+ */
+@plugin "daisyui/theme" {
+  name: "business";
+  default: false;
+  prefersdark: false;
+  color-scheme: dark;
+
+  /* Page canvas: grey steps (main → chrome → sidebar / depth) */
+  --color-base-100: #252628;
+  --color-base-200: #1a1c1e;
+  --color-base-300: #121416;
+  --color-base-content: #e8e4db;
+  /* Primary: green on grey canvas */
+  --color-primary: #2f7d40;
+  --color-primary-content: #f4fbf5;
+  --color-secondary: #1e4a18;
+  --color-secondary-content: #dce8d9;
+  --color-accent: #8b1d1e;
+  --color-accent-content: #fdecec;
+  --color-neutral: #1c1f22;
+  --color-neutral-content: #d2cec5;
+  --color-info: #5b8aab;
+  --color-info-content: #0c1410;
+  --color-success: #3d8f4a;
+  --color-success-content: #0c140d;
+  --color-warning: #c9a227;
+  --color-warning-content: #141003;
+  --color-error: #d92626;
+  --color-error-content: #fff5f3;
+  --radius-selector: 0rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* MDXEditor: use DaisyUI theme tokens so body text matches the page (prose/Lexical fights otherwise). */
+.note-mdx-editor .mdxeditor {
+  --basePageBg: var(--color-base-100);
+  --baseBase: var(--color-base-100);
+  --baseBgSubtle: var(--color-base-200);
+  --baseBg: var(--color-base-200);
+  --baseBgHover: var(--color-base-300);
+  --baseBgActive: var(--color-base-300);
+  --baseLine: color-mix(in oklch, var(--color-base-content) 16%, var(--color-base-300));
+  --baseBorder: color-mix(in oklch, var(--color-base-content) 22%, var(--color-base-300));
+  --baseBorderHover: color-mix(in oklch, var(--color-base-content) 38%, var(--color-base-300));
+  --baseSolid: color-mix(in oklch, var(--color-base-content) 48%, var(--color-base-300));
+  --baseSolidHover: color-mix(in oklch, var(--color-base-content) 58%, var(--color-base-300));
+  --baseText: color-mix(in oklch, var(--color-base-content) 70%, transparent);
+  --baseTextContrast: var(--color-base-content);
+}
+
+/* Ensure no element causes horizontal overflow (padding/border inside width) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@keyframes chart-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Surfaces — dark grey canvas (matches Daisy base-*); accents in theme tokens
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #252628;
+  --surface: #2d3034;
+  --surface-2: #1e2023;
+  --surface-elevated: #32363b;
+  --border: color-mix(in srgb, #e8e4db 18%, transparent);
+  --border-subtle: #1a1c1e;
+  --border-alpha: rgba(232, 228, 219, 0.12);
+  --text: #e8e4db;
+  --text-muted: #a8a398;
+  --text-subtle: #7f7a72;
+  --text-inverse: #121416;
+  --primary: #2f7d40;
+  --primary-hover: color-mix(in srgb, #2f7d40 78%, white);
+  --primary-active: color-mix(in srgb, #2f7d40 65%, white);
+  --primary-foreground: #f4fbf5;
+  --accent: #8b1d1e;
+  --accent-hover: color-mix(in srgb, #8b1d1e 85%, white);
+  --accent-muted: color-mix(in srgb, #8b1d1e 55%, #252628);
+  --accent-foreground: #fdecec;
+  --link: #9fd9ae;
+  --link-hover: #b8e8c4;
+  --focus-ring: #7bc88e;
+  --secondary: #1e4a18;
+  --secondary-muted: color-mix(in srgb, #1e4a18 75%, black);
+  --danger: #d92626;
+  --success: #3d8f4a;
+  --warning: #c9a227;
+  --info: #5b8aab;
+  --hover-overlay: rgba(255, 255, 255, 0.05);
+  --active-overlay: rgba(0, 0, 0, 0.2);
+  --crest-bg: #1e2023;
+  --crest-border: color-mix(in srgb, #e8e4db 22%, transparent);
+  --surface-inset: #121416;
+  --map-land: #252628;
+  --map-land-stroke: #32363b;
+  --heading: #f3f0e8;
+  --nav-underline: #2f7d40;
+  --crimson: #8b1d1e;
+
+  /* Descendancy tree — maps to theme (light/dark via cascade) */
+  --tree-bg: var(--bg);
+  --tree-surface: var(--surface-elevated);
+  --tree-surface-dim: var(--surface-2);
+  --tree-border: var(--border);
+  --tree-border-subtle: var(--border-alpha);
+  --tree-text: var(--text);
+  --tree-text-muted: var(--text-muted);
+  --tree-text-subtle: var(--text-subtle);
+  --tree-root: var(--success);
+  --tree-spouse: var(--accent);
+  /* Connector lines: visible on tree-bg (--border/--secondary are too light on parchment) */
+  --tree-linked: var(--text-muted);
+  --tree-connector: var(--text-subtle);
+  --tree-join: var(--accent-muted);
+  --tree-shadow-stroke: var(--accent-muted);
+  --tree-divider: var(--border);
+  --tree-button-bg: var(--surface-2);
+  --tree-button-border: var(--border);
+  --tree-button-text: var(--text);
+  --tree-button-disabled: var(--text-subtle);
+  --tree-panel-bg: var(--surface-elevated);
+  --tree-panel-border: var(--border);
+  --tree-toast-bg: var(--surface-elevated);
+  --tree-toast-border: var(--border);
+  /* Shadcn tokens → DaisyUI base-* (dracula theme) */
+  --background: var(--color-base-100);
+  --foreground: var(--color-base-content);
+  --card: var(--color-base-100);
+  --card-foreground: var(--color-base-content);
+  --popover: var(--color-base-100);
+  --popover-foreground: var(--color-base-content);
+  --secondary-foreground: var(--color-secondary-content);
+  --muted: var(--color-base-200);
+  --muted-foreground: color-mix(in oklch, var(--color-base-content) 55%, transparent);
+  --destructive: var(--color-error);
+  /* base-300 ≈ base-100 here — too low-contrast for borders (text inputs, checkboxes) */
+  --input: color-mix(
+    in oklch,
+    var(--color-base-content) 32%,
+    var(--color-base-300)
+  );
+  --ring: var(--color-primary);
+  --chart-1: oklch(0.55 0.14 145);
+  --chart-2: oklch(0.45 0.18 25);
+  --chart-3: oklch(0.62 0.12 250);
+  --chart-4: oklch(0.7 0.14 85);
+  --chart-5: oklch(0.5 0.08 145);
+  --radius: 0.625rem;
+  --sidebar: var(--color-base-200);
+  --sidebar-foreground: var(--color-base-content);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: var(--color-primary-content);
+  --sidebar-accent: var(--color-base-300);
+  --sidebar-accent-foreground: var(--color-base-content);
+  --sidebar-border: var(--color-base-300);
+  --sidebar-ring: var(--color-primary);
+}
+
+/* Optional `.dark` — same grey canvas (toggle-ready) */
+.dark {
+  --bg: #121416;
+  --surface: #1e2023;
+  --surface-2: #181a1c;
+  --surface-elevated: #252628;
+  --border: color-mix(in srgb, #e8e4db 14%, transparent);
+  --border-subtle: #121416;
+  --border-alpha: rgba(232, 228, 219, 0.1);
+  --text: #e8e4db;
+  --text-muted: #a8a398;
+  --text-subtle: #7f7a72;
+  --text-inverse: #121416;
+  --heading: #f3f0e8;
+  --primary: #2f7d40;
+  --primary-hover: color-mix(in srgb, #2f7d40 78%, white);
+  --primary-active: color-mix(in srgb, #2f7d40 65%, white);
+  --primary-foreground: #f4fbf5;
+  --accent: #8b1d1e;
+  --accent-hover: color-mix(in srgb, #8b1d1e 85%, white);
+  --accent-muted: color-mix(in srgb, #8b1d1e 55%, #252628);
+  --accent-foreground: #fdecec;
+  --link: #9fd9ae;
+  --link-hover: #b8e8c4;
+  --focus-ring: #7bc88e;
+  --danger: #d92626;
+  --success: #3d8f4a;
+  --warning: #c9a227;
+  --info: #5b8aab;
+  --hover-overlay: rgba(255, 255, 255, 0.05);
+  --active-overlay: rgba(0, 0, 0, 0.25);
+  --crest-bg: #1a1c1e;
+  --crest-border: color-mix(in srgb, #e8e4db 18%, transparent);
+  --surface-inset: #0c0d0e;
+  --map-land: #121416;
+  --map-land-stroke: #1e2023;
+  --crimson: #8b1d1e;
+  --background: var(--color-base-100);
+  --foreground: var(--color-base-content);
+  --card: var(--color-base-100);
+  --card-foreground: var(--color-base-content);
+  --popover: var(--color-base-100);
+  --popover-foreground: var(--color-base-content);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: var(--color-secondary-content);
+  --muted: var(--color-base-200);
+  --muted-foreground: color-mix(in oklch, var(--color-base-content) 60%, transparent);
+  --destructive: var(--color-error);
+  --input: color-mix(
+    in oklch,
+    var(--color-base-content) 32%,
+    var(--color-base-300)
+  );
+  --ring: var(--color-primary);
+  --chart-1: oklch(0.55 0.14 145);
+  --chart-2: oklch(0.45 0.18 25);
+  --chart-3: oklch(0.62 0.12 250);
+  --chart-4: oklch(0.7 0.14 85);
+  --chart-5: oklch(0.5 0.08 145);
+  --sidebar: var(--color-base-200);
+  --sidebar-foreground: var(--color-base-content);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: var(--color-primary-content);
+  --sidebar-accent: var(--color-base-300);
+  --sidebar-accent-foreground: var(--color-base-content);
+  --sidebar-border: var(--color-base-300);
+  --sidebar-ring: var(--color-primary);
+  /* Tree connectors: visible on dark background */
+  --tree-linked: var(--text-muted);
+  --tree-connector: var(--text-subtle);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tailwind @theme — maps tokens to utilities
+   Use: bg-surface, text-muted, border-border, hover:bg-surface-elevated, etc.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-text: var(--text);
+  --color-heading: var(--heading);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-inverse: var(--text-inverse);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-focus-ring: var(--focus-ring);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-hover-overlay: var(--hover-overlay);
+  --color-active-overlay: var(--active-overlay);
+  --color-crest-bg: var(--crest-bg);
+  --color-crest-border: var(--crest-border);
+  --color-surface-inset: var(--surface-inset);
+  --color-map-land: var(--map-land);
+  --color-map-land-stroke: var(--map-land-stroke);
+  --color-secondary: var(--secondary);
+  --color-secondary-muted: var(--secondary-muted);
+  --color-nav-underline: var(--nav-underline);
+  --color-crimson: var(--crimson);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Tailwind Typography — dark evergreen + berry accents (use with prose prose-invert) */
+@layer components {
+  .prose-evergreen {
+    --tw-prose-invert-body: #d4d0c7;
+    --tw-prose-invert-headings: #f5f2eb;
+    --tw-prose-invert-lead: #a8a398;
+    --tw-prose-invert-links: #9fd9ae;
+    --tw-prose-invert-bold: #f5f2eb;
+    --tw-prose-invert-counters: #8f8a82;
+    --tw-prose-invert-bullets: #3d5a38;
+    --tw-prose-invert-hr: color-mix(in srgb, #e8e4db 16%, transparent);
+    --tw-prose-invert-quotes: #e8e4db;
+    --tw-prose-invert-quote-borders: #8b1d1e;
+    --tw-prose-invert-captions: #9a958c;
+    --tw-prose-invert-code: #f0ebe3;
+    --tw-prose-invert-pre-code: #d4d0c7;
+    --tw-prose-invert-pre-bg: #121416;
+    --tw-prose-invert-th-borders: #3d5a38;
+    --tw-prose-invert-td-borders: color-mix(in srgb, #e8e4db 12%, transparent);
+  }
+}
+
+/* Font utilities: use -raw vars directly to avoid Tailwind @theme circular ref bug */
+.font-display,
+.font-heading {
+  font-family: var(--font-heading-raw), serif;
+}
+.font-accent {
+  font-family: var(--font-accent-raw), serif;
+}
+.font-body {
+  font-family: var(--font-body-raw), system-ui, sans-serif;
+}
+
+/* TreeViewer v2 desktop: person card scales up very slightly on hover */
+@media (min-width: 641px) {
+  .tree-viewer-root .person-card {
+    transition: transform 0.15s ease;
+    transform-origin: center;
+  }
+  .tree-viewer-root .person-card:hover {
+    transform: scale(1.005);
+  }
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  overflow-x: clip;
+  max-width: 100%;
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: clip;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  font-family: var(--font-body-raw), system-ui, sans-serif;
+  width: 100%;
+}
+
+/* Keep entire app within viewport on all devices */
+#__next,
+[data-viewport-constrain] {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* On mobile, prevent any section from expanding past viewport */
+@media (max-width: 767px) {
+  [data-viewport-constrain] > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+.crest {
+  filter:
+    drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2))
+    drop-shadow(0 15px 60px rgba(0, 0, 0, 0.15));
+}
+
+/* Axis 1: Original centered axis - horizontal through middle (desktop), vertical through center (mobile) */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(139, 94, 60, 0.22);
+  transform: translateY(-50%);
+}
+
+.dark .timeline::before {
+  background: rgba(201, 168, 130, 0.18);
+}
+
+@media (max-width: 767px) {
+  /* Axis: vertical through center on mobile */
+  .timeline.timeline-vertical::before {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    right: auto;
+    width: 1px;
+    height: auto;
+    transform: translateX(-50%);
+  }
+
+  /* Left-align journey cards and arrows on mobile (v1) */
+  .timeline.timeline-vertical > * {
+    align-self: flex-start;
+  }
+
+  /* v2: keep cards centered on mobile */
+  .journey-timeline-v2.timeline.timeline-vertical > * {
+    align-self: center;
+  }
+}
+
+.timeline-arrow {
+  stroke: rgba(139, 94, 60, 0.55);
+}
+
+.dark .timeline-arrow {
+  stroke: rgba(201, 168, 130, 0.5);
+}
+
+.timeline-card {
+  transition: box-shadow 0.2s ease;
+}
+
+.timeline-card:hover {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+}
+
+.journey-panel {
+  background: #f3ece4;
+  border: 1px solid rgba(106, 75, 58, 0.15);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.dark .journey-panel {
+  background: rgba(15, 22, 19, 0.6);
+  border: 1px solid rgba(201, 168, 130, 0.2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+/* Journey section: warm parchment, museum archival */
+.journey-section {
+  padding-top: 72px;
+  padding-bottom: 96px;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.38) 0%,
+      rgba(255, 255, 255, 0.1) 45%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 100% 100%,
+      rgba(245, 240, 230, 0.7) 0%,
+      rgba(245, 240, 230, 0.2) 45%,
+      transparent 65%
+    ),
+    linear-gradient(180deg, #f4efe7 0%, #e8dfd2 100%);
+}
+
+.dark .journey-section {
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(212, 201, 168, 0.12) 0%,
+      transparent 60%
+    ),
+    linear-gradient(180deg, #0f1613 0%, #080d0a 100%);
+}
+
+/* Journey section v2: soft white radial gradient at top, vignetting at bottom corners */
+.journey-section-v2 {
+  background:
+    radial-gradient(
+      circle at 0% 100%,
+      rgba(0, 0, 0, 0.08) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(0, 0, 0, 0.08) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.7) 0%,
+      rgba(255, 255, 255, 0.28) 30%,
+      transparent 50%
+    ),
+    linear-gradient(180deg, #e7dac2 0%, #e7dac2 100%);
+}
+
+.dark .journey-section-v2 {
+  background:
+    radial-gradient(
+      circle at 0% 100%,
+      rgba(0, 0, 0, 0.2) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(0, 0, 0, 0.2) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.08) 30%,
+      transparent 50%
+    ),
+    linear-gradient(180deg, #0f1613 0%, #080d0a 100%);
+}
+
+@media (max-width: 767px) {
+  .journey-section-v2 {
+    background:
+      radial-gradient(
+        circle at 0% 100%,
+        rgba(0, 0, 0, 0.08) 0%,
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 100% 100%,
+        rgba(0, 0, 0, 0.08) 0%,
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(255, 255, 255, 0.12) 30%,
+        transparent 50%
+      ),
+      linear-gradient(180deg, #e7dac2 0%, #e7dac2 100%);
+  }
+
+  .dark .journey-section-v2 {
+    background:
+      radial-gradient(
+        circle at 0% 100%,
+        rgba(0, 0, 0, 0.2) 0%,
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 100% 100%,
+        rgba(0, 0, 0, 0.2) 0%,
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.03) 30%,
+        transparent 50%
+      ),
+      linear-gradient(180deg, #0f1613 0%, #080d0a 100%);
+  }
+}
+
+.journey-card-date {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #8b5e3c;
+}
+
+.dark .journey-card-date {
+  color: #c9a882;
+}
+
+/* Divider lines match journey date color at 10% opacity */
+.divider.journey-divider {
+  --divider-color: rgba(139, 94, 60, 0.1);
+}
+
+.dark .divider.journey-divider {
+  --divider-color: rgba(201, 168, 130, 0.1);
+}
+
+.journey-card-location {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.dark .journey-card-location {
+  color: var(--primary);
+}
+
+.journey-card-body {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #5a524a;
+}
+
+.dark .journey-card-body {
+  color: var(--text-muted);
+}
+
+/* Section subtitles: crimson, small, uppercase */
+.section-subtitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--crimson);
+}
+
+/* Heritage text rotate: darker background for contrast */
+.heritage-rotate-bg {
+  background-color: color-mix(in srgb, var(--surface-inset) 75%, rgba(0, 0, 0, 0.25));
+}
+
+.dark .heritage-rotate-bg {
+  background-color: color-mix(in srgb, var(--surface-inset) 85%, black);
+}
+
+/* Identity cards: arrow oscillates on mobile only */
+@keyframes card-link-arrow-oscillate {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+.card-link-arrow-mobile {
+  animation: card-link-arrow-oscillate 1.5s ease-in-out infinite;
+}
+
+@media (min-width: 768px) {
+  .card-link-arrow-mobile {
+    animation: none;
+  }
+}
+
+/* Journey v2 desktop: CSS animations (plain divs, no Motion) — avoids layout interference on mobile */
+@media (min-width: 768px) {
+  @keyframes journey-desktop-card-slide-in {
+    from {
+      transform: translateX(48px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes journey-desktop-arrow-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .journey-desktop-card-initial {
+    transform: translateX(48px);
+    opacity: 0;
+  }
+
+  /* backwards: apply "from" state during animation-delay so cards stay hidden until their turn; run once */
+  .journey-desktop-card-animate {
+    animation: journey-desktop-card-slide-in 0.75s cubic-bezier(0.25, 0.46, 0.45, 0.94) both 1;
+  }
+
+  .journey-desktop-arrow-initial {
+    opacity: 0;
+  }
+
+  .journey-desktop-arrow-animate {
+    animation: journey-desktop-arrow-fade-in 0.5s ease-out both 1;
+  }
+}
+
+/* Pillar title underline: draw-on-scroll (mobile only) */
+@keyframes pillar-draw-underline {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .pillar-title-underline {
+    position: relative;
+    display: inline-block;
+    text-decoration: none !important;
+  }
+
+  .pillar-title-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: 0;
+    background: var(--crimson);
+  }
+
+  .pillar-in-view .pillar-title-underline::after {
+    animation: pillar-draw-underline 0.8s ease-out forwards;
+  }
+
+  .pillar-link-arrow-mobile {
+    animation: pillar-arrow-sway 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pillar-arrow-sway {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+/* Identity "One" underline: draw-on-scroll when section comes into view */
+.identity-one-underline {
+  position: relative;
+  display: inline-block;
+  text-decoration: none !important;
+}
+
+.identity-one-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 0;
+  background: var(--crimson);
+}
+
+.identity-in-view .identity-one-underline::after {
+  animation: pillar-draw-underline 0.8s ease-out forwards;
+}
+
+@layer base {
+  * {
+    @apply border-base-content/[0.08] outline-primary/35;
+  }
+  /* Lemonade: default border from content @ 8% reads too harsh on pale base */
+  [data-theme="lemonade"] * {
+    @apply border-base-300/35 outline-primary/35;
+  }
+  body {
+    @apply bg-base-100 text-base-content antialiased;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Daisy default --input-color is 20% content — barely visible on near-black fields */
+  .input:not(.input-ghost) {
+    --input-color: color-mix(in oklab, var(--color-base-content) 38%, #0000);
+  }
+  /* Daisy checkbox uses the same token; default mix is ~invisible on business + lemonade */
+  .checkbox {
+    --input-color: color-mix(in oklch, var(--color-base-content) 34%, var(--color-base-300));
+  }
+  [data-theme="lemonade"] .checkbox {
+    --input-color: color-mix(in oklch, var(--color-base-content) 26%, var(--color-base-300));
+  }
+  /* Plain HTML checkboxes (e.g. user edit) — not Daisy `.checkbox`, not layout drawer */
+  input[type="checkbox"]:not(.drawer-toggle):not(.checkbox) {
+    border-color: color-mix(in oklch, var(--color-base-content) 34%, var(--color-base-300));
+  }
+  [data-theme="lemonade"] input[type="checkbox"]:not(.drawer-toggle):not(.checkbox) {
+    border-color: color-mix(in oklch, var(--color-base-content) 26%, var(--color-base-300));
+  }
+}
