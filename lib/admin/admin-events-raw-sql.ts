@@ -45,30 +45,55 @@ function familyAnyPartnerNameMatchExistsSql(
   )`;
 }
 
-function familyLinkedEventPartnerMatchExistsSql(f: AdminEventsStructuredFilters): Prisma.Sql | null {
+/** Match all non-empty name criteria for one logical partner against one spouse slot (h_filt / w_filt). */
+function filtSlotPartnerMatch(
+  slot: "h" | "w",
+  givenLower: string | null,
+  lastPrefix: string | null,
+): Prisma.Sql | null {
+  const idExpr = slot === "h" ? Prisma.raw("h_filt.id") : Prisma.raw("w_filt.id");
+  const nameExpr = slot === "h" ? Prisma.raw("h_filt.full_name_lower") : Prisma.raw("w_filt.full_name_lower");
+  const nullGuard = slot === "h" ? Prisma.sql`h_filt.id IS NOT NULL` : Prisma.sql`w_filt.id IS NOT NULL`;
   const parts: Prisma.Sql[] = [];
-  if (f.p1Given) {
-    parts.push(
-      Prisma.sql`(h_filt.id IS NOT NULL AND ${givenNameExistsSql(Prisma.raw("h_filt.id"), f.p1Given)})`,
-    );
+  if (givenLower) {
+    parts.push(Prisma.sql`(${nullGuard} AND ${givenNameExistsSql(idExpr, givenLower)})`);
   }
-  if (f.p1Last) {
-    parts.push(
-      Prisma.sql`(h_filt.id IS NOT NULL AND ${lastNameRegexSql(Prisma.raw("h_filt.full_name_lower"), f.p1Last)})`,
-    );
-  }
-  if (f.p2Given) {
-    parts.push(
-      Prisma.sql`(w_filt.id IS NOT NULL AND ${givenNameExistsSql(Prisma.raw("w_filt.id"), f.p2Given)})`,
-    );
-  }
-  if (f.p2Last) {
-    parts.push(
-      Prisma.sql`(w_filt.id IS NOT NULL AND ${lastNameRegexSql(Prisma.raw("w_filt.full_name_lower"), f.p2Last)})`,
-    );
+  if (lastPrefix) {
+    parts.push(Prisma.sql`(${nullGuard} AND ${lastNameRegexSql(nameExpr, lastPrefix)})`);
   }
   if (parts.length === 0) return null;
-  const inner = joinAndConditions(parts);
+  return parts.length === 1 ? parts[0]! : Prisma.sql`(${joinAndConditions(parts)})`;
+}
+
+/**
+ * Family-linked events: p1/p2 name filters match the family’s two parents in either order (same idea
+ * as admin-families-filter-sql); single partner filled matches either spouse slot.
+ */
+function familyLinkedEventPartnerMatchExistsSql(f: AdminEventsStructuredFilters): Prisma.Sql | null {
+  const hasP1 = !!(f.p1Given || f.p1Last);
+  const hasP2 = !!(f.p2Given || f.p2Last);
+  if (!hasP1 && !hasP2) return null;
+
+  let inner: Prisma.Sql;
+  if (hasP1 && hasP2) {
+    const p1H = filtSlotPartnerMatch("h", f.p1Given, f.p1Last);
+    const p1W = filtSlotPartnerMatch("w", f.p1Given, f.p1Last);
+    const p2H = filtSlotPartnerMatch("h", f.p2Given, f.p2Last);
+    const p2W = filtSlotPartnerMatch("w", f.p2Given, f.p2Last);
+    if (!p1H || !p1W || !p2H || !p2W) return null;
+    inner = Prisma.sql`((${p1H} AND ${p2W}) OR (${p1W} AND ${p2H}))`;
+  } else if (hasP1) {
+    const p1H = filtSlotPartnerMatch("h", f.p1Given, f.p1Last);
+    const p1W = filtSlotPartnerMatch("w", f.p1Given, f.p1Last);
+    if (!p1H || !p1W) return null;
+    inner = Prisma.sql`(${p1H} OR ${p1W})`;
+  } else {
+    const p2H = filtSlotPartnerMatch("h", f.p2Given, f.p2Last);
+    const p2W = filtSlotPartnerMatch("w", f.p2Given, f.p2Last);
+    if (!p2H || !p2W) return null;
+    inner = Prisma.sql`(${p2H} OR ${p2W})`;
+  }
+
   return Prisma.sql`EXISTS (
     SELECT 1
     FROM gedcom_family_events_v2 fe_nm

@@ -4,8 +4,21 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { FileImage, FileText, Film, Loader2, Upload } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  FileImage,
+  FileText,
+  Film,
+  Images,
+  Link2,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Eye,
+  Tag,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import {
   isLikelyRasterImage,
   isLikelyVideoFile,
@@ -14,19 +27,20 @@ import {
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
-import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ADMIN_MEDIA_QUERY_KEY,
   useAdminMedia,
   useCreateMedia,
   useDeleteMedia,
@@ -37,26 +51,41 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
 import { fetchJson, ApiError, postFormData } from "@/lib/infra/api";
 import { cn } from "@/lib/utils";
+
+/* ── Types ─────────────────────────────────────────────────────────────── */
 
 interface MediaRow {
   id: string;
   title: string;
-  /** Optional admin-only caption; not part of GEDCOM title. */
   description: string;
   mediaType: "photo" | "document" | "video";
-  /** Display copy of file_ref (may be "—"). */
   filename: string;
-  /** Raw GEDCOM form string for type / extension hints. */
   form: string;
   linkedTo: string;
+  /** Number of individuals/families/events linked */
+  linkedCount: number;
+  /** Number of albums this media belongs to */
+  albumCount: number;
+  /** Number of tags */
+  tagCount: number;
 }
 
 const mediaTypeIcon: Record<MediaRow["mediaType"], React.ComponentType<{ className?: string }>> = {
   photo: FileImage,
   document: FileText,
   video: Film,
+};
+
+const mediaTypeBadge: Record<
+  MediaRow["mediaType"],
+  { label: string; className: string }
+> = {
+  photo:    { label: "Photo",    className: "bg-success/15 text-success" },
+  document: { label: "Document", className: "bg-warning/15 text-warning" },
+  video:    { label: "Video",    className: "bg-info/15 text-info" },
 };
 
 interface AdminSetupPayload {
@@ -74,13 +103,6 @@ interface FilterState {
   linkedGiven: string;
   linkedLast: string;
   q: string;
-}
-
-/** Suggested GEDCOM title from an uploaded original filename (strip path + extension). */
-function titleFromUploadedFilename(originalName: string): string {
-  const base = originalName.trim().replace(/^.*[/\\]/, "");
-  const noExt = base.replace(/\.[^.]+$/, "");
-  return (noExt || base || "Uploaded media").trim();
 }
 
 const FILTER_DEFAULTS: FilterState = {
@@ -125,7 +147,12 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
         parts.push(`Event: ${label}`);
       }
     });
-    const linkedTo = parts.length ? parts.join("; ") : "—";
+
+    const linkedCount =
+      (m.individualMedia?.length ?? 0) +
+      (m.familyMedia?.length ?? 0) +
+      (m.eventMedia?.length ?? 0) +
+      (m.sourceMedia?.length ?? 0);
 
     return {
       id: m.id,
@@ -134,10 +161,181 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
       mediaType,
       filename: m.fileRef ?? "—",
       form: m.form ?? "",
-      linkedTo,
+      linkedTo: parts.length ? parts.join("; ") : "—",
+      linkedCount,
+      albumCount: m.albumLinks?.length ?? 0,
+      tagCount: m.appTags?.length ?? 0,
     };
   });
 }
+
+/* ── MediaTypeBadge ─────────────────────────────────────────────────────── */
+
+function MediaTypeBadge({ mediaType }: { mediaType: MediaRow["mediaType"] }) {
+  const { label, className } = mediaTypeBadge[mediaType];
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-tight", className)}>
+      <span className="size-1.5 rounded-full bg-current shrink-0" aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+/* ── MediaCardItem ──────────────────────────────────────────────────────── */
+// Extracted as a component so it can hold its own menu state.
+
+function MediaCardItem({
+  record,
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  record: MediaRow;
+  onView?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  const Icon = mediaTypeIcon[record.mediaType];
+  const fileRefRaw = record.filename.trim() === "—" ? "" : record.filename;
+  const thumbSrc =
+    fileRefRaw && isLikelyRasterImage(fileRefRaw, record.form, null)
+      ? resolveMediaImageSrc(fileRefRaw)
+      : null;
+  const resolvedRef = fileRefRaw ? resolveMediaImageSrc(fileRefRaw) : null;
+  const videoCardSrc =
+    fileRefRaw &&
+    !thumbSrc &&
+    resolvedRef &&
+    isLikelyVideoFile(fileRefRaw, record.form) &&
+    isPlayableVideoRef(fileRefRaw)
+      ? resolvedRef
+      : null;
+  const titleDisplay = record.title.trim() && record.title !== "—" ? record.title : "Untitled";
+
+  return (
+    <Card className="group h-full min-h-0 overflow-hidden border-base-content/12 pt-0 shadow-sm shadow-black/10 transition-shadow hover:shadow-md hover:shadow-black/15">
+      {/* Thumbnail */}
+      <div className="relative aspect-[4/3] w-full shrink-0 border-b border-base-content/10 bg-gradient-to-b from-base-200/70 to-base-300/35">
+        {thumbSrc ? (
+          <Image
+            key={thumbSrc + record.id}
+            src={thumbSrc}
+            alt={titleDisplay}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-contain p-2"
+            unoptimized={mediaImageUnoptimized(thumbSrc)}
+          />
+        ) : videoCardSrc ? (
+          <video
+            key={videoCardSrc + record.id}
+            src={videoCardSrc}
+            muted
+            playsInline
+            preload="metadata"
+            className="pointer-events-none absolute inset-0 h-full w-full object-contain p-2"
+            aria-hidden
+          />
+        ) : (
+          <div className="flex h-full min-h-[7rem] flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+            <Icon className="size-11 shrink-0 text-muted-foreground/55" aria-hidden />
+            <span className="line-clamp-2 max-w-full text-xs font-medium leading-snug text-base-content/80">
+              {titleDisplay}
+            </span>
+          </div>
+        )}
+
+        {/* Hover overlay — visible on pointer devices, hidden on touch */}
+        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:hidden">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView?.();
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/25"
+          >
+            <Eye className="size-3.5" aria-hidden /> View
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.();
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/25"
+          >
+            <Pencil className="size-3.5" aria-hidden /> Edit
+          </button>
+        </div>
+
+        {/* ⋯ dropdown — touch devices only, always visible */}
+        <div className="absolute right-1.5 top-1.5 hidden [@media(hover:none)]:block" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="flex size-8 items-center justify-center rounded-md border border-white/20 bg-black/50 text-white backdrop-blur-sm"
+              aria-label="Card actions"
+            >
+              <MoreVertical className="size-4" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onView?.()}>
+                <Eye className="size-4 opacity-70" aria-hidden /> View
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit?.()}>
+                <Pencil className="size-4 opacity-70" aria-hidden /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => onDelete?.()}>
+                <Trash2 className="size-4" aria-hidden /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Card body — flex-1 so footer stays at bottom of the card */}
+      <CardHeader className="min-h-0 flex-1 space-y-1.5 pb-2 pt-3">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="line-clamp-2 min-w-0 text-sm leading-snug">{record.title}</CardTitle>
+          <MediaTypeBadge mediaType={record.mediaType} />
+        </div>
+        {record.description ? (
+          <p className="line-clamp-1 text-xs leading-snug text-muted-foreground">{record.description}</p>
+        ) : null}
+      </CardHeader>
+
+      {/* Footer: links · albums · tags */}
+      <div className="mt-auto flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-base-content/[0.07] px-4 py-2 text-[11px] text-muted-foreground">
+        {record.linkedCount > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            <Link2 className="size-3 shrink-0 opacity-70" aria-hidden />
+            {record.linkedCount} {record.linkedCount === 1 ? "link" : "links"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-base-content/35">
+            <Link2 className="size-3 shrink-0 opacity-50" aria-hidden />
+            No links
+          </span>
+        )}
+        {record.albumCount > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <Images className="size-3 shrink-0 opacity-70" aria-hidden />
+            {record.albumCount} {record.albumCount === 1 ? "album" : "albums"}
+          </span>
+        )}
+        {record.tagCount > 0 && (
+          <span className="ml-auto inline-flex items-center gap-1">
+            <Tag className="size-3 shrink-0 opacity-70" aria-hidden />
+            {record.tagCount} {record.tagCount === 1 ? "tag" : "tags"}
+          </span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* ── Config builder ─────────────────────────────────────────────────────── */
 
 function buildMediaConfig(
   router: ReturnType<typeof useRouter>,
@@ -154,12 +352,7 @@ function buildMediaConfig(
         header: "Type",
         cell: ({ row }) => {
           const t = row.getValue("mediaType") as MediaRow["mediaType"];
-          const Icon = mediaTypeIcon[t];
-          return (
-            <span className="inline-flex items-center gap-1.5 capitalize">
-              <Icon className="size-4 text-muted-foreground" /> {t}
-            </span>
-          );
+          return <MediaTypeBadge mediaType={t} />;
         },
       },
       { accessorKey: "title", header: "Title", enableSorting: true },
@@ -173,80 +366,19 @@ function buildMediaConfig(
       },
       { accessorKey: "filename", header: "File" },
       { accessorKey: "linkedTo", header: "Linked to", enableSorting: true },
+      {
+        id: "albumCount",
+        header: "Albums",
+        cell: ({ row }) => {
+          const n = (row.original as MediaRow).albumCount;
+          return n > 0 ? <span>{n} {n === 1 ? "album" : "albums"}</span> : <span className="text-muted-foreground/50">—</span>;
+        },
+      },
     ],
-    renderCard: ({ record, onView, onEdit, onDelete }) => {
-      const Icon = mediaTypeIcon[record.mediaType];
-      const fileRefRaw = record.filename.trim() === "—" ? "" : record.filename;
-      const thumbSrc =
-        fileRefRaw && isLikelyRasterImage(fileRefRaw, record.form, null)
-          ? resolveMediaImageSrc(fileRefRaw)
-          : null;
-      const resolvedRef = fileRefRaw ? resolveMediaImageSrc(fileRefRaw) : null;
-      const videoCardSrc =
-        fileRefRaw &&
-        !thumbSrc &&
-        resolvedRef &&
-        isLikelyVideoFile(fileRefRaw, record.form) &&
-        isPlayableVideoRef(fileRefRaw)
-          ? resolvedRef
-          : null;
-      const titleDisplay = record.title.trim() && record.title !== "—" ? record.title : "Untitled";
-      return (
-        <Card className="overflow-hidden border-base-content/12 pt-0 shadow-sm shadow-black/10 transition-shadow hover:shadow-md hover:shadow-black/15">
-          <div className="relative aspect-[4/3] w-full border-b border-base-content/10 bg-gradient-to-b from-base-200/70 to-base-300/35">
-            {thumbSrc ? (
-              <Image
-                key={thumbSrc + record.id}
-                src={thumbSrc}
-                alt={titleDisplay}
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                className="object-contain p-2"
-                unoptimized={mediaImageUnoptimized(thumbSrc)}
-              />
-            ) : videoCardSrc ? (
-              <video
-                key={videoCardSrc + record.id}
-                src={videoCardSrc}
-                muted
-                playsInline
-                preload="metadata"
-                className="pointer-events-none absolute inset-0 h-full w-full object-contain p-2"
-                aria-hidden
-              />
-            ) : (
-              <div className="flex h-full min-h-[7rem] flex-col items-center justify-center gap-2 px-4 py-6 text-center">
-                <Icon className="size-11 shrink-0 text-muted-foreground/55" aria-hidden />
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {record.mediaType}
-                </span>
-                <span className="line-clamp-2 max-w-full text-xs font-medium leading-snug text-base-content/80">
-                  {titleDisplay}
-                </span>
-              </div>
-            )}
-          </div>
-          <CardHeader className="space-y-1.5 pb-2 pt-4">
-            <div className="flex items-start gap-2">
-              <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <CardTitle className="line-clamp-2 min-w-0 text-base leading-snug">{record.title}</CardTitle>
-            </div>
-            <p className="line-clamp-2 break-all font-mono text-[10px] leading-tight tracking-tight text-muted-foreground">
-              {record.filename}
-            </p>
-            {record.description ? (
-              <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">{record.description}</p>
-            ) : null}
-          </CardHeader>
-          <CardContent className="pt-0 text-xs leading-relaxed text-muted-foreground">
-            <p className="line-clamp-3">{record.linkedTo}</p>
-          </CardContent>
-          <CardActionFooter onView={onView} onEdit={onEdit} onDelete={onDelete} />
-        </Card>
-      );
-    },
+    renderCard: ({ record, onView, onEdit, onDelete: onDel }) => (
+      <MediaCardItem record={record} onView={onView} onEdit={onEdit} onDelete={onDel} />
+    ),
     actions: {
-      add: { label: "Add media", handler: () => router.push("/admin/media/new") },
       view: { label: "View", handler: (r) => router.push(`/admin/media/${r.id}`) },
       edit: { label: "Edit", handler: (r) => router.push(`/admin/media/${r.id}/edit`) },
       delete: { label: "Delete", handler: onDelete },
@@ -255,10 +387,7 @@ function buildMediaConfig(
 }
 
 function filterStateToQueryOpts(applied: FilterState): UseAdminMediaOpts {
-  const opts: UseAdminMediaOpts = {
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  };
+  const opts: UseAdminMediaOpts = { limit: ADMIN_LIST_MAX_LIMIT, offset: 0 };
   const q = applied.q.trim();
   if (q) opts.q = q;
   if (applied.mediaCategory === "photo" || applied.mediaCategory === "document" || applied.mediaCategory === "video") {
@@ -277,61 +406,84 @@ function filterStateToQueryOpts(applied: FilterState): UseAdminMediaOpts {
   return opts;
 }
 
+/* ── Page ───────────────────────────────────────────────────────────────── */
+
 export default function AdminMediaPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const deleteMedia = useDeleteMedia();
   const createMedia = useCreateMedia();
   const listUploadInputRef = useRef<HTMLInputElement>(null);
   const [listUploadDragOver, setListUploadDragOver] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useFilterState(FILTER_DEFAULTS, filterStateToQueryOpts);
 
-  const handleListUploadFile = useCallback(
-    async (file: File) => {
-      if (!file || file.size <= 0) {
-        toast.error("Choose a non-empty file.");
+  const handleListUploadFiles = useCallback(
+    async (fileList: FileList | File[] | null | undefined) => {
+      const raw = fileList == null ? [] : Array.isArray(fileList) ? fileList : Array.from(fileList);
+      const files = raw.filter((f) => f && f.size > 0);
+      if (files.length === 0) {
+        toast.error("Choose at least one non-empty file.");
         return;
       }
-      try {
-        const fd = new FormData();
-        fd.set("file", file);
-        const up = await postFormData<{
-          fileRef: string;
-          suggestedForm: string | null;
-          originalName: string;
-        }>("/api/admin/media/upload", fd);
-        const title = titleFromUploadedFilename(up.originalName);
-        const res = (await createMedia.mutateAsync({
-          title,
-          fileRef: up.fileRef,
-          form: up.suggestedForm ?? null,
-        })) as { media: { id: string } };
-        toast.success(`Added media “${title}”.`);
-        router.push(`/admin/media/${res.media.id}/edit`);
-      } catch (err) {
-        const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Upload failed";
-        toast.error(msg);
+      const errors: string[] = [];
+      let lastId: string | undefined;
+      let lastTitle = "";
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]!;
+        const label = file.name?.trim() || `File ${i + 1}`;
+        try {
+          const fd = new FormData();
+          fd.set("file", file);
+          const up = await postFormData<{ fileRef: string; suggestedForm: string | null; originalName: string }>(
+            "/api/admin/media/upload",
+            fd,
+          );
+          const title = titleFromUploadedFilename(up.originalName);
+          const res = (await createMedia.mutateAsync({
+            title,
+            fileRef: up.fileRef,
+            form: up.suggestedForm ?? null,
+          })) as { media: { id: string } };
+          lastId = res.media.id;
+          lastTitle = title;
+        } catch (err) {
+          const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Upload failed";
+          errors.push(`${label}: ${msg}`);
+        }
       }
+      await queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
+      if (errors.length === 0) {
+        if (files.length === 1 && lastId) {
+          toast.success(`Added media "${lastTitle}".`);
+          router.push(`/admin/media/${lastId}/edit`);
+        } else {
+          toast.success(`Added ${files.length} media files.`);
+        }
+        return;
+      }
+      if (errors.length < files.length) {
+        toast.warning(`Uploaded ${files.length - errors.length} of ${files.length} files.`, {
+          description: errors.slice(0, 5).join(" · "),
+        });
+        return;
+      }
+      toast.error(errors.slice(0, 3).join(" · "));
     },
-    [createMedia, router],
+    [createMedia, queryClient, router],
   );
 
   const handleDelete = useCallback(
     async (r: MediaRow) => {
       const label = r.title.trim() || r.filename.trim() || r.id;
-      if (
-        !window.confirm(
-          `Delete media “${label}”? This removes the GEDCOM media row, its tree links, tags, and album links. This cannot be undone.`,
-        )
-      ) {
-        return;
-      }
+      if (!window.confirm(`Delete media "${label}"? This removes the GEDCOM media row, its tree links, tags, and album links. This cannot be undone.`)) return;
       try {
         await deleteMedia.mutateAsync(r.id);
-        toast.success(`Deleted “${label}”.`);
+        toast.success(`Deleted "${label}".`);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        toast.error(`Failed to delete: ${msg}`);
+        toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
     },
     [deleteMedia],
@@ -344,7 +496,6 @@ export default function AdminMediaPage() {
   });
 
   const { data, isLoading, isError, error } = useAdminMedia(queryOpts);
-
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildMediaConfig(router, handleDelete), [router, handleDelete]);
 
@@ -352,186 +503,153 @@ export default function AdminMediaPage() {
     error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Could not load media.";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Media</h1>
-        <p className="text-muted-foreground">
-          GEDCOM media objects: <code className="text-xs">form</code> is the GEDCOM format (often jpeg, pdf, etc.);{" "}
-          <code className="text-xs">file_ref</code> is the path or URL. Title is the GEDCOM title; description is an optional
-          longer caption. Quick search matches title, description, file reference, form, and xref.
-        </p>
-        {setup?.configured && setup.gedcomFile ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Scoped to this admin tree file:{" "}
-            <span className="font-medium text-base-content/90">{setup.gedcomFile.name ?? "Untitled"}</span>
-            {setup.gedcomMediaCount != null ? (
-              <>
-                {" "}
-                (<span className="tabular-nums">{setup.gedcomMediaCount}</span> OBJE row
-                {setup.gedcomMediaCount === 1 ? "" : "s"} in <code className="text-xs">gedcom_media_v2</code>).
-              </>
-            ) : null}{" "}
-            Other rows in the database with a different <code className="text-xs">file_uuid</code> are not shown.
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Media</h1>
+          <p className="text-sm text-muted-foreground">
+            Photos, documents, and videos linked to people, families, and events in this tree.
           </p>
-        ) : null}
+          {setup?.configured && setup.gedcomFile && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Scoped to:{" "}
+              <span className="font-medium text-base-content/90">{setup.gedcomFile.name ?? "Untitled"}</span>
+              {setup.gedcomMediaCount != null && (
+                <> ({setup.gedcomMediaCount} OBJE {setup.gedcomMediaCount === 1 ? "row" : "rows"})</>
+              )}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* Upload toggle */}
+          <button
+            type="button"
+            title="Quick upload: you can drop or pick several files at once"
+            onClick={() => setUploadOpen((o) => !o)}
+            className={cn(
+              "btn btn-sm gap-1.5",
+              uploadOpen ? "btn-primary" : "btn-outline border-base-content/20",
+            )}
+          >
+            <Upload className="size-3.5" aria-hidden />
+            Upload
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm gap-1.5"
+            onClick={() => router.push("/admin/media/new")}
+          >
+            + Add media
+          </button>
+        </div>
       </div>
 
-      {isError ? (
+      {/* Upload zone — collapsed by default */}
+      {uploadOpen && (
+        <section aria-label="Quick upload (multiple files allowed)">
+          <p className="mb-2 text-xs text-muted-foreground">
+            <span className="font-medium text-base-content/90">Multiple files at once:</span> drop several here, or
+            click and multi-select in the file dialog (<kbd className="kbd kbd-xs">Shift</kbd>+click for a range,{" "}
+            <kbd className="kbd kbd-xs">Ctrl</kbd> or <kbd className="kbd kbd-xs">⌘</kbd>+click to add files). Each file becomes its own media row (title from filename). One file opens edit;
+            two or more stay on this list.
+          </p>
+          <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); listUploadInputRef.current?.click(); } }}
+            onClick={() => listUploadInputRef.current?.click()}
+            onDragEnter={(e) => { e.preventDefault(); setListUploadDragOver(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setListUploadDragOver(false); }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              setListUploadDragOver(false);
+              const list = e.dataTransfer.files;
+              if (list?.length) void handleListUploadFiles(list);
+            }}
+            className={cn(
+              "flex min-h-[110px] cursor-pointer flex-col items-center justify-center gap-2 rounded-box border-2 border-dashed px-4 py-6 text-center text-sm transition-colors",
+              listUploadDragOver ? "border-primary bg-primary/5" : "border-base-content/15 bg-base-200/25",
+              createMedia.isPending && "pointer-events-none opacity-60",
+            )}
+          >
+            {createMedia.isPending
+              ? <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
+              : <Upload className="size-8 text-muted-foreground" aria-hidden />}
+            <span className="font-medium text-base-content">
+              {createMedia.isPending
+                ? "Uploading and creating…"
+                : "Drop multiple files here, or click to choose several"}
+            </span>
+            {!createMedia.isPending ? (
+              <span className="badge badge-sm border border-primary/30 bg-primary/10 font-normal text-primary">
+                Multi-file upload
+              </span>
+            ) : null}
+            <span className="text-xs text-muted-foreground">Up to 80 MB per file · any file type</span>
+            <input
+              ref={listUploadInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              accept="*/*"
+              aria-label="Choose one or more media files to upload"
+              disabled={createMedia.isPending}
+              onChange={(ev) => {
+                const list = ev.target.files;
+                if (list?.length) void handleListUploadFiles(list);
+                ev.target.value = "";
+              }}
+            />
+          </div>
+        </section>
+      )}
+
+      {isError && (
         <div role="alert" className="rounded-box border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
           <p className="font-medium">Failed to load media</p>
           <p className="mt-1 opacity-90">{loadErrorMessage}</p>
         </div>
-      ) : null}
-
-      <section aria-label="Quick upload" className="space-y-2">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-base-content">Upload from this page</h2>
-            <p className="text-xs text-muted-foreground">
-              Drop a file or browse — we store it, create a media row with title from the filename, then open edit so you
-              can add links, tags, or description. Same pipeline as{" "}
-              <button
-                type="button"
-                className="link link-primary font-medium"
-                onClick={() => router.push("/admin/media/new")}
-              >
-                Add media
-              </button>
-              .
-            </p>
-          </div>
-        </div>
-        <div
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              listUploadInputRef.current?.click();
-            }
-          }}
-          onClick={() => listUploadInputRef.current?.click()}
-          onDragEnter={(e) => {
-            e.preventDefault();
-            setListUploadDragOver(true);
-          }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            setListUploadDragOver(false);
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            setListUploadDragOver(false);
-            const f = e.dataTransfer.files?.[0];
-            if (f) void handleListUploadFile(f);
-          }}
-          className={cn(
-            "flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-box border-2 border-dashed px-4 py-6 text-center text-sm transition-colors",
-            listUploadDragOver ? "border-primary bg-primary/5" : "border-base-content/15 bg-base-200/25",
-            createMedia.isPending && "pointer-events-none opacity-60",
-          )}
-        >
-          {createMedia.isPending ? (
-            <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
-          ) : (
-            <Upload className="size-8 text-muted-foreground" aria-hidden />
-          )}
-          <span className="font-medium text-base-content">
-            {createMedia.isPending ? "Uploading and creating…" : "Drop a file here or click to choose"}
-          </span>
-          <span className="max-w-md text-xs text-muted-foreground">Up to 80 MB. Any file type.</span>
-          <input
-            ref={listUploadInputRef}
-            type="file"
-            className="sr-only"
-            accept="*/*"
-            disabled={createMedia.isPending}
-            onChange={(ev) => {
-              const f = ev.target.files?.[0];
-              if (f) void handleListUploadFile(f);
-              ev.target.value = "";
-            }}
-          />
-        </div>
-      </section>
+      )}
 
       <FilterPanel onApply={applyFilters} onClear={clearFilters}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="filter-media-category">Type (from GEDCOM form)</Label>
-            <select
-              id="filter-media-category"
-              className={selectClassName}
-              value={filterDraft.mediaCategory}
-              onChange={(e) => updateDraft("mediaCategory", e.target.value)}
-            >
+            <Label htmlFor="filter-media-category">Type</Label>
+            <select id="filter-media-category" className={selectClassName} value={filterDraft.mediaCategory} onChange={(e) => updateDraft("mediaCategory", e.target.value)}>
               <option value="">Any</option>
-              <option value="photo">Photo (default bucket)</option>
+              <option value="photo">Photo</option>
               <option value="document">Document</option>
               <option value="video">Video</option>
             </select>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="filter-q">Quick search</Label>
-            <Input
-              id="filter-q"
-              value={filterDraft.q}
-              onChange={(e) => updateDraft("q", e.target.value)}
-              placeholder="Title, description, file path, form, or xref (case-insensitive)"
-            />
+            <Input id="filter-q" value={filterDraft.q} onChange={(e) => updateDraft("q", e.target.value)} placeholder="Title, description, file path, form, or xref" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="filter-title">Title contains</Label>
-            <Input
-              id="filter-title"
-              value={filterDraft.titleContains}
-              onChange={(e) => updateDraft("titleContains", e.target.value)}
-              placeholder="Substring in title"
-            />
+            <Input id="filter-title" value={filterDraft.titleContains} onChange={(e) => updateDraft("titleContains", e.target.value)} placeholder="Substring in title" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="filter-fileref">File / path contains</Label>
-            <Input
-              id="filter-fileref"
-              value={filterDraft.fileRefContains}
-              onChange={(e) => updateDraft("fileRefContains", e.target.value)}
-              placeholder="Substring in file_ref"
-            />
+            <Input id="filter-fileref" value={filterDraft.fileRefContains} onChange={(e) => updateDraft("fileRefContains", e.target.value)} placeholder="Substring in file_ref" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="filter-filetype">File type / extension</Label>
-            <Input
-              id="filter-filetype"
-              value={filterDraft.fileTypeContains}
-              onChange={(e) => updateDraft("fileTypeContains", e.target.value)}
-              placeholder="e.g. jpg, png, pdf (matches form or path)"
-            />
+            <Input id="filter-filetype" value={filterDraft.fileTypeContains} onChange={(e) => updateDraft("fileTypeContains", e.target.value)} placeholder="e.g. jpg, png, pdf" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="filter-linked-given">Linked person — given name contains</Label>
-            <Input
-              id="filter-linked-given"
-              value={filterDraft.linkedGiven}
-              onChange={(e) => updateDraft("linkedGiven", e.target.value)}
-              placeholder="Structured given tokens"
-            />
+            <Input id="filter-linked-given" value={filterDraft.linkedGiven} onChange={(e) => updateDraft("linkedGiven", e.target.value)} placeholder="Structured given tokens" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="filter-linked-last">Linked person — last name prefix</Label>
-            <Input
-              id="filter-linked-last"
-              value={filterDraft.linkedLast}
-              onChange={(e) => updateDraft("linkedLast", e.target.value)}
-              placeholder="GEDCOM slash-aware prefix"
-            />
+            <Input id="filter-linked-last" value={filterDraft.linkedLast} onChange={(e) => updateDraft("linkedLast", e.target.value)} placeholder="GEDCOM slash-aware prefix" />
           </div>
         </div>
       </FilterPanel>
-
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.media.length} isLoading={isLoading} />
-      )}
 
       <DataViewer
         config={config}
@@ -539,6 +657,7 @@ export default function AdminMediaPage() {
         isLoading={isLoading}
         defaultViewMode="cards"
         viewModeKey="admin-media-view"
+        totalCount={data?.total}
       />
     </div>
   );

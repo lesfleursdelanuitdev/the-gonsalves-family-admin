@@ -15,7 +15,7 @@ export default function AdminEditEventPage() {
   const event = data?.event as Record<string, unknown> | undefined;
 
   const shell = (body: ReactNode) => (
-    <NoteEditorPageLayout backHref="/admin/events" backLabel="Events">
+    <NoteEditorPageLayout backHref="/admin/events" backLabel="Events" fullWidth>
       {body}
     </NoteEditorPageLayout>
   );

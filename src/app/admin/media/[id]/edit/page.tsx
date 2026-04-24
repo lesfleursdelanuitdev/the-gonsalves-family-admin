@@ -37,7 +37,7 @@ export default function AdminMediaEditPage() {
   }
 
   return (
-    <NoteEditorPageLayout backHref="/admin/media" backLabel="Media">
+    <NoteEditorPageLayout backHref="/admin/media" backLabel="Media" fullWidth>
       <MediaEditorForm key={id} mode="edit" mediaId={id} initialMedia={media} hideBackLink />
     </NoteEditorPageLayout>
   );

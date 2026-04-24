@@ -21,14 +21,8 @@ function readStoredViewMode(key: string): ViewMode | null {
   return v === "table" || v === "cards" ? v : null;
 }
 
-/** Resolved mode when the user has not chosen a per-page table/cards toggle. */
-function resolveAmbientViewMode(
-  defaultViewMode: ViewMode,
-  isMobile: boolean,
-): ViewMode {
-  if (isMobile && !readPreferTableOnMobile()) {
-    return "cards";
-  }
+function resolveAmbientViewMode(defaultViewMode: ViewMode, isMobile: boolean): ViewMode {
+  if (isMobile && !readPreferTableOnMobile()) return "cards";
   return readDataViewerGlobalDefault() ?? defaultViewMode;
 }
 
@@ -54,6 +48,7 @@ export function DataViewer<TRecord>({
   onGlobalFilterChange: controlledFilterChange,
   skipClientGlobalFilter = false,
   paginationResetKey,
+  totalCount,
 }: DataViewerProps<TRecord>) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return defaultViewMode;
@@ -66,14 +61,10 @@ export function DataViewer<TRecord>({
 
   useEffect(() => {
     const mq = window.matchMedia(DATA_VIEWER_MOBILE_MEDIA);
-    const apply = () => {
-      setViewMode(resolveViewMode(viewModeKey, defaultViewMode, mq.matches));
-    };
+    const apply = () => setViewMode(resolveViewMode(viewModeKey, defaultViewMode, mq.matches));
     apply();
     mq.addEventListener("change", apply);
-    const onSettings = () => {
-      setViewMode(resolveViewMode(viewModeKey, defaultViewMode, mq.matches));
-    };
+    const onSettings = () => setViewMode(resolveViewMode(viewModeKey, defaultViewMode, mq.matches));
     window.addEventListener(APP_SETTINGS_CHANGED_EVENT, onSettings);
     return () => {
       mq.removeEventListener("change", apply);
@@ -82,7 +73,6 @@ export function DataViewer<TRecord>({
   }, [viewModeKey, defaultViewMode]);
 
   const [internalFilter, setInternalFilter] = useState("");
-
   const filter = controlledFilter ?? internalFilter;
   const setFilter = controlledFilterChange ?? setInternalFilter;
 
@@ -91,7 +81,7 @@ export function DataViewer<TRecord>({
       skipClientGlobalFilter
         ? data
         : filterRowsByGlobalSearch(data, config.globalFilterColumnId, filter),
-    [data, config.globalFilterColumnId, filter, skipClientGlobalFilter]
+    [data, config.globalFilterColumnId, filter, skipClientGlobalFilter],
   );
 
   const [pagination, setPagination] = useState<PaginationState>(() => ({
@@ -103,23 +93,17 @@ export function DataViewer<TRecord>({
     setPagination((p) => ({ ...p, pageIndex: 0 }));
   }, [filter, paginationResetKey]);
 
-  const pageCount = Math.max(
-    1,
-    Math.ceil(filteredData.length / pagination.pageSize) || 1
-  );
+  const pageCount = Math.max(1, Math.ceil(filteredData.length / pagination.pageSize) || 1);
 
   useEffect(() => {
     if (pagination.pageIndex >= pageCount) {
-      setPagination((p) => ({
-        ...p,
-        pageIndex: Math.max(0, pageCount - 1),
-      }));
+      setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageCount - 1) }));
     }
   }, [pageCount, pagination.pageIndex]);
 
   const onPaginationChange = useCallback((updater: Updater<PaginationState>) => {
     setPagination((prev) =>
-      typeof updater === "function" ? updater(prev) : updater
+      typeof updater === "function" ? updater(prev) : updater,
     );
   }, []);
 
@@ -132,18 +116,18 @@ export function DataViewer<TRecord>({
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
       setViewMode(mode);
-      if (viewModeKey) {
-        localStorage.setItem(viewModeKey, mode);
-      }
+      if (viewModeKey) localStorage.setItem(viewModeKey, mode);
     },
-    [viewModeKey]
+    [viewModeKey],
   );
-
-  const showSearch = !!config.globalFilterColumnId;
 
   if (isLoading) {
     return <DataViewerSkeleton viewMode={viewMode} />;
   }
+
+  // Counts for toolbar
+  const resolvedTotal = totalCount ?? data.length;
+  const filteredCount = filteredData.length;
 
   return (
     <div className="space-y-4">
@@ -152,9 +136,12 @@ export function DataViewer<TRecord>({
         actions={config.actions}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
+        filteredCount={filteredCount}
+        totalCount={resolvedTotal}
+        // Legacy props kept for compat — not rendered
         globalFilter={filter}
         onGlobalFilterChange={setFilter}
-        showSearch={showSearch}
+        showSearch={false}
       />
 
       {viewMode === "table" ? (
@@ -183,7 +170,7 @@ function DataViewerSkeleton({ viewMode }: { viewMode: ViewMode }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-48 animate-pulse rounded-lg bg-base-300/40" />
+          <div className="h-5 w-32 animate-pulse rounded-md bg-base-300/40" />
           <div className="ml-auto h-8 w-20 animate-pulse rounded-lg bg-base-300/40" />
         </div>
         <div className="overflow-hidden rounded-box border border-base-content/[0.08] bg-base-100 shadow-md shadow-black/15">
@@ -203,7 +190,7 @@ function DataViewerSkeleton({ viewMode }: { viewMode: ViewMode }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div className="h-8 w-48 animate-pulse rounded-lg bg-base-300/40" />
+        <div className="h-5 w-32 animate-pulse rounded-md bg-base-300/40" />
         <div className="ml-auto h-8 w-20 animate-pulse rounded-lg bg-base-300/40" />
       </div>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

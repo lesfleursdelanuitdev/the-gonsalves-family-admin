@@ -24,7 +24,7 @@ function mimeToForm(mime: string): string | null {
 
 /**
  * POST multipart/form-data with field `file` — stores under
- * `{ADMIN_MEDIA_FILES_ROOT or public/uploads}/gedcom-admin/{images|documents|audio}/`
+ * `{ADMIN_MEDIA_FILES_ROOT | production /mnt default | dev public/uploads}/gedcom-admin/{images|documents|audio}/`
  * and returns a site-relative path suitable for GedcomMedia.file_ref.
  */
 export const POST = withAdminAuth(async (request) => {

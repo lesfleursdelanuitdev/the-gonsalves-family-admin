@@ -33,7 +33,7 @@ export interface UseAdminFamiliesOpts {
   hasMarriageDate?: "true" | "false";
 }
 
-function buildFamiliesParams(opts: UseAdminFamiliesOpts): URLSearchParams {
+export function buildFamiliesParams(opts: UseAdminFamiliesOpts): URLSearchParams {
   const params = new URLSearchParams();
   if (opts.q) params.set("q", opts.q);
   if (opts.limit != null) params.set("limit", String(opts.limit));

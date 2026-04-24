@@ -26,6 +26,24 @@ export type KeyFactFormState = {
   placeLng: string;
 };
 
+/** Date-only slice of `KeyFactFormState` for `GedcomDateInput`. */
+export type GedcomDateFormSlice = Pick<
+  KeyFactFormState,
+  "dateSpecifier" | "dateOriginal" | "y" | "m" | "d" | "ey" | "em" | "ed"
+>;
+
+/** Place-only slice of `KeyFactFormState` for `GedcomPlaceInput`. */
+export type GedcomPlaceFormSlice = Pick<
+  KeyFactFormState,
+  | "placeName"
+  | "placeCounty"
+  | "placeState"
+  | "placeCountry"
+  | "placeOriginal"
+  | "placeLat"
+  | "placeLng"
+>;
+
 /** One surname piece on the primary birth name form; `pieceType` matches DB `surname_piece_type`. */
 export type SurnameFormRow = { text: string; pieceType: string };
 

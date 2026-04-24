@@ -29,6 +29,7 @@ import {
   FAMILY_PARTNER_ASSIGNMENT_RULES,
   FAMILY_PARTNER_SLOT_SUBTITLE,
 } from "@/lib/gedcom/family-partner-slots";
+import { familyOfPageTitle } from "@/lib/gedcom/family-page-title";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   familyRecord: "Family record",
@@ -155,6 +156,7 @@ function PaginatedChildrenList({
           <DataViewerPagination
             pagination={{ pageIndex: pagination.pageIndex, pageSize }}
             pageCount={pageCount}
+            filteredTotal={rows.length}
             onPaginationChange={onPaginationChange}
           />
         </div>
@@ -229,6 +231,17 @@ export default function AdminFamilyViewPage() {
 
   const husband = (fam?.husband as Partner) ?? null;
   const wife = (fam?.wife as Partner) ?? null;
+  const familyPageTitle = useMemo(() => familyOfPageTitle(husband, wife), [husband, wife]);
+
+  useEffect(() => {
+    if (!fam) return;
+    const app = "Gonsalves Family Admin";
+    document.title = `${familyPageTitle} · ${app}`;
+    return () => {
+      document.title = app;
+    };
+  }, [fam, familyPageTitle]);
+
   const familyChildren = (fam?.familyChildren as { child: FamilyChild }[]) ?? [];
   const notes = (fam?.familyNotes as { note: Record<string, unknown> }[]) ?? [];
   const media = (fam?.familyMedia as { media: Record<string, unknown> }[]) ?? [];
@@ -294,7 +307,7 @@ export default function AdminFamilyViewPage() {
     >
       <header className="space-y-4 border-b border-base-content/[0.08] pb-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-base-content">Family</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-base-content">{familyPageTitle}</h1>
           {id ? (
             <Link
               href={`/admin/families/${id}/edit`}
@@ -477,6 +490,7 @@ export default function AdminFamilyViewPage() {
                   <DataViewerPagination
                     pagination={eventPagination}
                     pageCount={eventPageCount}
+                    filteredTotal={events.length}
                     onPaginationChange={onEventPaginationChange}
                   />
                 </div>

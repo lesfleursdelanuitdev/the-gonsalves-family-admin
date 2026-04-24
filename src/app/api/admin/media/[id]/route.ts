@@ -76,6 +76,37 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
       albumLinks: {
         include: { album: { select: { id: true, name: true } } },
       },
+      placeLinks: {
+        include: {
+          place: {
+            select: {
+              id: true,
+              original: true,
+              name: true,
+              county: true,
+              state: true,
+              country: true,
+            },
+          },
+        },
+      },
+      dateLinks: {
+        include: {
+          date: {
+            select: {
+              id: true,
+              original: true,
+              dateType: true,
+              year: true,
+              month: true,
+              day: true,
+              endYear: true,
+              endMonth: true,
+              endDay: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -154,6 +185,8 @@ export const DELETE = withAdminAuth(async (_req, user, ctx) => {
     await tx.gedcomFamilyMedia.deleteMany({ where: { mediaId: id } });
     await tx.gedcomSourceMedia.deleteMany({ where: { mediaId: id } });
     await tx.gedcomEventMedia.deleteMany({ where: { mediaId: id } });
+    await tx.gedcomMediaPlace.deleteMany({ where: { mediaId: id } });
+    await tx.gedcomMediaDate.deleteMany({ where: { mediaId: id } });
     await tx.gedcomMedia.delete({ where: { id } });
     await logDelete(changeCtx, "media", id, existing.xref, { ...existing });
     await setBatchSummary(changeCtx, `Deleted media ${existing.xref ?? id}`);

@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
-
-function parseLimit(searchParams: URLSearchParams): number {
-  const n = parseInt(searchParams.get("limit") ?? "30", 10);
-  if (Number.isNaN(n)) return 30;
-  return Math.min(100, Math.max(1, n));
-}
+import { parseListParams } from "@/lib/admin/admin-list-params";
 
 /** Tags the current user may apply: global + their own. */
 export const GET = withAdminAuth(async (request, user) => {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
-  const limit = parseLimit(request.nextUrl.searchParams);
+  const { limit, offset } = parseListParams(request.nextUrl.searchParams);
 
-  const tags = await prisma.tag.findMany({
-    where: {
-      OR: [{ isGlobal: true }, { userId: user.id }],
-      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-    },
-    select: { id: true, name: true, color: true, isGlobal: true, userId: true },
-    orderBy: [{ isGlobal: "desc" }, { name: "asc" }],
-    take: limit,
+  const baseWhere = {
+    OR: [{ isGlobal: true }, { userId: user.id }],
+    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+  };
+
+  const [tags, total] = await Promise.all([
+    prisma.tag.findMany({
+      where: baseWhere,
+      select: { id: true, name: true, color: true, isGlobal: true, userId: true },
+      orderBy: [{ isGlobal: "desc" }, { name: "asc" }],
+      take: limit,
+      skip: offset,
+    }),
+    prisma.tag.count({ where: baseWhere }),
+  ]);
+
+  return NextResponse.json({
+    tags,
+    total,
+    hasMore: offset + tags.length < total,
   });
-
-  return NextResponse.json({ tags });
 });
 
 export const POST = withAdminAuth(async (request, user) => {

@@ -1,8 +1,7 @@
 "use client";
 
-import { LayoutGrid, List, Plus, Search } from "lucide-react";
+import { LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ViewMode, DataViewerActions } from "./types";
 
@@ -11,9 +10,14 @@ interface DataViewerToolbarProps<TRecord> {
   actions: DataViewerActions<TRecord>;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  globalFilter: string;
-  onGlobalFilterChange: (value: string) => void;
-  showSearch: boolean;
+  /** Filtered row count (after search/filter applied) */
+  filteredCount: number;
+  /** Total unfiltered count — when different from filteredCount, shows "X of Y" */
+  totalCount: number;
+  /** @deprecated — search now lives in FilterPanel; prop kept for compat but unused */
+  globalFilter?: string;
+  onGlobalFilterChange?: (value: string) => void;
+  showSearch?: boolean;
 }
 
 export function DataViewerToolbar<TRecord>({
@@ -21,25 +25,30 @@ export function DataViewerToolbar<TRecord>({
   actions,
   viewMode,
   onViewModeChange,
-  globalFilter,
-  onGlobalFilterChange,
-  showSearch,
+  filteredCount,
+  totalCount,
 }: DataViewerToolbarProps<TRecord>) {
+  const isFiltered = filteredCount !== totalCount;
+
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {showSearch && (
-        <div className="relative min-w-[180px] max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-base-content/40" />
-          <Input
-            placeholder={`Search ${labels.plural.toLowerCase()}…`}
-            value={globalFilter}
-            onChange={(e) => onGlobalFilterChange(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      )}
+      {/* Result count — replaces the search bar; search lives in FilterPanel */}
+      <p className="text-sm text-muted-foreground">
+        {isFiltered ? (
+          <>
+            <span className="font-semibold text-base-content">{filteredCount.toLocaleString()}</span>
+            {" of "}
+            <span className="font-semibold text-base-content">{totalCount.toLocaleString()}</span>
+          </>
+        ) : (
+          <span className="font-semibold text-base-content">{totalCount.toLocaleString()}</span>
+        )}
+        {" "}
+        {filteredCount === 1 ? labels.singular.toLowerCase() : labels.plural.toLowerCase()}
+      </p>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
+        {/* View mode toggle */}
         <div className="join rounded-box border border-primary/25 bg-base-200/50 shadow-sm shadow-black/10">
           <button
             type="button"
@@ -48,7 +57,7 @@ export function DataViewerToolbar<TRecord>({
               "join-item btn btn-sm border-0",
               viewMode === "table"
                 ? "btn-primary text-primary-content shadow-sm"
-                : "btn-ghost bg-transparent text-primary hover:bg-primary/15 hover:text-primary"
+                : "btn-ghost bg-transparent text-primary hover:bg-primary/15 hover:text-primary",
             )}
             aria-label="Table view"
           >
@@ -61,7 +70,7 @@ export function DataViewerToolbar<TRecord>({
               "join-item btn btn-sm border-0",
               viewMode === "cards"
                 ? "btn-primary text-primary-content shadow-sm"
-                : "btn-ghost bg-transparent text-primary hover:bg-primary/15 hover:text-primary"
+                : "btn-ghost bg-transparent text-primary hover:bg-primary/15 hover:text-primary",
             )}
             aria-label="Card view"
           >
@@ -69,6 +78,7 @@ export function DataViewerToolbar<TRecord>({
           </button>
         </div>
 
+        {/* Add action */}
         {actions.add && (
           <Button
             type="button"

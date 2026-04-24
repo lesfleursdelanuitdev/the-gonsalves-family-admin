@@ -1,6 +1,8 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { createAdminCrudHooks } from "@/hooks/createAdminCrudHooks";
+import { fetchJson } from "@/lib/infra/api";
 
 export interface AdminNoteListItem {
   id: string;
@@ -69,6 +71,35 @@ const notesHooks = createAdminCrudHooks<UseAdminNotesOpts, AdminNotesListRespons
 });
 
 export const useAdminNotes = notesHooks.useList;
+
+const NOTE_SEARCH_STALE_MS = 60_000;
+
+/**
+ * Meaning-based note search (GET `/api/admin/notes` with `q` — PostgreSQL full-text on the server).
+ */
+export function useAdminNoteSearch(
+  q: string,
+  opts?: { limit?: number; enabled?: boolean; minLength?: number },
+) {
+  const minLength = opts?.minLength ?? 2;
+  const limit = opts?.limit ?? 15;
+  const trimmed = q.trim();
+  const enabled = (opts?.enabled !== false) && trimmed.length >= minLength;
+
+  const params = new URLSearchParams();
+  params.set("q", trimmed);
+  params.set("limit", String(limit));
+  params.set("offset", "0");
+
+  return useQuery({
+    queryKey: ["admin", "notes", "search", trimmed, limit] as const,
+    queryFn: () =>
+      fetchJson<AdminNotesListResponse>(`/api/admin/notes?${params.toString()}`),
+    enabled,
+    staleTime: NOTE_SEARCH_STALE_MS,
+  });
+}
+
 export const useAdminNote = (id: string) => notesHooks.useDetail<{ note: unknown }>(id);
 export const useCreateNote = notesHooks.useCreate;
 export const useUpdateNote = notesHooks.useUpdate;

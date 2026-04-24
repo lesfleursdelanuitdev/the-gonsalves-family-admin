@@ -6,6 +6,14 @@ import { joinAndConditions } from "@/lib/admin/admin-sql-helpers";
 /** UI bucket aligned with `admin/media/page.tsx` mapApiToRows. */
 export type AdminMediaCategory = "photo" | "document" | "video";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parseUuidParam(raw: string | null): string | null {
+  const v = raw?.trim() ?? "";
+  if (!v || !UUID_RE.test(v)) return null;
+  return v;
+}
+
 export interface AdminMediaStructuredFilters {
   mediaCategory: AdminMediaCategory | null;
   titleContains: string | null;
@@ -14,6 +22,10 @@ export interface AdminMediaStructuredFilters {
   fileTypeContains: string | null;
   linkedGiven: string | null;
   linkedLast: string | null;
+  /** Filter to media in this album (AlbumGedcomMedia). */
+  albumId: string | null;
+  /** Filter to media tagged with this app tag (GedcomMediaAppTag). */
+  tagId: string | null;
 }
 
 export function parseMediaCategoryParam(searchParams: URLSearchParams): AdminMediaCategory | null {
@@ -37,6 +49,8 @@ export function parseStructuredMediaFromSearchParams(
     fileTypeContains: ft || null,
     linkedGiven: cg || null,
     linkedLast: cl || null,
+    albumId: parseUuidParam(searchParams.get("albumId")),
+    tagId: parseUuidParam(searchParams.get("tagId")),
   };
 }
 
@@ -47,7 +61,9 @@ export function hasStructuredMediaFilters(f: AdminMediaStructuredFilters): boole
     f.fileRefContains ||
     f.fileTypeContains ||
     f.linkedGiven ||
-    f.linkedLast
+    f.linkedLast ||
+    f.albumId ||
+    f.tagId
   );
 }
 
@@ -106,6 +122,24 @@ export function adminMediaFilterConditions(
     structured.linkedLast,
   );
   if (nameExists) parts.push(nameExists);
+
+  if (structured.albumId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM album_gedcom_media agm
+        WHERE agm.gedcom_media_id = m.id AND agm.album_id = ${structured.albumId}::uuid
+      )`,
+    );
+  }
+
+  if (structured.tagId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_media_app_tags gmat
+        WHERE gmat.gedcom_media_id = m.id AND gmat.tag_id = ${structured.tagId}::uuid
+      )`,
+    );
+  }
 
   const qTrim = q?.trim() || "";
   if (qTrim) {

@@ -1,6 +1,8 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { createAdminCrudHooks } from "@/hooks/createAdminCrudHooks";
+import { fetchJson } from "@/lib/infra/api";
 
 export interface AdminMediaListItem {
   id: string;
@@ -20,6 +22,8 @@ export interface AdminMediaListItem {
   eventMedia?: Array<{
     event: { id: string; eventType: string; customType: string | null };
   }>;
+  appTags?: Array<{ id: string; tag: { id: string; name: string; color: string | null } }>;
+  albumLinks?: Array<{ id: string; album: { id: string; name: string } }>;
 }
 
 export interface AdminMediaListResponse {
@@ -38,6 +42,8 @@ export interface UseAdminMediaOpts {
   fileTypeContains?: string;
   linkedGiven?: string;
   linkedLast?: string;
+  albumId?: string;
+  tagId?: string;
 }
 
 function buildMediaParams(opts: UseAdminMediaOpts): URLSearchParams {
@@ -53,6 +59,8 @@ function buildMediaParams(opts: UseAdminMediaOpts): URLSearchParams {
   if (opts.fileTypeContains) params.set("fileTypeContains", opts.fileTypeContains);
   if (opts.linkedGiven) params.set("linkedGiven", opts.linkedGiven);
   if (opts.linkedLast) params.set("linkedLast", opts.linkedLast);
+  if (opts.albumId) params.set("albumId", opts.albumId);
+  if (opts.tagId) params.set("tagId", opts.tagId);
   return params;
 }
 
@@ -64,7 +72,15 @@ const mediaHooks = createAdminCrudHooks<UseAdminMediaOpts, AdminMediaListRespons
 
 export const ADMIN_MEDIA_QUERY_KEY = mediaHooks.QUERY_KEY;
 
-export const useAdminMedia = mediaHooks.useList;
+export function useAdminMedia(opts?: UseAdminMediaOpts, enabled = true) {
+  const params = opts ? buildMediaParams(opts) : new URLSearchParams();
+  const qs = params.toString();
+  return useQuery({
+    queryKey: [...ADMIN_MEDIA_QUERY_KEY, qs],
+    queryFn: () => fetchJson<AdminMediaListResponse>(`/api/admin/media${qs ? `?${qs}` : ""}`),
+    enabled,
+  });
+}
 export const useAdminMediaItem = (id: string) => mediaHooks.useDetail<{ media: unknown }>(id);
 export const useCreateMedia = mediaHooks.useCreate;
 export const useUpdateMedia = mediaHooks.useUpdate;

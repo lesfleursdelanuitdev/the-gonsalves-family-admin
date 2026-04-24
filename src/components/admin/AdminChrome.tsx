@@ -14,7 +14,7 @@ import { AdminTopBar } from "@/components/admin/AdminTopBar";
 import { AdminTreeSetupBanner } from "@/components/AdminTreeSetupBanner";
 import {
   adminNavBottom,
-  adminNavItems,
+  adminNavSections,
   isAdminNavActive,
   type AdminNavItem,
 } from "@/config/admin-nav";
@@ -55,11 +55,13 @@ function closeAdminDrawer() {
 
 export function AdminChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+  const isMessagesRoute = pathname.startsWith("/admin/messages");
   const { data: user, isLoading } = useCurrentUser();
   const logout = useLogout();
   const { collapsed, toggleCollapsed } = useSidebarCollapsed();
   const unread = useAdminUnreadMessageCount();
-  useAdminMessagesRealtime(Boolean(user) && !isLoading);
+  // Messages page opens its own SSE subscription; avoid duplicate EventSource connections.
+  useAdminMessagesRealtime(Boolean(user) && !isLoading && !isMessagesRoute);
 
   return (
     <div className="drawer lg:drawer-open min-h-screen bg-base-100">
@@ -73,9 +75,25 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
           logoutPending={logout.isPending}
           unreadDirectMessages={typeof unread.data === "number" ? unread.data : 0}
         />
-        <main className="min-h-0 flex-1 overflow-auto bg-base-100 p-4 md:p-6 lg:p-8">
-          <AdminTreeSetupBanner />
-          {children}
+        <main
+          className={cn(
+            "min-h-0 flex-1 bg-base-100",
+            isMessagesRoute
+              ? "flex flex-col overflow-hidden"
+              : "overflow-auto p-4 md:p-6 lg:p-8",
+          )}
+        >
+          {isMessagesRoute ? (
+            <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6 lg:px-8 lg:pb-8">
+              <AdminTreeSetupBanner />
+              <div className="min-h-0 flex-1">{children}</div>
+            </div>
+          ) : (
+            <>
+              <AdminTreeSetupBanner />
+              {children}
+            </>
+          )}
         </main>
       </div>
       <div className="drawer-side z-40 border-r border-base-content/[0.08]">
@@ -141,20 +159,32 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
               )}
             </button>
           </div>
-          <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2 sm:p-3">
-            {adminNavItems.map((item) => (
-              <SidebarNavLink
-                key={item.href}
-                item={item}
-                pathname={pathname}
-                collapsed={collapsed}
-                onNavigate={closeAdminDrawer}
-                unreadBadge={
-                  item.href === "/admin/messages" && typeof unread.data === "number"
-                    ? unread.data
-                    : undefined
-                }
-              />
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 sm:p-3">
+            {adminNavSections.map((section) => (
+              <div
+                key={section.label ?? section.items[0]?.href ?? "nav-section"}
+                className="flex flex-col gap-0.5"
+              >
+                {!collapsed && section.label ? (
+                  <p className="select-none px-3 pb-0.5 pt-2 text-[10px] font-bold uppercase tracking-wider text-base-content/45 first:pt-0">
+                    {section.label}
+                  </p>
+                ) : null}
+                {section.items.map((item) => (
+                  <SidebarNavLink
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                    onNavigate={closeAdminDrawer}
+                    unreadBadge={
+                      item.href === "/admin/messages" && typeof unread.data === "number"
+                        ? unread.data
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
             ))}
           </nav>
           <nav className="flex flex-col gap-0.5 border-t border-base-content/[0.08] p-2 sm:p-3">

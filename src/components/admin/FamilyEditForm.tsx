@@ -20,7 +20,9 @@ import {
 } from "lucide-react";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
+import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
+import { MediaPicker } from "@/components/admin/media-picker";
 import { FamilyAdminEventContext } from "@/components/admin/AdminEventContextLinks";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { KeyFactSection } from "@/components/admin/IndividualEditForm";
@@ -55,6 +57,7 @@ import {
   FAMILY_PARTNER_ASSIGNMENT_RULES,
   FAMILY_PARTNER_SLOT_SUBTITLE,
 } from "@/lib/gedcom/family-partner-slots";
+import { editFamilyPageTitle } from "@/lib/gedcom/family-page-title";
 
 const RELATIONSHIP_OPTIONS = [
   { value: "biological", label: "Biological" },
@@ -225,6 +228,14 @@ export function FamilyEditForm({
   const familyChildren = (fam?.familyChildren as { child: FamilyChildRow }[]) ?? [];
   const familyNotes = (fam?.familyNotes as { note: Record<string, unknown> }[]) ?? [];
   const familyMedia = (fam?.familyMedia as { media: Record<string, unknown> }[]) ?? [];
+  const linkedFamilyMediaIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of familyMedia) {
+      const id = String(row.media?.id ?? "").trim();
+      if (id) ids.add(id);
+    }
+    return ids;
+  }, [familyMedia]);
   const familySources =
     (fam?.familySources as {
       source: Record<string, unknown>;
@@ -339,15 +350,10 @@ export function FamilyEditForm({
     );
   }, [xref, husband?.fullName, wife?.fullName, familyId]);
 
-  const editModeFamilyTitle = useMemo(() => {
-    if (mode !== "edit") return "";
-    const x = husband ? stripSlashesFromName(husband.fullName) || husband.xref || null : null;
-    const y = wife ? stripSlashesFromName(wife.fullName) || wife.xref || null : null;
-    if (x && y) return `Edit Family of ${x} and ${y}`;
-    if (x) return `Edit Family of ${x}`;
-    if (y) return `Edit Family of ${y}`;
-    return "Edit family";
-  }, [mode, husband, wife]);
+  const editModeFamilyTitle = useMemo(
+    () => (mode === "edit" ? editFamilyPageTitle(husband, wife) : ""),
+    [mode, husband, wife],
+  );
 
   const excludeMemberIds = useMemo(() => {
     const s = new Set<string>();
@@ -754,6 +760,7 @@ export function FamilyEditForm({
                   <DataViewerPagination
                     pagination={eventPagination}
                     pageCount={eventPageCount}
+                    filteredTotal={events.length}
                     onPaginationChange={onEventPaginationChange}
                   />
                 </div>
@@ -1271,32 +1278,44 @@ export function FamilyEditForm({
         className="space-y-8 pt-2"
       >
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Media</CardTitle>
-            <p className="text-sm text-muted-foreground">OBJE records linked to this family.</p>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg">Media</CardTitle>
+              <p className="text-sm text-muted-foreground">OBJE records linked to this family.</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <MediaPicker
+                targetType="family"
+                targetId={familyId}
+                mode="multiple"
+                triggerLabel="Choose from archive"
+                excludeMediaIds={linkedFamilyMediaIds}
+                onAttach={() => {
+                  void refetch();
+                }}
+              />
+              <Link
+                href={`/admin/media/new?familyId=${encodeURIComponent(familyId)}&familyLabel=${encodeURIComponent(familyNewEventLabel)}&returnTo=${encodeURIComponent(
+                  mode === "create"
+                    ? `/admin/families/create?id=${encodeURIComponent(familyId)}`
+                    : `/admin/families/${familyId}/edit`,
+                )}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+              >
+                Add media
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {familyMedia.length === 0 ? (
               <p className="text-sm text-muted-foreground">No media linked to this family.</p>
             ) : (
-              familyMedia.map((im) => {
-                const m = im.media;
-                const mid = m.id as string;
-                return (
-                  <div
-                    key={mid}
-                    className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15"
-                  >
-                    <p className="font-medium">
-                      <Link href={`/admin/media/${mid}`} className="link link-primary">
-                        {String(m.title ?? m.fileRef ?? "Media")}
-                      </Link>
-                    </p>
-                    <p className="font-mono text-xs text-muted-foreground">{String(m.xref ?? "")}</p>
-                    <p className="text-xs text-muted-foreground">Media id: {mid}</p>
-                  </div>
-                );
-              })
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
+                </p>
+                <AssociatedMediaThumbnailGrid items={familyMedia} />
+              </>
             )}
           </CardContent>
         </Card>

@@ -19,7 +19,7 @@ export interface AdminEventsStructuredFilters {
   linkedGiven: string | null;
   /** Trimmed GEDCOM-aware surname prefix on linked individuals' full_name_lower. */
   linkedLast: string | null;
-  /** Family-linked events: partner 1 (husband slot) given / surname prefix — same semantics as families list API. */
+  /** Family-linked events: partner search fields (p1/p2); same unordered-pair semantics as the families list API. */
   p1Given: string | null;
   p1Last: string | null;
   p2Given: string | null;

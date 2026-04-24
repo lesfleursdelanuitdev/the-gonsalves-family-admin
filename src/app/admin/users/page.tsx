@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Shield, User } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
+import { FilterPanel } from "@/components/data-viewer/FilterPanel";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import {
   Card,
@@ -45,7 +48,6 @@ const config: DataViewerConfig<UserRow> = {
   id: "users",
   labels: { singular: "User", plural: "Users" },
   getRowId: (row) => row.id,
-  globalFilterColumnId: "name",
   enableRowSelection: false,
   columns: [
     { accessorKey: "username", header: "Username", enableSorting: true },
@@ -98,9 +100,16 @@ const config: DataViewerConfig<UserRow> = {
 
 export default function AdminUsersPage() {
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const [draftQ, setDraftQ] = useState("");
+  const [appliedQ, setAppliedQ] = useState("");
+  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
+  const clearFilters = useCallback(() => {
+    setDraftQ("");
+    setAppliedQ("");
+  }, []);
+
   const { data, isLoading } = useAdminUsers({
-    q: search.trim() || undefined,
+    q: appliedQ.trim() || undefined,
     limit: ADMIN_LIST_MAX_LIMIT,
     offset: 0,
   });
@@ -137,13 +146,34 @@ export default function AdminUsersPage() {
           Tree owners, maintainers, contributors, and account management.
         </p>
       </div>
+
+      <FilterPanel
+        onApply={applyFilters}
+        onClear={clearFilters}
+        activeFilterCount={appliedQ.trim() ? 1 : 0}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="users-filter-q">Search users</Label>
+          <Input
+            id="users-filter-q"
+            value={draftQ}
+            onChange={(e) => setDraftQ(e.target.value)}
+            placeholder="Username, email, or display name"
+          />
+          <p className="text-xs text-muted-foreground">
+            Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
+          </p>
+        </div>
+      </FilterPanel>
+
       <DataViewer
         config={configWithActions}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-users-view"
-        globalFilter={search}
-        onGlobalFilterChange={setSearch}
+        skipClientGlobalFilter
+        paginationResetKey={appliedQ}
+        totalCount={data?.total}
       />
     </div>
   );

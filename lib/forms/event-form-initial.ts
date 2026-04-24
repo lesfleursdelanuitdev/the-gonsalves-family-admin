@@ -1,5 +1,6 @@
 import { GEDCOM_EVENT_TYPE_LABELS } from "@/lib/gedcom/gedcom-event-labels";
 import { eventDetailToSelectedLinks } from "@/lib/forms/event-form-links";
+import type { KeyFactFormState } from "@/lib/forms/individual-editor-form";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 
 export const EVENT_TYPE_TAG_LIST = Object.keys(GEDCOM_EVENT_TYPE_LABELS).sort();
@@ -36,6 +37,27 @@ function decToInputString(v: unknown): string {
   if (v == null) return "";
   if (typeof v === "string" || typeof v === "number") return String(v);
   return "";
+}
+
+/** Maps event form defaults into shared `KeyFactFormState` (date + place inputs). */
+export function eventFormDefaultsToKeyFactState(d: EventFormDefaults): KeyFactFormState {
+  return {
+    dateSpecifier: d.dateSpecifier,
+    dateOriginal: d.dateOriginal,
+    y: d.y,
+    m: d.m,
+    d: d.d,
+    ey: d.ey,
+    em: d.em,
+    ed: d.ed,
+    placeName: d.placeName,
+    placeCounty: d.placeCounty,
+    placeState: d.placeState,
+    placeCountry: d.placeCountry,
+    placeOriginal: d.placeOriginal,
+    placeLat: d.placeLat,
+    placeLng: d.placeLng,
+  };
 }
 
 export function createEmptyEventFormDefaults(): EventFormDefaults {

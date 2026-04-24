@@ -27,7 +27,7 @@ On the server, in the app root, create or update **`.env`** / **`.env.production
 | `ADMIN_TREE_ID` or `ADMIN_TREE_FILE_ID` | Scopes admin data to one tree (see `lib/admin-tree.ts`) |
 | Session / auth secrets | Whatever `requireAuth` and login use in this app |
 | `NEXT_PUBLIC_*` | Any public config the client needs |
-| `ADMIN_MEDIA_FILES_ROOT` | **Recommended in production.** Absolute path to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Uploads then survive `git pull` / redeploys. Example: `/var/lib/gonsalves-admin/uploads` → files in `…/gedcom-admin/`. Ensure this directory is **writable** by the user running PM2 (see §9). |
+| `ADMIN_MEDIA_FILES_ROOT` | **Production:** absolute path under **`/mnt/`** to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Default in code if unset: `/mnt/storage/uploads`. Example: `/mnt/storage/uploads` → files in `…/gedcom-admin/`. Must be **writable** by the user running PM2 (see §9). |
 
 Run `npm run build` only after required env vars are present; some Next builds read them.
 
@@ -133,11 +133,12 @@ GEDCOM media files from the admin UI are stored on disk and referenced in the DB
 
 **Production checklist**
 
-1. **Persist uploads** — By default files live under `public/uploads/` inside the app tree. A deploy that replaces the directory can **delete** them. Set **`ADMIN_MEDIA_FILES_ROOT`** to a path **outside** the repo (see the env table above), create the directory, then restart PM2 so Next picks up the env:
+1. **Persist uploads under `/mnt`** — Production uploads must live under **`/mnt/`** (enforced at runtime). Create the tree and ensure the PM2 user can write:
    ```bash
-   sudo mkdir -p /var/lib/gonsalves-admin/uploads/gedcom-admin
-   sudo chown -R "$USER:$USER" /var/lib/gonsalves-admin/uploads
+   sudo mkdir -p /mnt/storage/uploads/gedcom-admin
+   sudo chown -R "$USER:$USER" /mnt/storage/uploads
    ```
+   Set **`ADMIN_MEDIA_FILES_ROOT=/mnt/storage/uploads`** (or another path under `/mnt/`) if you do not want the built-in default, then restart PM2 (`pm2 restart … --update-env`).
    Use the same user that runs `pm2` (often your deploy user).
 
 2. **Permissions** — If uploads fail with 500 or empty thumbnails, the Node process cannot write `gedcom-admin`. Fix ownership/permissions on that folder.

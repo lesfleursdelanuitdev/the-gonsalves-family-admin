@@ -48,17 +48,19 @@ export interface UseAdminEventsOpts {
   linkType?: "individual" | "family";
   linkedGiven?: string;
   linkedLast?: string;
-  /** When `linkType` is `family`, partner name filters (same as families list API). */
+  /** When `linkType` is `family`, two-partner filters (same semantics as the families list API). */
   p1Given?: string;
   p1Last?: string;
   p2Given?: string;
   p2Last?: string;
-  /** When `linkType` is `family`, match if either spouse matches (slash-aware last name). */
+  /** Legacy single-string match on either spouse (slash-aware last name). */
   familyPartnerGiven?: string;
   familyPartnerLast?: string;
 }
 
-function buildEventsParams(opts: UseAdminEventsOpts): URLSearchParams {
+export const ADMIN_EVENTS_QUERY_KEY = ["admin", "events"] as const;
+
+export function buildEventsParams(opts: UseAdminEventsOpts): URLSearchParams {
   const params = new URLSearchParams();
   if (opts.q) params.set("q", opts.q);
   const et = opts.eventType || opts.type;
@@ -84,7 +86,7 @@ function buildEventsParams(opts: UseAdminEventsOpts): URLSearchParams {
 
 const eventsHooks = createAdminCrudHooks<UseAdminEventsOpts, AdminEventsListResponse>({
   base: "/api/admin/events",
-  queryKey: ["admin", "events"],
+  queryKey: ADMIN_EVENTS_QUERY_KEY,
   buildParams: buildEventsParams,
 });
 

@@ -14,12 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { selectClassName } from "@/components/data-viewer/constants";
-import { useAdminIndividuals, type AdminIndividualListItem } from "@/hooks/useAdminIndividuals";
-import { useAdminFamilies, type AdminFamilyListItem } from "@/hooks/useAdminFamilies";
-import { useAdminEvents, type AdminEventListItem } from "@/hooks/useAdminEvents";
+import { EventPicker } from "@/components/admin/EventPicker";
+import { FamilySearchPicker } from "@/components/admin/FamilySearchPicker";
 import { useAdminSources, type AdminSourceListItem } from "@/hooks/useAdminSources";
-import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { GEDCOM_EVENT_TYPE_LABELS } from "@/lib/gedcom/gedcom-event-labels";
+import { formatDisplayNameFromNameForms } from "@/lib/gedcom/display-name";
+import { familyUnionPrimaryLine } from "@/lib/gedcom/family-search-display";
+import { individualSearchDisplayName } from "@/lib/gedcom/individual-search-display";
+import { IndividualSearchPicker } from "@/components/admin/IndividualSearchPicker";
 import { formatNoteEventPickerLabel } from "@/lib/forms/note-event-picker-label";
 import {
   type NoteLinkKind,
@@ -35,8 +36,6 @@ const LINK_KIND_OPTIONS: { value: NoteLinkKind; label: string }[] = [
   { value: "event", label: "Event" },
   { value: "source", label: "Source" },
 ];
-
-const EVENT_TYPE_TAGS = Object.keys(GEDCOM_EVENT_TYPE_LABELS).sort();
 
 function newBuilderId(): string {
   return crypto.randomUUID();
@@ -82,12 +81,6 @@ function createEmptyBuilder(kind: NoteLinkKind): LinkBuilderModel {
     evP2Last: "",
     srcQ: "",
   };
-}
-
-function familySearchLabel(f: AdminFamilyListItem): string {
-  const h = stripSlashesFromName(f.husband?.fullName) ?? "";
-  const w = stripSlashesFromName(f.wife?.fullName) ?? "";
-  return `${h} & ${w}`.replace(/^ & | & $/g, "").trim() || f.xref || f.id;
 }
 
 export interface NoteLinkedRecordsPickerProps {
@@ -286,64 +279,19 @@ function IndividualLinkSearch({
   onPick: (link: SelectedNoteLink) => void;
   isPicked: (kind: NoteLinkKind, id: string) => boolean;
 }) {
-  const given = model.indGiven.trim().toLowerCase();
-  const last = model.indLast.trim();
-  const { data, isLoading } = useAdminIndividuals({
-    givenName: given || undefined,
-    lastName: last || undefined,
-    limit: 25,
-    offset: 0,
-  });
-  const rows = data?.individuals ?? [];
-
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`ig-${model.id}`}>Given name contains</Label>
-          <Input
-            id={`ig-${model.id}`}
-            value={model.indGiven}
-            onChange={(e) => onPatch({ indGiven: e.target.value })}
-            placeholder="e.g. Maria"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`il-${model.id}`}>Last name prefix</Label>
-          <Input
-            id={`il-${model.id}`}
-            value={model.indLast}
-            onChange={(e) => onPatch({ indLast: e.target.value })}
-            placeholder="GEDCOM slash-aware prefix"
-          />
-          <p className="text-xs text-muted-foreground">Matches surnames in slashes, same as the individuals list.</p>
-        </div>
-      </div>
-      <ResultsList loading={isLoading} empty={rows.length === 0}>
-        {(rows as AdminIndividualListItem[]).map((ind) => {
-          const label =
-            formatDisplayNameFromNameForms(ind.individualNameForms, ind.fullName) ||
-            stripSlashesFromName(ind.fullName) ||
-            ind.xref ||
-            ind.id;
-          const picked = isPicked("individual", ind.id);
-          return (
-            <li key={ind.id}>
-              <button
-                type="button"
-                disabled={picked}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-base-200 disabled:opacity-50"
-                onClick={() => onPick({ kind: "individual", id: ind.id, label })}
-              >
-                {label}
-                <span className="ml-1 font-mono text-xs text-muted-foreground">({ind.xref})</span>
-                {picked ? <span className="ml-2 text-xs text-muted-foreground">(already linked)</span> : null}
-              </button>
-            </li>
-          );
-        })}
-      </ResultsList>
-    </>
+    <IndividualSearchPicker
+      idPrefix={`ilink-${model.id}`}
+      givenValue={model.indGiven}
+      lastValue={model.indLast}
+      onGivenChange={(v) => onPatch({ indGiven: v })}
+      onLastChange={(v) => onPatch({ indLast: v })}
+      isPickDisabled={(ind) => isPicked("individual", ind.id)}
+      onPick={(ind) =>
+        onPick({ kind: "individual", id: ind.id, label: individualSearchDisplayName(ind) })
+      }
+      limit={25}
+    />
   );
 }
 
@@ -358,83 +306,21 @@ function FamilyLinkSearch({
   onPick: (link: SelectedNoteLink) => void;
   isPicked: (kind: NoteLinkKind, id: string) => boolean;
 }) {
-  const { data, isLoading } = useAdminFamilies({
-    p1Given: model.famP1Given.trim().toLowerCase() || undefined,
-    p1Last: model.famP1Last.trim() || undefined,
-    p2Given: model.famP2Given.trim().toLowerCase() || undefined,
-    p2Last: model.famP2Last.trim() || undefined,
-    limit: 25,
-    offset: 0,
-  });
-  const rows = data?.families ?? [];
-
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-2 rounded-md border border-base-content/10 bg-base-100/40 p-3">
-          <p className="text-xs font-medium text-muted-foreground">Partner 1</p>
-          <div className="space-y-1">
-            <Label htmlFor={`f1g-${model.id}`}>Given name contains</Label>
-            <Input
-              id={`f1g-${model.id}`}
-              value={model.famP1Given}
-              onChange={(e) => onPatch({ famP1Given: e.target.value })}
-              placeholder="e.g. Alex"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`f1l-${model.id}`}>Last name prefix</Label>
-            <Input
-              id={`f1l-${model.id}`}
-              value={model.famP1Last}
-              onChange={(e) => onPatch({ famP1Last: e.target.value })}
-              placeholder="GEDCOM slash-aware"
-            />
-          </div>
-        </div>
-        <div className="space-y-2 rounded-md border border-base-content/10 bg-base-100/40 p-3">
-          <p className="text-xs font-medium text-muted-foreground">Partner 2</p>
-          <div className="space-y-1">
-            <Label htmlFor={`f2g-${model.id}`}>Given name contains</Label>
-            <Input
-              id={`f2g-${model.id}`}
-              value={model.famP2Given}
-              onChange={(e) => onPatch({ famP2Given: e.target.value })}
-              placeholder="e.g. Jordan"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`f2l-${model.id}`}>Last name prefix</Label>
-            <Input
-              id={`f2l-${model.id}`}
-              value={model.famP2Last}
-              onChange={(e) => onPatch({ famP2Last: e.target.value })}
-              placeholder="GEDCOM slash-aware"
-            />
-          </div>
-        </div>
-      </div>
-      <ResultsList loading={isLoading} empty={rows.length === 0}>
-        {(rows as AdminFamilyListItem[]).map((f) => {
-          const label = familySearchLabel(f);
-          const picked = isPicked("family", f.id);
-          return (
-            <li key={f.id}>
-              <button
-                type="button"
-                disabled={picked}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-base-200 disabled:opacity-50"
-                onClick={() => onPick({ kind: "family", id: f.id, label })}
-              >
-                {label}
-                <span className="ml-1 font-mono text-xs text-muted-foreground">({f.xref})</span>
-                {picked ? <span className="ml-2 text-xs text-muted-foreground">(already linked)</span> : null}
-              </button>
-            </li>
-          );
-        })}
-      </ResultsList>
-    </>
+    <FamilySearchPicker
+      idPrefix={`note-fam-${model.id}`}
+      p1GivenValue={model.famP1Given}
+      p1LastValue={model.famP1Last}
+      p2GivenValue={model.famP2Given}
+      p2LastValue={model.famP2Last}
+      onP1GivenChange={(v) => onPatch({ famP1Given: v })}
+      onP1LastChange={(v) => onPatch({ famP1Last: v })}
+      onP2GivenChange={(v) => onPatch({ famP2Given: v })}
+      onP2LastChange={(v) => onPatch({ famP2Last: v })}
+      limit={25}
+      isPickDisabled={(f) => isPicked("family", f.id)}
+      onPick={(f) => onPick({ kind: "family", id: f.id, label: familyUnionPrimaryLine(f) })}
+    />
   );
 }
 
@@ -449,155 +335,37 @@ function EventLinkSearch({
   onPick: (link: SelectedNoteLink) => void;
   isPicked: (kind: NoteLinkKind, id: string) => boolean;
 }) {
-  const eventOpts = useMemo(() => {
-    const et = model.evEventType.trim();
-    return {
-      eventType: et || undefined,
-      linkType: model.evScope,
-      linkedGiven:
-        model.evScope === "individual" ? model.evIndGiven.trim().toLowerCase() || undefined : undefined,
-      linkedLast: model.evScope === "individual" ? model.evIndLast.trim() || undefined : undefined,
-      p1Given: model.evScope === "family" ? model.evP1Given.trim().toLowerCase() || undefined : undefined,
-      p1Last: model.evScope === "family" ? model.evP1Last.trim() || undefined : undefined,
-      p2Given: model.evScope === "family" ? model.evP2Given.trim().toLowerCase() || undefined : undefined,
-      p2Last: model.evScope === "family" ? model.evP2Last.trim() || undefined : undefined,
-      limit: 25,
-      offset: 0,
-    };
-  }, [
-    model.evEventType,
-    model.evScope,
-    model.evIndGiven,
-    model.evIndLast,
-    model.evP1Given,
-    model.evP1Last,
-    model.evP2Given,
-    model.evP2Last,
-  ]);
-
-  const { data, isLoading } = useAdminEvents(eventOpts);
-  const rows = data?.events ?? [];
-
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`evt-${model.id}`}>Event type</Label>
-          <select
-            id={`evt-${model.id}`}
-            className={selectClassName}
-            value={model.evEventType}
-            onChange={(e) => onPatch({ evEventType: e.target.value })}
-          >
-            <option value="">Any type</option>
-            {EVENT_TYPE_TAGS.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag} — {GEDCOM_EVENT_TYPE_LABELS[tag] ?? tag}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`evs-${model.id}`}>Linked to</Label>
-          <select
-            id={`evs-${model.id}`}
-            className={selectClassName}
-            value={model.evScope}
-            onChange={(e) => onPatch({ evScope: e.target.value as "individual" | "family" })}
-          >
-            <option value="individual">Individual (person event)</option>
-            <option value="family">Family (e.g. marriage)</option>
-          </select>
-          <p className="text-xs text-muted-foreground">
-            Filters match events attached to a person vs. a family, same as the events list.
-          </p>
-        </div>
-      </div>
-
-      {model.evScope === "individual" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor={`eig-${model.id}`}>Linked person — given contains</Label>
-            <Input
-              id={`eig-${model.id}`}
-              value={model.evIndGiven}
-              onChange={(e) => onPatch({ evIndGiven: e.target.value })}
-              placeholder="Structured given tokens"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`eil-${model.id}`}>Linked person — last name prefix</Label>
-            <Input
-              id={`eil-${model.id}`}
-              value={model.evIndLast}
-              onChange={(e) => onPatch({ evIndLast: e.target.value })}
-              placeholder="GEDCOM slash-aware prefix"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2 rounded-md border border-base-content/10 bg-base-100/40 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Partner 1 (family)</p>
-            <div className="space-y-1">
-              <Label htmlFor={`ef1g-${model.id}`}>Given contains</Label>
-              <Input
-                id={`ef1g-${model.id}`}
-                value={model.evP1Given}
-                onChange={(e) => onPatch({ evP1Given: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor={`ef1l-${model.id}`}>Last name prefix</Label>
-              <Input
-                id={`ef1l-${model.id}`}
-                value={model.evP1Last}
-                onChange={(e) => onPatch({ evP1Last: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="space-y-2 rounded-md border border-base-content/10 bg-base-100/40 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Partner 2 (family)</p>
-            <div className="space-y-1">
-              <Label htmlFor={`ef2g-${model.id}`}>Given contains</Label>
-              <Input
-                id={`ef2g-${model.id}`}
-                value={model.evP2Given}
-                onChange={(e) => onPatch({ evP2Given: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor={`ef2l-${model.id}`}>Last name prefix</Label>
-              <Input
-                id={`ef2l-${model.id}`}
-                value={model.evP2Last}
-                onChange={(e) => onPatch({ evP2Last: e.target.value })}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ResultsList loading={isLoading} empty={rows.length === 0}>
-        {(rows as AdminEventListItem[]).map((ev) => {
-          const label = formatNoteEventPickerLabel(ev);
-          const picked = isPicked("event", ev.id);
-          return (
-            <li key={ev.id}>
-              <button
-                type="button"
-                disabled={picked}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-base-200 disabled:opacity-50"
-                onClick={() => onPick({ kind: "event", id: ev.id, label })}
-              >
-                <span className="font-medium text-base-content">{label}</span>
-                {picked ? <span className="ml-2 text-xs text-muted-foreground">(already linked)</span> : null}
-              </button>
-            </li>
-          );
-        })}
-      </ResultsList>
-    </>
+    <EventPicker
+      idPrefix={`note-ev-${model.id}`}
+      requireEventType={false}
+      eventType={model.evEventType}
+      onEventTypeChange={(v) => onPatch({ evEventType: v })}
+      linkScope={model.evScope}
+      onLinkScopeChange={(v) =>
+        onPatch({
+          evScope: v,
+          ...(v === "individual"
+            ? { evP1Given: "", evP1Last: "", evP2Given: "", evP2Last: "" }
+            : { evIndGiven: "", evIndLast: "" }),
+        })
+      }
+      indGiven={model.evIndGiven}
+      indLast={model.evIndLast}
+      onIndGivenChange={(v) => onPatch({ evIndGiven: v })}
+      onIndLastChange={(v) => onPatch({ evIndLast: v })}
+      famP1Given={model.evP1Given}
+      famP1Last={model.evP1Last}
+      famP2Given={model.evP2Given}
+      famP2Last={model.evP2Last}
+      onFamP1GivenChange={(v) => onPatch({ evP1Given: v })}
+      onFamP1LastChange={(v) => onPatch({ evP1Last: v })}
+      onFamP2GivenChange={(v) => onPatch({ evP2Given: v })}
+      onFamP2LastChange={(v) => onPatch({ evP2Last: v })}
+      isPickDisabled={(ev) => isPicked("event", ev.id)}
+      onPick={(ev) => onPick({ kind: "event", id: ev.id, label: formatNoteEventPickerLabel(ev) })}
+      limit={25}
+    />
   );
 }
 

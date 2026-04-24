@@ -23,11 +23,13 @@ export function LinkedIndividualLink({ ind }: LinkedIndividualLinkProps) {
       <span className="mt-0.5 shrink-0">
         <SexIcon sex={sex} />
       </span>
-      <div className="min-w-0">
-        <Link href={`/admin/individuals/${indId}`} className="link link-primary font-medium">
+      <div className="min-w-0 break-words">
+        <Link href={`/admin/individuals/${indId}`} className="link link-primary font-medium break-words">
           {name}
         </Link>
-        {xref ? <p className="font-mono text-xs text-muted-foreground">{xref}</p> : null}
+        {xref ? (
+          <p className="break-all font-mono text-xs text-muted-foreground">{xref}</p>
+        ) : null}
       </div>
     </div>
   );

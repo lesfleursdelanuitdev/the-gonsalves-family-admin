@@ -5,19 +5,29 @@ import { normalizeSiteMediaPath } from "@/lib/admin/normalize-site-media-path";
 /**
  * Parent directory for the `gedcom-admin` upload folder (matches URL `/uploads/gedcom-admin/...`).
  *
- * - Default: `{cwd}/public/uploads` (Next also serves files under `public/` as static assets).
- * - Production: set `ADMIN_MEDIA_FILES_ROOT` to durable storage **outside the app tree** so uploads
- *   survive deploys. Examples:
- *   - Local disk: `/var/lib/gonsalves-admin/uploads` → `…/gedcom-admin/…` on disk.
- *   - Shared NFS (e.g. Netcup): mount at `/mnt/storage`, set `ADMIN_MEDIA_FILES_ROOT=/mnt/storage/uploads`.
+ * - **Development** (non-production): default `{cwd}/public/uploads` unless `ADMIN_MEDIA_FILES_ROOT` is set.
+ * - **Production** (`NODE_ENV === "production"`): uploads must live under **`/mnt/`**:
+ *   - If `ADMIN_MEDIA_FILES_ROOT` is set, it must resolve to a path starting with `/mnt/`.
+ *   - If unset, defaults to `/mnt/storage/uploads` so deploys never silently write into the repo tree.
  *
  * New uploads are placed under `gedcom-admin/images|documents|audio/`; legacy files may still sit
  * directly under `gedcom-admin/` (single path segment in the URL).
  */
+const PRODUCTION_DEFAULT_UPLOADS_PARENT = "/mnt/storage/uploads";
+
 export function adminMediaUploadsParentDir(): string {
   const fromEnv = process.env.ADMIN_MEDIA_FILES_ROOT?.trim();
   if (fromEnv) {
-    return path.resolve(fromEnv);
+    const resolved = path.resolve(fromEnv);
+    if (process.env.NODE_ENV === "production" && !resolved.startsWith("/mnt/")) {
+      throw new Error(
+        `ADMIN_MEDIA_FILES_ROOT must resolve under /mnt/ in production (got: ${resolved}). Example: /mnt/storage/uploads`,
+      );
+    }
+    return resolved;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return path.resolve(PRODUCTION_DEFAULT_UPLOADS_PARENT);
   }
   return path.join(process.cwd(), "public", "uploads");
 }

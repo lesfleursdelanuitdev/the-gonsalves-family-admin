@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Link2 } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
@@ -516,16 +515,13 @@ function AdminEventsPageInner() {
         </div>
       </FilterPanel>
 
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.events.length} isLoading={isLoading} />
-      )}
-
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-events-view"
         paginationResetKey={JSON.stringify(queryOpts)}
+        totalCount={data?.total}
       />
     </div>
   );

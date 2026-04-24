@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
 import { ImageIcon, Pencil } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminEvent } from "@/hooks/useAdminEvents";
 import { formatDateRecord } from "@/lib/gedcom/format-event-date";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { eventPageDisplayTitle } from "@/lib/gedcom/event-page-title";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { LinkedIndividualLink } from "@/components/admin/LinkedIndividualLink";
@@ -24,7 +25,6 @@ export default function AdminEventDetailPage() {
   const ev = data?.event as Record<string, unknown> | undefined;
 
   const eventType = (ev?.eventType as string) ?? "";
-  const typeLabel = labelGedcomEventType(eventType);
   const customType = ((ev?.customType as string) ?? "").trim();
   const value = ((ev?.value as string) ?? "").trim();
   const cause = ((ev?.cause as string) ?? "").trim();
@@ -37,6 +37,29 @@ export default function AdminEventDetailPage() {
 
   const individualEvents = (ev?.individualEvents as { individual: Record<string, unknown> }[]) ?? [];
   const familyEvents = (ev?.familyEvents as { family: Record<string, unknown> }[]) ?? [];
+
+  const pageTitle = useMemo(() => {
+    if (!ev) return "";
+    const et = (ev.eventType as string) ?? "";
+    const ct = ((ev.customType as string) ?? "").trim() || null;
+    const ind = (ev.individualEvents as { individual: Record<string, unknown> }[]) ?? [];
+    const fam = (ev.familyEvents as { family: Record<string, unknown> }[]) ?? [];
+    return eventPageDisplayTitle({
+      eventType: et,
+      customType: ct,
+      individualEvents: ind,
+      familyEvents: fam,
+    });
+  }, [ev]);
+
+  useEffect(() => {
+    if (!ev) return;
+    const app = "Gonsalves Family Admin";
+    document.title = `${pageTitle} · ${app}`;
+    return () => {
+      document.title = app;
+    };
+  }, [ev, pageTitle]);
 
   const eventNotes =
     (ev?.eventNotes as { note: Record<string, unknown> }[] | undefined) ?? [];
@@ -64,12 +87,7 @@ export default function AdminEventDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-base-content">
             <GedcomEventTypeIcon eventType={eventType} className="size-8 shrink-0 sm:size-9" />
-            <span className="min-w-0 leading-tight">
-              {typeLabel}
-              {customType ? (
-                <span className="mt-1 block text-base font-normal text-muted-foreground">{customType}</span>
-              ) : null}
-            </span>
+            <span className="min-w-0 leading-tight">{pageTitle}</span>
           </h1>
           <Link
             href={`/admin/events/${id}/edit`}

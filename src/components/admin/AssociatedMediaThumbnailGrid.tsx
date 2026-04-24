@@ -10,6 +10,7 @@ import {
   mediaImageUnoptimized,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
+import { displayTagName } from "@/lib/admin/display-tag-name";
 import { cn } from "@/lib/utils";
 
 export type AssociatedMediaGridItem = {
@@ -35,8 +36,9 @@ function parseAppTagPills(media: Record<string, unknown>): AppTagPill[] {
   for (const row of raw) {
     const r = row as Record<string, unknown>;
     const tag = r.tag as Record<string, unknown> | undefined;
-    const name = String(tag?.name ?? "").trim();
-    if (!name) continue;
+    const raw = String(tag?.name ?? "").trim();
+    if (!raw) continue;
+    const name = displayTagName(raw);
     const linkId = String(r.id ?? "");
     const tagId = String(tag?.id ?? "");
     const key = linkId || tagId || name;

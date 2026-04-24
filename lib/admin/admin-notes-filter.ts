@@ -54,9 +54,12 @@ export function adminNotesFilterConditions(
 
   const qTrim = q?.trim() || "";
   if (qTrim) {
-    const pat = `%${escapeLike(qTrim)}%`;
+    const xrefPat = `%${escapeLike(qTrim)}%`;
     parts.push(
-      Prisma.sql`(n.content ILIKE ${pat} ESCAPE '\\' OR n.xref ILIKE ${pat} ESCAPE '\\')`
+      Prisma.sql`(
+        to_tsvector('english', n.content) @@ websearch_to_tsquery('english', ${qTrim})
+        OR (n.xref IS NOT NULL AND n.xref ILIKE ${xrefPat} ESCAPE '\\')
+      )`,
     );
   }
 

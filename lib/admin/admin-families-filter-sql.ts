@@ -4,8 +4,10 @@ import { givenNameExistsSql, lastNameRegexSql } from "@/lib/admin/admin-linked-n
 import { joinAndConditions } from "@/lib/admin/admin-sql-helpers";
 
 /**
- * Partner 1 / Partner 2 in the admin UI map to GEDCOM columns: P1 → husband (HUSB), P2 → wife (WIFE).
- * Name filters apply to those columns only (not swapped).
+ * Partner 1 / Partner 2 are search roles only. Storage still uses `husband_id` / `wife_id` on
+ * `gedcom_families_v2` (see Prisma `GedcomFamily`). When both partners have name criteria, a row
+ * matches if those two individuals appear as the two parents in either order. When only one
+ * partner has criteria, match if that person is either linked parent.
  */
 export interface AdminFamiliesStructuredFilters {
   partnerCount: "one" | "two" | null;
@@ -133,28 +135,21 @@ export function adminFamiliesFilterConditions(
 
   const hasP1 = !!(structured.p1Given || structured.p1Last);
   const hasP2 = !!(structured.p2Given || structured.p2Last);
-  const onePartnerFamily = structured.partnerCount === "one";
 
   if (hasP1 && hasP2) {
     const p1OnH = personMatchesSlot("h", structured.p1Given, structured.p1Last);
+    const p1OnW = personMatchesSlot("w", structured.p1Given, structured.p1Last);
+    const p2OnH = personMatchesSlot("h", structured.p2Given, structured.p2Last);
     const p2OnW = personMatchesSlot("w", structured.p2Given, structured.p2Last);
-    parts.push(Prisma.sql`(${p1OnH} AND ${p2OnW})`);
+    parts.push(Prisma.sql`((${p1OnH} AND ${p2OnW}) OR (${p1OnW} AND ${p2OnH}))`);
   } else if (hasP1) {
     const p1OnH = personMatchesSlot("h", structured.p1Given, structured.p1Last);
-    if (onePartnerFamily) {
-      const p1OnW = personMatchesSlot("w", structured.p1Given, structured.p1Last);
-      parts.push(Prisma.sql`(${p1OnH} OR ${p1OnW})`);
-    } else {
-      parts.push(p1OnH);
-    }
+    const p1OnW = personMatchesSlot("w", structured.p1Given, structured.p1Last);
+    parts.push(Prisma.sql`(${p1OnH} OR ${p1OnW})`);
   } else if (hasP2) {
+    const p2OnH = personMatchesSlot("h", structured.p2Given, structured.p2Last);
     const p2OnW = personMatchesSlot("w", structured.p2Given, structured.p2Last);
-    if (onePartnerFamily) {
-      const p2OnH = personMatchesSlot("h", structured.p2Given, structured.p2Last);
-      parts.push(Prisma.sql`(${p2OnH} OR ${p2OnW})`);
-    } else {
-      parts.push(p2OnW);
-    }
+    parts.push(Prisma.sql`(${p2OnH} OR ${p2OnW})`);
   }
 
   const qTrim = q?.trim().toLowerCase() || "";

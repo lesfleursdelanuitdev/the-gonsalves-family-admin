@@ -47,6 +47,8 @@ const MEDIA_LIST_INCLUDE = {
       event: { select: { id: true, eventType: true, customType: true } },
     },
   },
+  appTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
+  albumLinks: { include: { album: { select: { id: true, name: true } } } },
 } as const;
 
 async function listMediaFiltered(

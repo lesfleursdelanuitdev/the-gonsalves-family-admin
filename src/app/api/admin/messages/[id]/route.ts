@@ -35,7 +35,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
   return NextResponse.json({ message });
 });
 
-export const PATCH = withAdminAuth(async (request, _user, ctx) => {
+export const PATCH = withAdminAuth(async (request, user, ctx) => {
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
@@ -53,6 +53,18 @@ export const PATCH = withAdminAuth(async (request, _user, ctx) => {
 
   if (typeof isRead !== "boolean") {
     return NextResponse.json({ error: "isRead (boolean) is required" }, { status: 400 });
+  }
+
+  const existing = await prisma.message.findUnique({
+    where: { id },
+    select: { recipientId: true },
+  });
+  if (!existing?.recipientId) {
+    return NextResponse.json({ error: "Message cannot be marked read" }, { status: 400 });
+  }
+  // Read receipts: only the recipient may toggle read state (not the sender).
+  if (existing.recipientId !== user.id) {
+    return NextResponse.json({ error: "Only the recipient can update read status" }, { status: 403 });
   }
 
   const message = await prisma.message.update({

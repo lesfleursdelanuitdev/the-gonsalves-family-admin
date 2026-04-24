@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { History, Undo2, ChevronRight, User, Clock } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
 import {
   Card,
   CardContent,
@@ -160,11 +159,13 @@ export default function AdminChangelogPage() {
         </p>
       </div>
 
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.batches.length} isLoading={isLoading} />
-      )}
-
-      <DataViewer config={config} data={rows} isLoading={isLoading} viewModeKey="admin-changelog-view" />
+      <DataViewer
+        config={config}
+        data={rows}
+        isLoading={isLoading}
+        viewModeKey="admin-changelog-view"
+        totalCount={data?.total}
+      />
 
       {data && data.total > limit && (
         <div className="flex items-center justify-center gap-4 pt-2">

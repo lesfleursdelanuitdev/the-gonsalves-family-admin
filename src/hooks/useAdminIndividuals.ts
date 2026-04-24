@@ -54,7 +54,7 @@ export interface IndividualUserLinkRow {
   };
 }
 
-function buildIndividualsParams(opts: UseAdminIndividualsOpts): URLSearchParams {
+export function buildIndividualsParams(opts: UseAdminIndividualsOpts): URLSearchParams {
   const params = new URLSearchParams();
   if (opts.q) params.set("q", opts.q);
   if (opts.limit != null) params.set("limit", String(opts.limit));

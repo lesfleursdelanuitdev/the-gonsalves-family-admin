@@ -44,7 +44,13 @@ export interface DataViewerConfig<TRecord> {
   /** TanStack Table column defs (excluding auto-generated actions column) */
   columns: ColumnDef<TRecord, unknown>[];
 
-  /** Column id used for global filter (e.g. "displayName") */
+  /**
+   * Column id used for global filter.
+   * NOTE: Search now lives inside FilterPanel per page.
+   * This prop is kept for backward compatibility but the toolbar
+   * no longer renders a search input — move search to your FilterPanel.
+   * @deprecated Move search to your page's FilterPanel
+   */
   globalFilterColumnId?: string;
 
   defaultSorting?: SortingState;
@@ -77,4 +83,9 @@ export interface DataViewerProps<TRecord> {
    * reset table/card pagination even if the toolbar search string is unchanged.
    */
   paginationResetKey?: string;
+  /**
+   * Total unfiltered count from the server (used for "X of Y" result display).
+   * If not provided, falls back to data.length.
+   */
+  totalCount?: number;
 }

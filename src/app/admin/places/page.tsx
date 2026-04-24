@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { Input } from "@/components/ui/input";
@@ -182,16 +181,13 @@ export default function AdminPlacesPage() {
         </div>
       </FilterPanel>
 
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.places.length} isLoading={isLoading} />
-      )}
-
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-places-view"
         paginationResetKey={appliedQ}
+        totalCount={data?.total}
       />
     </div>
   );

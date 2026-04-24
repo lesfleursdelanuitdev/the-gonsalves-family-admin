@@ -12,10 +12,15 @@ export const ADMIN_MESSAGES_UNREAD_KEY = ["admin", "messages", "unread-count"] a
 export interface AdminMessageListItem {
   id: string;
   subject: string | null;
+  content: string;
   createdAt: string | Date;
   isRead: boolean;
-  sender: { name: string | null; username: string };
-  recipient: { name: string | null; username: string };
+  /** When the recipient marked the message as read (ISO string from API). */
+  readAt?: string | null;
+  senderId: string;
+  recipientId: string | null;
+  sender: { id: string; name: string | null; username: string };
+  recipient: { id: string; name: string | null; username: string } | null;
 }
 
 export interface AdminMessagesListResponse {
@@ -90,10 +95,26 @@ export function useSendMessage() {
 export function useMarkMessageRead() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, isRead }: { id: string; isRead: boolean }) =>
-      patchJson(`${BASE}/${id}`, { isRead }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: KEY });
+    mutationFn: async ({ id, isRead }: { id: string; isRead: boolean }) => {
+      const res = await patchJson<{ message: AdminMessageListItem }>(`${BASE}/${id}`, { isRead });
+      return res.message;
+    },
+    onSuccess: (updated) => {
+      qc.setQueriesData<AdminMessagesListResponse>({ queryKey: KEY }, (old) => {
+        if (!old?.messages?.length) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m) =>
+            m.id === updated.id
+              ? {
+                  ...m,
+                  isRead: updated.isRead,
+                  readAt: updated.readAt ?? null,
+                }
+              : m,
+          ),
+        };
+      });
       void qc.invalidateQueries({ queryKey: ADMIN_MESSAGES_UNREAD_KEY });
     },
   });

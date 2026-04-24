@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarRange } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { Input } from "@/components/ui/input";
@@ -181,16 +180,13 @@ export default function AdminDatesPage() {
         </div>
       </FilterPanel>
 
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.dates.length} isLoading={isLoading} />
-      )}
-
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-dates-view"
         paginationResetKey={appliedQ}
+        totalCount={data?.total}
       />
     </div>
   );

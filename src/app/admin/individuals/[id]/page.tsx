@@ -140,6 +140,7 @@ function PaginatedFamilyChildrenList({
           <DataViewerPagination
             pagination={{ pageIndex: pagination.pageIndex, pageSize }}
             pageCount={pageCount}
+            filteredTotal={rows.length}
             onPaginationChange={onPaginationChange}
           />
         </div>
@@ -559,6 +560,7 @@ export default function AdminIndividualViewPage() {
                   <DataViewerPagination
                     pagination={eventPagination}
                     pageCount={eventPageCount}
+                    filteredTotal={events.length}
                     onPaginationChange={onEventPaginationChange}
                   />
                 </div>

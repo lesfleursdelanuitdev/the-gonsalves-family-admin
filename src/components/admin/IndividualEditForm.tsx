@@ -44,10 +44,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { DataViewerPagination } from "@/components/data-viewer/DataViewerPagination";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
+import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
+import { MediaPicker } from "@/components/admin/media-picker";
+import { GedcomDatePlaceFields } from "@/components/admin/GedcomDatePlaceFields";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { IndividualAdminEventContext } from "@/components/admin/AdminEventContextLinks";
 import { ApiError, fetchJson, postJson } from "@/lib/infra/api";
-import { GEDCOM_DATE_SPECIFIER_OPTIONS, gedcomDateSpecifierNeedsRange } from "@/lib/gedcom/gedcom-date-specifiers";
 import {
   buildEditorSubmitBody,
   emptyIndividualEditorFormSeed,
@@ -349,8 +351,6 @@ export function KeyFactSection({
 }) {
   const panelId = useId();
   const [open, setOpen] = useState(defaultOpen);
-  const showRange = gedcomDateSpecifierNeedsRange(fact.dateSpecifier);
-  const set = (patch: Partial<KeyFactFormState>) => onChange({ ...fact, ...patch });
 
   return (
     <section className="rounded-lg border border-base-content/12 bg-base-200/20 p-4">
@@ -370,87 +370,7 @@ export function KeyFactSection({
       </button>
       {open ? (
         <div id={panelId} className="mt-3 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
-          <Label>Date type</Label>
-          <select
-            className={selectClassName}
-            value={fact.dateSpecifier}
-            onChange={(e) => set({ dateSpecifier: e.target.value })}
-          >
-            {GEDCOM_DATE_SPECIFIER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label>Original phrase (optional)</Label>
-          <Input value={fact.dateOriginal} onChange={(e) => set({ dateOriginal: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Year</Label>
-          <Input value={fact.y} onChange={(e) => set({ y: e.target.value })} inputMode="numeric" />
-        </div>
-        <div className="space-y-2">
-          <Label>Month</Label>
-          <Input value={fact.m} onChange={(e) => set({ m: e.target.value })} inputMode="numeric" />
-        </div>
-        <div className="space-y-2">
-          <Label>Day</Label>
-          <Input value={fact.d} onChange={(e) => set({ d: e.target.value })} inputMode="numeric" />
-        </div>
-        {showRange ? (
-          <>
-            <div className="space-y-2">
-              <Label>End year</Label>
-              <Input value={fact.ey} onChange={(e) => set({ ey: e.target.value })} inputMode="numeric" />
-            </div>
-            <div className="space-y-2">
-              <Label>End month</Label>
-              <Input value={fact.em} onChange={(e) => set({ em: e.target.value })} inputMode="numeric" />
-            </div>
-            <div className="space-y-2">
-              <Label>End day</Label>
-              <Input value={fact.ed} onChange={(e) => set({ ed: e.target.value })} inputMode="numeric" />
-            </div>
-          </>
-        ) : null}
-          </div>
-          <div className="border-t border-base-content/10 pt-3">
-        <h4 className="mb-2 text-xs font-medium text-muted-foreground">Place</h4>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>City / locality</Label>
-            <Input value={fact.placeName} onChange={(e) => set({ placeName: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>County</Label>
-            <Input value={fact.placeCounty} onChange={(e) => set({ placeCounty: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>State / province</Label>
-            <Input value={fact.placeState} onChange={(e) => set({ placeState: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>Country</Label>
-            <Input value={fact.placeCountry} onChange={(e) => set({ placeCountry: e.target.value })} />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Full place text (optional)</Label>
-            <Input value={fact.placeOriginal} onChange={(e) => set({ placeOriginal: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>Latitude</Label>
-            <Input value={fact.placeLat} onChange={(e) => set({ placeLat: e.target.value })} />
-          </div>
-          <div className="space-y-2">
-            <Label>Longitude</Label>
-            <Input value={fact.placeLng} onChange={(e) => set({ placeLng: e.target.value })} />
-          </div>
-        </div>
-          </div>
+          <GedcomDatePlaceFields value={fact} onChange={onChange} showPlaceSectionHeading />
         </div>
       ) : null}
     </section>
@@ -926,6 +846,15 @@ export function IndividualEditForm(props: Props) {
     if (mode !== "edit" || !initialIndividual) return [];
     return (initialIndividual.individualMedia as { media: Record<string, unknown> }[]) ?? [];
   }, [mode, initialIndividual]);
+
+  const linkedMediaIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of individualMedia) {
+      const id = String(row.media?.id ?? "").trim();
+      if (id) ids.add(id);
+    }
+    return ids;
+  }, [individualMedia]);
 
   const individualSources = useMemo(() => {
     if (mode !== "edit" || !initialIndividual) return [];
@@ -2030,6 +1959,7 @@ export function IndividualEditForm(props: Props) {
                   <DataViewerPagination
                     pagination={eventPagination}
                     pageCount={eventPageCount}
+                    filteredTotal={timelineEvents.length}
                     onPaginationChange={onEventPaginationChange}
                   />
                 </div>
@@ -3204,9 +3134,31 @@ export function IndividualEditForm(props: Props) {
         className="space-y-8 pt-2"
       >
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Media</CardTitle>
-            <p className="text-sm text-muted-foreground">OBJE records linked to this person.</p>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg">Media</CardTitle>
+              <p className="text-sm text-muted-foreground">OBJE records linked to this person.</p>
+            </div>
+            {mode === "edit" && individualId ? (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <MediaPicker
+                  targetType="individual"
+                  targetId={individualId}
+                  mode="multiple"
+                  triggerLabel="Choose from archive"
+                  excludeMediaIds={linkedMediaIds}
+                  onAttach={() => {
+                    router.refresh();
+                  }}
+                />
+                <Link
+                  href={`/admin/media/new?individualId=${encodeURIComponent(individualId)}&individualLabel=${encodeURIComponent(individualNewEventLabel)}&returnTo=${encodeURIComponent(`/admin/individuals/${individualId}/edit`)}`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+                >
+                  Add media
+                </Link>
+              </div>
+            ) : null}
           </CardHeader>
           <CardContent className="space-y-3">
             {mode === "create" ? (
@@ -3216,24 +3168,12 @@ export function IndividualEditForm(props: Props) {
             ) : individualMedia.length === 0 ? (
               <p className="text-sm text-muted-foreground">No media linked to this individual.</p>
             ) : (
-              individualMedia.map((im) => {
-                const m = im.media;
-                const mid = m.id as string;
-                return (
-                  <div
-                    key={mid}
-                    className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15"
-                  >
-                    <p className="font-medium">
-                      <Link href={`/admin/media/${mid}`} className="link link-primary">
-                        {String(m.title ?? m.fileRef ?? "Media")}
-                      </Link>
-                    </p>
-                    <p className="font-mono text-xs text-muted-foreground">{String(m.xref ?? "")}</p>
-                    <p className="text-xs text-muted-foreground">Media id: {mid}</p>
-                  </div>
-                );
-              })
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
+                </p>
+                <AssociatedMediaThumbnailGrid items={individualMedia} />
+              </>
             )}
           </CardContent>
         </Card>

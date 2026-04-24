@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
-
-function parseLimit(searchParams: URLSearchParams): number {
-  const n = parseInt(searchParams.get("limit") ?? "30", 10);
-  if (Number.isNaN(n)) return 30;
-  return Math.min(100, Math.max(1, n));
-}
+import { parseListParams } from "@/lib/admin/admin-list-params";
 
 /** Albums owned by the current user (for linking Gedcom media). */
 export const GET = withAdminAuth(async (request, user) => {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
-  const limit = parseLimit(request.nextUrl.searchParams);
+  const { limit, offset } = parseListParams(request.nextUrl.searchParams);
 
-  const albums = await prisma.album.findMany({
-    where: {
-      userId: user.id,
-      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-    },
-    select: { id: true, name: true, description: true },
-    orderBy: { sortOrder: "asc" },
-    take: limit,
+  const baseWhere = {
+    userId: user.id,
+    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+  };
+
+  const [albums, total] = await Promise.all([
+    prisma.album.findMany({
+      where: baseWhere,
+      select: { id: true, name: true, description: true },
+      orderBy: { sortOrder: "asc" },
+      take: limit,
+      skip: offset,
+    }),
+    prisma.album.count({ where: baseWhere }),
+  ]);
+
+  return NextResponse.json({
+    albums,
+    total,
+    hasMore: offset + albums.length < total,
   });
-
-  return NextResponse.json({ albums });
 });
 
 export const POST = withAdminAuth(async (request, user) => {

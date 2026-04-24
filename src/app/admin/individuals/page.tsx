@@ -11,7 +11,6 @@ import {
 } from "@tabler/icons-react";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
@@ -382,16 +381,13 @@ function AdminIndividualsPageInner() {
         </div>
       </FilterPanel>
 
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.individuals.length} isLoading={isLoading} />
-      )}
-
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-individuals-view"
         paginationResetKey={JSON.stringify(queryOpts)}
+        totalCount={data?.total}
       />
     </div>
   );

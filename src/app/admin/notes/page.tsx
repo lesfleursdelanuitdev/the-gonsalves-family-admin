@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FileText, Link2, StickyNote } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { ResultCount } from "@/components/data-viewer/ResultCount";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
@@ -289,11 +288,13 @@ export default function AdminNotesPage() {
         </div>
       </FilterPanel>
 
-      {data && (
-        <ResultCount total={data.total} hasMore={data.hasMore} shown={data.notes.length} isLoading={isLoading} />
-      )}
-
-      <DataViewer config={config} data={rows} isLoading={isLoading} viewModeKey="admin-notes-view" />
+      <DataViewer
+        config={config}
+        data={rows}
+        isLoading={isLoading}
+        viewModeKey="admin-notes-view"
+        totalCount={data?.total}
+      />
     </div>
   );
 }
