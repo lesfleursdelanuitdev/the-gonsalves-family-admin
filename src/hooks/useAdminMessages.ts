@@ -19,6 +19,8 @@ export interface AdminMessageListItem {
   readAt?: string | null;
   senderId: string;
   recipientId: string | null;
+  /** Present when this row was part of a multi-recipient send (same id on each fan-out row). */
+  conversationId?: string | null;
   sender: { id: string; name: string | null; username: string };
   recipient: { id: string; name: string | null; username: string } | null;
 }
@@ -38,6 +40,7 @@ export interface AdminMessageDetail {
   readAt: string | null;
   senderId: string;
   recipientId: string | null;
+  conversationId?: string | null;
   sender: { id: string; username: string; name: string | null };
   recipient: { id: string; username: string; name: string | null } | null;
 }
@@ -83,8 +86,13 @@ export function useAdminUnreadMessageCount() {
 export function useSendMessage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { recipientId: string; subject?: string; content: string }) =>
-      postJson(`${BASE}`, body),
+    mutationFn: (body: {
+      recipientIds: string[];
+      subject?: string;
+      content: string;
+      /** Reuse when replying in an existing multi-recipient admin thread. */
+      conversationId?: string;
+    }) => postJson(`${BASE}`, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEY });
       void qc.invalidateQueries({ queryKey: ADMIN_MESSAGES_UNREAD_KEY });

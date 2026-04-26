@@ -4,6 +4,7 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
@@ -20,10 +21,8 @@ import {
   useAdminFamilies,
   useDeleteFamily,
   type AdminFamiliesListResponse,
-  type UseAdminFamiliesOpts,
 } from "@/hooks/useAdminFamilies";
-import { useFilterState } from "@/hooks/useFilterState";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { useAdminFamiliesPageFilters } from "@/hooks/useAdminFamiliesPageFilters";
 import { initialsFromPersonLabel, stripSlashesFromName } from "@/lib/gedcom/display-name";
 import {
   FAMILY_LIST_FILTER_PARTNER_COLUMNS_HELP,
@@ -45,28 +44,6 @@ interface FamilyRow {
 
 const familyPartnerLinkClass =
   "font-semibold text-primary underline-offset-2 hover:underline";
-
-interface FilterState {
-  partnerCount: string;
-  p1Given: string;
-  p1Last: string;
-  p2Given: string;
-  p2Last: string;
-  childrenOp: string;
-  childrenCount: string;
-  hasMarriageDate: string;
-}
-
-const FILTER_DEFAULTS: FilterState = {
-  partnerCount: "",
-  p1Given: "",
-  p1Last: "",
-  p2Given: "",
-  p2Last: "",
-  childrenOp: "",
-  childrenCount: "",
-  hasMarriageDate: "",
-};
 
 function mapApiToRows(api: AdminFamiliesListResponse): FamilyRow[] {
   return (api?.families ?? []).map((f) => ({
@@ -171,38 +148,11 @@ function buildFamiliesConfig(
   };
 }
 
-function filterStateToQueryOpts(applied: FilterState): UseAdminFamiliesOpts {
-  const opts: UseAdminFamiliesOpts = {
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  };
-  if (applied.partnerCount === "one" || applied.partnerCount === "two") {
-    opts.partnerCount = applied.partnerCount;
-  }
-  const p1g = applied.p1Given.trim();
-  const p1l = applied.p1Last.trim();
-  const p2g = applied.p2Given.trim();
-  const p2l = applied.p2Last.trim();
-  if (p1g) opts.p1Given = p1g;
-  if (p1l) opts.p1Last = p1l;
-  if (p2g) opts.p2Given = p2g;
-  if (p2l) opts.p2Last = p2l;
-  if (applied.childrenOp === "gt" || applied.childrenOp === "lt" || applied.childrenOp === "eq") {
-    opts.childrenOp = applied.childrenOp;
-    const cc = applied.childrenCount.trim();
-    if (cc) opts.childrenCount = cc;
-  }
-  if (applied.hasMarriageDate === "true" || applied.hasMarriageDate === "false") {
-    opts.hasMarriageDate = applied.hasMarriageDate;
-  }
-  return opts;
-}
-
 export default function AdminFamiliesPage() {
   const router = useRouter();
   const deleteFamily = useDeleteFamily();
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
-    useFilterState(FILTER_DEFAULTS, filterStateToQueryOpts);
+    useAdminFamiliesPageFilters();
 
   const { data, isLoading } = useAdminFamilies(queryOpts);
 
@@ -234,16 +184,12 @@ export default function AdminFamiliesPage() {
   const config = useMemo(() => buildFamiliesConfig(router, handleDelete), [router, handleDelete]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Families</h1>
-        <p className="text-muted-foreground">
-          Manage family units, partner and child links, events, and notes.
-        </p>
-        <p className="text-sm text-muted-foreground">{FAMILY_PARTNER_SLOT_SUBTITLE}</p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters} spacing="space-y-6">
+    <AdminListPageShell
+      title="Families"
+      description="Manage family units, partner and child links, events, and notes."
+      headerExtra={<p className="text-sm text-muted-foreground">{FAMILY_PARTNER_SLOT_SUBTITLE}</p>}
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters} spacing="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="filter-partner-count">Partners linked</Label>
           <select
@@ -352,8 +298,9 @@ export default function AdminFamiliesPage() {
             </select>
           </div>
         </div>
-      </FilterPanel>
-
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
@@ -361,6 +308,6 @@ export default function AdminFamiliesPage() {
         viewModeKey="admin-families-view"
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

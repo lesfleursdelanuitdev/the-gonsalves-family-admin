@@ -28,6 +28,7 @@ On the server, in the app root, create or update **`.env`** / **`.env.production
 | Session / auth secrets | Whatever `requireAuth` and login use in this app |
 | `NEXT_PUBLIC_*` | Any public config the client needs |
 | `ADMIN_MEDIA_FILES_ROOT` | **Production:** absolute path under **`/mnt/`** to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Default in code if unset: `/mnt/storage/uploads`. Example: `/mnt/storage/uploads` → files in `…/gedcom-admin/`. Must be **writable** by the user running PM2 (see §9). |
+| `LIB_API_URL` | Base URL for **ligneous-gedcom-lib-api** (server-side `fetch` from Next). Required for **Admin → Export** (`/api/admin/export`). If unset, the app defaults to `http://localhost:8092` (fine for local dev). **Production on this host:** run the lib API on loopback **8092** and set `LIB_API_URL=http://127.0.0.1:8092` (also the default in `deployment/ecosystem.config.cjs`). **Remote API:** set to your HTTPS origin, e.g. `https://gedcom-api.example.com`. Install/always-on: [`../../ligneous-gedcom-lib-api/deploy/README.md`](../../ligneous-gedcom-lib-api/deploy/README.md). |
 
 Run `npm run build` only after required env vars are present; some Next builds read them.
 
@@ -96,6 +97,14 @@ pm2 startup    # run the command it prints once, so processes survive reboot
 
 Process name: **`admin-gonsalvesfamily`**.
 
+If you later change **`deployment/ecosystem.config.cjs`** (for example `LIB_API_URL`), reload from disk:
+
+```bash
+cd /apps/gonsalves-genealogy/the-gonsalves-family-admin
+pm2 startOrReload deployment/ecosystem.config.cjs
+pm2 save
+```
+
 ---
 
 ## 7. Ongoing deploys
@@ -115,6 +124,9 @@ This runs `scripts/deploy.sh`: production **build**, checks **`.next/static`**, 
 
 - `pm2 status` — `admin-gonsalvesfamily` online  
 - `curl -sI https://admin.gonsalvesfamily.com` — `200` or redirect to login  
+- **GEDCOM lib API** (export and any server route that calls it):  
+  `curl -fsS "${LIB_API_URL:-http://127.0.0.1:8092}/health"` → `{"status":"ok"}`  
+  If this fails, start **ligneous-gedcom-lib-api** on the same host (Docker or systemd) or fix `LIB_API_URL` / firewall.
 - Browser: hard refresh after deploy if assets look stale (`Cache-Control` on HTML is handled in `src/proxy.ts`)
 
 ---

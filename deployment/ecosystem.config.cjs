@@ -28,6 +28,8 @@ module.exports = {
       max_memory_restart: "800M",
       env: {
         NODE_ENV: "production",
+        // ligneous-gedcom-lib-api (parse / export). Override via shell when starting PM2 if needed.
+        LIB_API_URL: process.env.LIB_API_URL ?? "http://127.0.0.1:8092",
       },
     },
   ],

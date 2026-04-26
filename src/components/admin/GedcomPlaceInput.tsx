@@ -10,7 +10,7 @@ import {
   formatPlaceSuggestionLabel,
 } from "@/lib/forms/admin-place-suggestions";
 import { cn } from "@/lib/utils";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { ADMIN_MODAL_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAdminPlaceSuggestions } from "@/hooks/useAdminPlaceSuggestions";
 
 export type GedcomPlaceInputProps = {
@@ -47,7 +47,7 @@ export function GedcomPlaceInput({
   const suggestId = `${p}place-suggestions`;
 
   const searchText = useMemo(() => buildPlaceSuggestionSearchText(value), [value]);
-  const debouncedSearch = useDebouncedValue(searchText, 280);
+  const debouncedSearch = useDebouncedValue(searchText, ADMIN_MODAL_DEBOUNCE_MS);
   const suggestionsQuery = useAdminPlaceSuggestions(debouncedSearch, {
     enabled: placeSuggestions,
     minLength: 2,

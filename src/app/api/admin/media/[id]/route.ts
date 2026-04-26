@@ -181,12 +181,7 @@ export const DELETE = withAdminAuth(async (_req, user, ctx) => {
   const batchId = newBatchId();
   await prisma.$transaction(async (tx) => {
     const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
-    await tx.gedcomIndividualMedia.deleteMany({ where: { mediaId: id } });
-    await tx.gedcomFamilyMedia.deleteMany({ where: { mediaId: id } });
-    await tx.gedcomSourceMedia.deleteMany({ where: { mediaId: id } });
-    await tx.gedcomEventMedia.deleteMany({ where: { mediaId: id } });
-    await tx.gedcomMediaPlace.deleteMany({ where: { mediaId: id } });
-    await tx.gedcomMediaDate.deleteMany({ where: { mediaId: id } });
+    // Related junction rows: FK onDelete Cascade from GedcomMedia in schema (no deleteMany here).
     await tx.gedcomMedia.delete({ where: { id } });
     await logDelete(changeCtx, "media", id, existing.xref, { ...existing });
     await setBatchSummary(changeCtx, `Deleted media ${existing.xref ?? id}`);

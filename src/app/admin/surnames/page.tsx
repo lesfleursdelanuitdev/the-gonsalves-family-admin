@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaseUpper } from "lucide-react";
@@ -20,7 +20,8 @@ import {
   type AdminSurnameListItem,
   type AdminSurnamesListResponse,
 } from "@/hooks/useAdminGedcomCatalogs";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
+import { useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import {
   adminCatalogToIndividualsLinkClass,
   adminIndividualsHrefForSurname,
@@ -112,57 +113,43 @@ function buildSurnamesConfig(router: ReturnType<typeof useRouter>): DataViewerCo
 
 export default function AdminSurnamesPage() {
   const router = useRouter();
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminSurnames({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminSurnames(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildSurnamesConfig(router), [router]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Surnames</h1>
-        <p className="text-muted-foreground">
-          Deduplicated surname tokens for this tree (read-only). Click a surname to open Individuals with the last-name
-          prefix filter applied (same GEDCOM slash-aware rules as the filter panel). Change names on individuals or
-          families to alter catalog entries.
-        </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters}>
-        <div className="space-y-2">
-          <Label htmlFor="surnames-filter-q">Search surnames</Label>
-          <Input
-            id="surnames-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Substring in catalog surname token"
-          />
-          <p className="text-xs text-muted-foreground">
-            Click Apply to narrow the list before opening links to Individuals.
-          </p>
-        </div>
-      </FilterPanel>
-
+    <AdminListPageShell
+      title="Surnames"
+      description="Deduplicated surname tokens for this tree (read-only). Click a surname to open Individuals with the last-name prefix filter applied (same GEDCOM slash-aware rules as the filter panel). Change names on individuals or families to alter catalog entries."
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters}>
+          <div className="space-y-2">
+            <Label htmlFor="surnames-filter-q">Search surnames</Label>
+            <Input
+              id="surnames-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Substring in catalog surname token"
+            />
+            <p className="text-xs text-muted-foreground">
+              Click Apply to narrow the list before opening links to Individuals.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-surnames-view"
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

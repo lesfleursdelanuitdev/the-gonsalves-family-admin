@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaseSensitive } from "lucide-react";
@@ -20,7 +20,8 @@ import {
   type AdminGivenNameListItem,
   type AdminGivenNamesListResponse,
 } from "@/hooks/useAdminGedcomCatalogs";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
+import { useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import {
   adminCatalogToIndividualsLinkClass,
   adminIndividualsHrefForGivenName,
@@ -100,57 +101,43 @@ function buildGivenNamesConfig(router: ReturnType<typeof useRouter>): DataViewer
 
 export default function AdminGivenNamesPage() {
   const router = useRouter();
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminGivenNames({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminGivenNames(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildGivenNamesConfig(router), [router]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Given names</h1>
-        <p className="text-muted-foreground">
-          Deduplicated given-name tokens for this tree (read-only). Click a name to open Individuals already filtered to
-          people whose structured given names contain that token. Change names on individual records to alter catalog
-          entries.
-        </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters}>
-        <div className="space-y-2">
-          <Label htmlFor="given-names-filter-q">Search given names</Label>
-          <Input
-            id="given-names-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Substring in catalog token"
-          />
-          <p className="text-xs text-muted-foreground">
-            Click Apply to narrow the list before opening links to Individuals.
-          </p>
-        </div>
-      </FilterPanel>
-
+    <AdminListPageShell
+      title="Given names"
+      description="Deduplicated given-name tokens for this tree (read-only). Click a name to open Individuals already filtered to people whose structured given names contain that token. Change names on individual records to alter catalog entries."
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters}>
+          <div className="space-y-2">
+            <Label htmlFor="given-names-filter-q">Search given names</Label>
+            <Input
+              id="given-names-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Substring in catalog token"
+            />
+            <p className="text-xs text-muted-foreground">
+              Click Apply to narrow the list before opening links to Individuals.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-given-names-view"
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

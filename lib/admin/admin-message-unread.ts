@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/database/prisma";
 import {
   getAdminTreeCommunityUserIds,
+  messageParticipantWhere,
   treeScopedMessageWhere,
 } from "@/lib/admin/admin-message-tree-scope";
 
@@ -11,9 +12,10 @@ export async function countUnreadTreeInboxForUser(
 ): Promise<number> {
   const communityIds = await getAdminTreeCommunityUserIds(treeId);
   const scope = treeScopedMessageWhere(treeId, communityIds);
+  const participant = messageParticipantWhere(userId);
   return prisma.message.count({
     where: {
-      AND: [scope, { recipientId: userId }, { isRead: false }],
+      AND: [scope, participant, { recipientId: userId }, { isRead: false }],
     },
   });
 }

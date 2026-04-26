@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import { BookOpen } from "lucide-react";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAdminSources, type AdminSourcesListResponse } from "@/hooks/useAdminSources";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { adminListQActiveFilterCount, useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 
 interface SourceRow {
@@ -88,59 +89,47 @@ const config: DataViewerConfig<SourceRow> = {
 };
 
 export default function AdminSourcesPage() {
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminSources({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminSources(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sources</h1>
-        <p className="text-muted-foreground">
-          Citations and source records linked to individuals, families, or events.
-        </p>
-      </div>
-
-      <FilterPanel
-        onApply={applyFilters}
-        onClear={clearFilters}
-        activeFilterCount={appliedQ.trim() ? 1 : 0}
-      >
-        <div className="space-y-2">
-          <Label htmlFor="sources-filter-q">Search sources</Label>
-          <Input
-            id="sources-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Title, author, XREF, or linked text"
-          />
-          <p className="text-xs text-muted-foreground">
-            Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
-          </p>
-        </div>
-      </FilterPanel>
-
+    <AdminListPageShell
+      title="Sources"
+      description="Citations and source records linked to individuals, families, or events."
+      filters={
+        <FilterPanel
+          onApply={applyFilters}
+          onClear={clearFilters}
+          activeFilterCount={adminListQActiveFilterCount(applied)}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="sources-filter-q">Search sources</Label>
+            <Input
+              id="sources-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Title, author, XREF, or linked text"
+            />
+            <p className="text-xs text-muted-foreground">
+              Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-sources-view"
         skipClientGlobalFilter
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

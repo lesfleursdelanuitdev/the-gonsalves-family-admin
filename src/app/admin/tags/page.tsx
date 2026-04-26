@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Tag as TagIcon } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminTags, type AdminTagsListResponse } from "@/hooks/useAdminTags";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { adminListQActiveFilterCount, useAdminListQFilters } from "@/hooks/useAdminListQFilters";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { displayTagName } from "@/lib/admin/display-tag-name";
 import { cn } from "@/lib/utils";
 
@@ -94,47 +95,35 @@ function buildTagsConfig(router: ReturnType<typeof useRouter>): DataViewerConfig
 
 export default function AdminTagsPage() {
   const router = useRouter();
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminTags({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminTags(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildTagsConfig(router), [router]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Tags</h1>
-        <p className="text-muted-foreground">
-          Labels you can attach to tree media. Global tags are shared; your own tags are private to your account.
-        </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters} activeFilterCount={appliedQ.trim() ? 1 : 0}>
-        <div className="space-y-2">
-          <Label htmlFor="tags-filter-q">Search tags</Label>
-          <Input
-            id="tags-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Name contains…"
-          />
-          <p className="text-xs text-muted-foreground">
-            Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
-          </p>
-        </div>
-      </FilterPanel>
-
+    <AdminListPageShell
+      title="Tags"
+      description="Labels you can attach to tree media. Global tags are shared; your own tags are private to your account."
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters} activeFilterCount={adminListQActiveFilterCount(applied)}>
+          <div className="space-y-2">
+            <Label htmlFor="tags-filter-q">Search tags</Label>
+            <Input
+              id="tags-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Name contains…"
+            />
+            <p className="text-xs text-muted-foreground">
+              Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
@@ -142,9 +131,9 @@ export default function AdminTagsPage() {
         defaultViewMode="table"
         viewModeKey="admin-tags-view"
         skipClientGlobalFilter
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

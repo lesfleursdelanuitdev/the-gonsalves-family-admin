@@ -35,6 +35,10 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   family_media: "gedcomFamilyMedia",
   source_media: "gedcomSourceMedia",
   event_media: "gedcomEventMedia",
+  media_place: "gedcomMediaPlace",
+  media_date: "gedcomMediaDate",
+  media_app_tag: "gedcomMediaAppTag",
+  album_gedcom_media: "albumGedcomMedia",
   source_repository: "gedcomSourceRepository",
   family_child: "gedcomFamilyChild",
   parent_child: "gedcomParentChild",
@@ -141,7 +145,7 @@ async function undoSingleEntry(tx: Tx, entry: ChangeLogRow): Promise<void> {
 }
 
 async function recomputeDenormForBatch(ctx: ChangeCtx, entries: ChangeLogRow[]): Promise<void> {
-  const { tx, fileUuid } = ctx;
+  const { tx } = ctx;
   const individualIds = new Set<string>();
   const familyIds = new Set<string>();
 

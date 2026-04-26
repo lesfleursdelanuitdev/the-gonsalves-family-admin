@@ -4,7 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { allocateNewFamilyXref, registerXrefInFileObjects } from "@/lib/admin/admin-individual-editor-apply";
-import { syncFamilySpouseXrefs } from "@/lib/admin/admin-individual-families";
+import { singleSpouseSlotForFirstParent, syncFamilySpouseXrefs } from "@/lib/admin/admin-individual-families";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
   adminFamiliesFilterConditions,
@@ -162,9 +162,48 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
 
 export const POST = withAdminAuth(async (req, _user, _ctx) => {
   const fileUuid = await getAdminFileUuid();
-  const body = await req.json();
+  const body = (await req.json()) as Record<string, unknown>;
 
-  const { husbandId, wifeId, marriageYear, childrenCount } = body;
+  const hRaw = typeof body.husbandId === "string" ? body.husbandId.trim() : "";
+  const wRaw = typeof body.wifeId === "string" ? body.wifeId.trim() : "";
+  const firstParentId =
+    typeof body.firstParentId === "string" ? body.firstParentId.trim() : "";
+  let husbandId: string | null = hRaw || null;
+  let wifeId: string | null = wRaw || null;
+
+  if (!husbandId && !wifeId) {
+    if (!firstParentId) {
+      return NextResponse.json(
+        {
+          error:
+            "Provide at least one parent: husbandId, wifeId, or firstParentId (an existing individual in this tree).",
+        },
+        { status: 400 },
+      );
+    }
+    const parent = await prisma.gedcomIndividual.findFirst({
+      where: { id: firstParentId, fileUuid },
+      select: { id: true, sex: true },
+    });
+    if (!parent) {
+      return NextResponse.json(
+        { error: "firstParentId must be an individual id in this tree." },
+        { status: 400 },
+      );
+    }
+    const slot = singleSpouseSlotForFirstParent(parent.sex);
+    if (slot === "husband") husbandId = parent.id;
+    else wifeId = parent.id;
+  }
+
+  const marriageYear =
+    typeof body.marriageYear === "number" && Number.isFinite(body.marriageYear)
+      ? Math.trunc(body.marriageYear as number)
+      : null;
+  const childrenCount =
+    typeof body.childrenCount === "number" && Number.isFinite(body.childrenCount)
+      ? Math.trunc(body.childrenCount as number)
+      : 0;
 
   const family = await prisma.$transaction(async (tx) => {
     const xref = await allocateNewFamilyXref(tx, fileUuid);
@@ -172,10 +211,10 @@ export const POST = withAdminAuth(async (req, _user, _ctx) => {
       data: {
         fileUuid,
         xref,
-        husbandId: husbandId ?? null,
-        wifeId: wifeId ?? null,
-        marriageYear: marriageYear ?? null,
-        childrenCount: childrenCount ?? 0,
+        husbandId,
+        wifeId,
+        marriageYear,
+        childrenCount,
       },
     });
     await registerXrefInFileObjects(tx, fileUuid, xref, "FAM", fam.id);

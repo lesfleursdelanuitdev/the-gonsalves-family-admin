@@ -29,7 +29,7 @@ import {
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -45,10 +45,8 @@ import {
   useCreateMedia,
   useDeleteMedia,
   type AdminMediaListResponse,
-  type UseAdminMediaOpts,
 } from "@/hooks/useAdminMedia";
-import { useFilterState } from "@/hooks/useFilterState";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { useAdminMediaPageFilters } from "@/hooks/useAdminMediaPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
@@ -94,26 +92,6 @@ interface AdminSetupPayload {
   gedcomFile?: { id: string; fileId: string; name: string | null } | null;
   gedcomMediaCount?: number;
 }
-
-interface FilterState {
-  mediaCategory: string;
-  titleContains: string;
-  fileRefContains: string;
-  fileTypeContains: string;
-  linkedGiven: string;
-  linkedLast: string;
-  q: string;
-}
-
-const FILTER_DEFAULTS: FilterState = {
-  mediaCategory: "",
-  titleContains: "",
-  fileRefContains: "",
-  fileTypeContains: "",
-  linkedGiven: "",
-  linkedLast: "",
-  q: "",
-};
 
 function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
   return (api?.media ?? []).map((m) => {
@@ -386,26 +364,6 @@ function buildMediaConfig(
   };
 }
 
-function filterStateToQueryOpts(applied: FilterState): UseAdminMediaOpts {
-  const opts: UseAdminMediaOpts = { limit: ADMIN_LIST_MAX_LIMIT, offset: 0 };
-  const q = applied.q.trim();
-  if (q) opts.q = q;
-  if (applied.mediaCategory === "photo" || applied.mediaCategory === "document" || applied.mediaCategory === "video") {
-    opts.mediaCategory = applied.mediaCategory;
-  }
-  const tc = applied.titleContains.trim();
-  if (tc) opts.titleContains = tc;
-  const fr = applied.fileRefContains.trim();
-  if (fr) opts.fileRefContains = fr;
-  const ft = applied.fileTypeContains.trim();
-  if (ft) opts.fileTypeContains = ft;
-  const lg = applied.linkedGiven.trim();
-  const ll = applied.linkedLast.trim();
-  if (lg) opts.linkedGiven = lg;
-  if (ll) opts.linkedLast = ll;
-  return opts;
-}
-
 /* ── Page ───────────────────────────────────────────────────────────────── */
 
 export default function AdminMediaPage() {
@@ -418,7 +376,7 @@ export default function AdminMediaPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
-    useFilterState(FILTER_DEFAULTS, filterStateToQueryOpts);
+    useAdminMediaPageFilters();
 
   const handleListUploadFiles = useCallback(
     async (fileList: FileList | File[] | null | undefined) => {

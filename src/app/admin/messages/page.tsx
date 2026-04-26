@@ -17,12 +17,16 @@ import { useCurrentUser } from "@/hooks/useAuth";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { toast } from "sonner";
 import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { LexicalMessageComposer } from "@/components/admin/messaging/LexicalMessageComposer";
 
 /* ── Types ────────────────────────────────────────────────────────────── */
 
 interface Conversation {
-  /** The other party's user ID */
-  userId: string;
+  /** Stable id for selection: peer user id (1:1) or `conv:${conversationId}` (multi-recipient thread). */
+  threadKey: string;
+  conversationId: string | null;
+  /** Who receives a reply in this thread (everyone except you). */
+  replyRecipientIds: string[];
   userName: string;
   userUsername: string;
   messages: AdminMessageListItem[];
@@ -81,51 +85,95 @@ function groupByDate(messages: AdminMessageListItem[]): Record<string, AdminMess
   return groups;
 }
 
-function groupConversations(
-  messages: AdminMessageListItem[],
-  myId: string,
-): Conversation[] {
-  const map = new Map<string, AdminMessageListItem[]>();
-  const meta = new Map<string, { name: string; username: string }>();
+function buildUserMapFromMessages(msgs: AdminMessageListItem[]): Map<string, { name: string | null; username: string }> {
+  const map = new Map<string, { name: string | null; username: string }>();
+  for (const m of msgs) {
+    map.set(m.sender.id, m.sender);
+    if (m.recipient) map.set(m.recipient.id, m.recipient);
+  }
+  return map;
+}
 
-  messages.forEach((m) => {
-    const otherId =
-      m.senderId === myId
-        ? (m.recipientId ?? "unknown")
-        : m.senderId;
-    const otherUser =
-      m.senderId === myId ? m.recipient : m.sender;
-    if (!otherUser) return;
-    if (!map.has(otherId)) map.set(otherId, []);
-    map.get(otherId)!.push(m);
-    if (!meta.has(otherId)) {
-      meta.set(otherId, { name: getDisplayName(otherUser), username: otherUser.username });
+/** Other people in this thread (not `myId`). */
+function collectOtherParticipantIds(msgs: AdminMessageListItem[], myId: string): string[] {
+  const ids = new Set<string>();
+  for (const m of msgs) {
+    if (m.senderId !== myId) ids.add(m.senderId);
+    if (m.recipientId && m.recipientId !== myId) ids.add(m.recipientId);
+  }
+  return [...ids];
+}
+
+function groupConversations(messages: AdminMessageListItem[], myId: string): Conversation[] {
+  const byConversationId = new Map<string, AdminMessageListItem[]>();
+  const byPair = new Map<string, AdminMessageListItem[]>();
+
+  for (const m of messages) {
+    if (m.conversationId) {
+      if (!byConversationId.has(m.conversationId)) byConversationId.set(m.conversationId, []);
+      byConversationId.get(m.conversationId)!.push(m);
+      continue;
     }
-  });
+    const otherId =
+      m.senderId === myId ? (m.recipientId ?? "unknown") : m.senderId;
+    if (otherId === "unknown") continue;
+    const otherUser = m.senderId === myId ? m.recipient : m.sender;
+    if (!otherUser) continue;
+    if (!byPair.has(otherId)) byPair.set(otherId, []);
+    byPair.get(otherId)!.push(m);
+  }
 
-  return Array.from(map.entries())
-    .map(([userId, msgs]) => {
-      const sorted = [...msgs].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      );
-      const { name, username } = meta.get(userId)!;
-      const unreadCount = msgs.filter(
-        (m) => m.senderId !== myId && !m.isRead,
-      ).length;
-      return {
-        userId,
-        userName: name,
-        userUsername: username,
-        messages: sorted,
-        lastMessage: sorted[sorted.length - 1],
-        unreadCount,
-      };
-    })
-    .sort(
-      (a, b) =>
-        new Date(b.lastMessage.createdAt).getTime() -
-        new Date(a.lastMessage.createdAt).getTime(),
+  const out: Conversation[] = [];
+
+  for (const [cid, msgs] of byConversationId) {
+    const sorted = [...msgs].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
+    const userMap = buildUserMapFromMessages(sorted);
+    const otherIds = collectOtherParticipantIds(sorted, myId);
+    otherIds.sort((a, b) =>
+      getDisplayName(userMap.get(a)!).localeCompare(getDisplayName(userMap.get(b)!), undefined, {
+        sensitivity: "base",
+      }),
+    );
+    const names = otherIds.map((id) => getDisplayName(userMap.get(id)!));
+    const usernames = otherIds.map((id) => userMap.get(id)!.username);
+    const userName =
+      names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+    out.push({
+      threadKey: `conv:${cid}`,
+      conversationId: cid,
+      replyRecipientIds: otherIds,
+      userName,
+      userUsername: usernames.join(", "),
+      messages: sorted,
+      lastMessage: sorted[sorted.length - 1]!,
+      unreadCount: msgs.filter((m) => m.senderId !== myId && !m.isRead).length,
+    });
+  }
+
+  for (const [peerId, msgs] of byPair) {
+    const sorted = [...msgs].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    const otherUser = sorted[0]!.senderId === myId ? sorted[0]!.recipient : sorted[0]!.sender;
+    if (!otherUser) continue;
+    out.push({
+      threadKey: peerId,
+      conversationId: null,
+      replyRecipientIds: [peerId],
+      userName: getDisplayName(otherUser),
+      userUsername: otherUser.username,
+      messages: sorted,
+      lastMessage: sorted[sorted.length - 1]!,
+      unreadCount: msgs.filter((m) => m.senderId !== myId && !m.isRead).length,
+    });
+  }
+
+  return out.sort(
+    (a, b) =>
+      new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime(),
+  );
 }
 
 /* ── Avatar ────────────────────────────────────────────────────────────── */
@@ -243,8 +291,9 @@ function ThreadView({
   onDelete: () => void;
 }) {
   const [reply, setReply] = useState("");
+  const [composerReset, setComposerReset] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textGetterRef = useRef<(() => string) | null>(null);
   const send = useSendMessage();
   const grouped = useMemo(() => groupByDate(conv.messages), [conv.messages]);
 
@@ -253,16 +302,35 @@ function ThreadView({
   }, [conv.messages.length]);
 
   const handleSend = useCallback(() => {
-    const content = reply.trim();
-    if (!content || send.isPending) return;
+    if (send.isPending) return;
+    if (
+      conv.replyRecipientIds.length === 0 ||
+      conv.replyRecipientIds.some((id) => id === myId)
+    ) {
+      toast.error("You cannot message yourself");
+      return;
+    }
+    const content = (textGetterRef.current?.() ?? reply).trim();
+    if (!content) {
+      toast.error("Write a message first");
+      return;
+    }
     send.mutate(
-      { recipientId: conv.userId, subject: conv.lastMessage.subject ?? undefined, content },
       {
-        onSuccess: () => setReply(""),
+        recipientIds: conv.replyRecipientIds,
+        subject: conv.lastMessage.subject ?? undefined,
+        content,
+        ...(conv.conversationId ? { conversationId: conv.conversationId } : {}),
+      },
+      {
+        onSuccess: () => {
+          setReply("");
+          setComposerReset((n) => n + 1);
+        },
         onError: () => toast.error("Could not send message"),
       },
     );
-  }, [reply, send, conv]);
+  }, [reply, send, conv, myId]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -308,26 +376,20 @@ function ThreadView({
       {/* Reply input */}
       <div className="shrink-0 border-t border-base-content/[0.08] bg-base-100 p-3">
         <div className="flex items-end gap-2 rounded-xl border border-base-content/[0.12] bg-base-200/40 px-3 py-2">
-          <textarea
-            ref={textareaRef}
-            value={reply}
-            onChange={(e) => {
-              setReply(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-            }}
+          <LexicalMessageComposer
+            resetKey={composerReset}
+            variant="compact"
             placeholder={`Reply to ${conv.userName}…`}
-            rows={1}
-            className="flex-1 resize-none bg-transparent text-sm text-base-content placeholder:text-muted-foreground/50 outline-none"
-            style={{ maxHeight: 120 }}
+            onChangeText={setReply}
+            textGetterRef={textGetterRef}
+            onSubmitOnEnter={handleSend}
+            disabled={send.isPending}
+            aria-label={`Reply to ${conv.userName}`}
           />
           <button
             type="button"
             onClick={handleSend}
-            disabled={!reply.trim() || send.isPending}
+            disabled={send.isPending}
             className="btn btn-primary btn-sm btn-square shrink-0"
             aria-label="Send"
           >
@@ -364,7 +426,7 @@ function EmptyThread() {
 export default function AdminMessagesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "inbox" | "sent">("all");
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [activeThreadKey, setActiveThreadKey] = useState<string | null>(null);
   const isMobile = useMediaQuery("(max-width: 640px)");
 
   const { data: currentUser } = useCurrentUser();
@@ -382,7 +444,7 @@ export default function AdminMessagesPage() {
   const markRead = useMarkMessageRead();
   const deleteMessage = useDeleteMessage();
 
-  const allMessages = data?.messages ?? [];
+  const allMessages = useMemo(() => data?.messages ?? [], [data]);
 
   const conversations = useMemo(
     () => (myId ? groupConversations(allMessages, myId) : []),
@@ -406,20 +468,22 @@ export default function AdminMessagesPage() {
     [conversations, search],
   );
 
-  const activeConv = activeUserId
-    ? conversations.find((c) => c.userId === activeUserId) ?? null
+  const activeConv = activeThreadKey
+    ? conversations.find((c) => c.threadKey === activeThreadKey) ?? null
     : null;
 
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
 
   // Mark messages as read when a thread is open (including new inbound messages while viewing).
   useEffect(() => {
-    if (!activeUserId || !myId) return;
-    const unread = allMessages.filter(
-      (m) => m.senderId === activeUserId && m.recipientId === myId && !m.isRead,
-    );
+    if (!activeThreadKey || !myId || !activeConv) return;
+    const unread = allMessages.filter((m) => {
+      if (m.isRead || m.recipientId !== myId || m.senderId === myId) return false;
+      if (activeConv.conversationId) return m.conversationId === activeConv.conversationId;
+      return !m.conversationId && m.senderId === activeConv.threadKey;
+    });
     unread.forEach((m) => markRead.mutate({ id: m.id, isRead: true }, { onError: () => {} }));
-  }, [activeUserId, myId, allMessages, markRead]);
+  }, [activeThreadKey, myId, allMessages, markRead, activeConv]);
 
   const handleDeleteConv = useCallback(async () => {
     if (!activeConv) return;
@@ -427,15 +491,15 @@ export default function AdminMessagesPage() {
     try {
       await Promise.all(ids.map((id) => deleteMessage.mutateAsync(id)));
       toast.success("Conversation deleted");
-      setActiveUserId(null);
+      setActiveThreadKey(null);
     } catch {
       toast.error("Could not delete conversation");
     }
   }, [activeConv, deleteMessage]);
 
   // Mobile: show list or thread
-  const showList = !isMobile || !activeUserId;
-  const showThread = !isMobile || !!activeUserId;
+  const showList = !isMobile || !activeThreadKey;
+  const showThread = !isMobile || !!activeThreadKey;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -512,11 +576,11 @@ export default function AdminMessagesPage() {
             )}
             {filteredConvs.map((conv) => (
               <ConversationItem
-                key={conv.userId}
+                key={conv.threadKey}
                 conv={conv}
-                isActive={activeUserId === conv.userId}
+                isActive={activeThreadKey === conv.threadKey}
                 myId={myId}
-                onClick={() => setActiveUserId(conv.userId)}
+                onClick={() => setActiveThreadKey(conv.threadKey)}
               />
             ))}
           </div>
@@ -530,7 +594,7 @@ export default function AdminMessagesPage() {
             <ThreadView
               conv={activeConv}
               myId={myId}
-              onBack={isMobile ? () => setActiveUserId(null) : undefined}
+              onBack={isMobile ? () => setActiveThreadKey(null) : undefined}
               onDelete={handleDeleteConv}
             />
           ) : (

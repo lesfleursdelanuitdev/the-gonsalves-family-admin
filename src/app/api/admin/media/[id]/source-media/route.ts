@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
+import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
+import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 
@@ -9,7 +11,7 @@ const sourceSelect = {
   xref: true,
 } as const;
 
-export const POST = withAdminAuth(async (request, _user, ctx) => {
+export const POST = withAdminAuth(async (request, user, ctx) => {
   const { id: mediaId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await request.json()) as Record<string, unknown>;
@@ -34,10 +36,17 @@ export const POST = withAdminAuth(async (request, _user, ctx) => {
     return NextResponse.json({ error: "Source not found in this tree" }, { status: 404 });
   }
 
+  const batchId = newBatchId();
   try {
-    const row = await prisma.gedcomSourceMedia.create({
-      data: { fileUuid, sourceId, mediaId },
-      include: { source: { select: sourceSelect } },
+    const row = await prisma.$transaction(async (tx) => {
+      const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
+      const created = await tx.gedcomSourceMedia.create({
+        data: { fileUuid, sourceId, mediaId },
+        include: { source: { select: sourceSelect } },
+      });
+      const label = created.source.title?.trim() || created.source.xref?.trim() || sourceId;
+      await commitMediaJunctionLink(changeCtx, "source_media", created, `Linked media to source ${label}`);
+      return created;
     });
     return NextResponse.json({ sourceMedia: row }, { status: 201 });
   } catch {

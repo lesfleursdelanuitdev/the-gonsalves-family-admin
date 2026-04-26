@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
+import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
+import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 
@@ -10,7 +12,7 @@ const familySelect = {
   wife: { select: { id: true, fullName: true } },
 } as const;
 
-export const POST = withAdminAuth(async (request, _user, ctx) => {
+export const POST = withAdminAuth(async (request, user, ctx) => {
   const { id: mediaId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await request.json()) as Record<string, unknown>;
@@ -35,10 +37,17 @@ export const POST = withAdminAuth(async (request, _user, ctx) => {
     return NextResponse.json({ error: "Family not found in this tree" }, { status: 404 });
   }
 
+  const batchId = newBatchId();
   try {
-    const row = await prisma.gedcomFamilyMedia.create({
-      data: { fileUuid, familyId, mediaId },
-      include: { family: { select: familySelect } },
+    const row = await prisma.$transaction(async (tx) => {
+      const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
+      const created = await tx.gedcomFamilyMedia.create({
+        data: { fileUuid, familyId, mediaId },
+        include: { family: { select: familySelect } },
+      });
+      const label = created.family.xref?.trim() || familyId;
+      await commitMediaJunctionLink(changeCtx, "family_media", created, `Linked media to family ${label}`);
+      return created;
     });
     return NextResponse.json({ familyMedia: row }, { status: 201 });
   } catch {

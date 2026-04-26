@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
@@ -9,8 +9,9 @@ import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { useAdminAlbums, type AdminAlbumsListResponse } from "@/hooks/useAdminAlbums";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { adminListQActiveFilterCount, useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 
 interface AlbumRow {
   id: string;
@@ -66,47 +67,35 @@ function buildAlbumsConfig(router: ReturnType<typeof useRouter>): DataViewerConf
 
 export default function AdminAlbumsPage() {
   const router = useRouter();
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminAlbums({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminAlbums(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildAlbumsConfig(router), [router]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Albums</h1>
-        <p className="text-muted-foreground">
-          Collections for organizing tree media. Link media to albums from the media editor.
-        </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters} activeFilterCount={appliedQ.trim() ? 1 : 0}>
-        <div className="space-y-2">
-          <Label htmlFor="albums-filter-q">Search albums</Label>
-          <Input
-            id="albums-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Name contains…"
-          />
-          <p className="text-xs text-muted-foreground">
-            Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
-          </p>
-        </div>
-      </FilterPanel>
-
+    <AdminListPageShell
+      title="Albums"
+      description="Collections for organizing tree media. Link media to albums from the media editor."
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters} activeFilterCount={adminListQActiveFilterCount(applied)}>
+          <div className="space-y-2">
+            <Label htmlFor="albums-filter-q">Search albums</Label>
+            <Input
+              id="albums-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Name contains…"
+            />
+            <p className="text-xs text-muted-foreground">
+              Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
@@ -114,9 +103,9 @@ export default function AdminAlbumsPage() {
         defaultViewMode="table"
         viewModeKey="admin-albums-view"
         skipClientGlobalFilter
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

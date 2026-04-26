@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import {
-  findMessageInAdminTreeScope,
+  findMessageVisibleToAdminUser,
   getAdminTreeCommunityUserIds,
 } from "@/lib/admin/admin-message-tree-scope";
 import { emitAdminMessagesChanged } from "@/lib/realtime/admin-messages-events";
 
-export const GET = withAdminAuth(async (_req, _user, ctx) => {
+export const GET = withAdminAuth(async (_req, user, ctx) => {
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
@@ -15,8 +15,8 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 
   const { id } = await ctx.params;
   const communityIds = await getAdminTreeCommunityUserIds(treeId);
-  const inScope = await findMessageInAdminTreeScope(id, treeId, communityIds);
-  if (!inScope) {
+  const visible = await findMessageVisibleToAdminUser(id, treeId, communityIds, user.id);
+  if (!visible) {
     return NextResponse.json({ error: "Message not found" }, { status: 404 });
   }
 
@@ -43,8 +43,8 @@ export const PATCH = withAdminAuth(async (request, user, ctx) => {
 
   const { id } = await ctx.params;
   const communityIds = await getAdminTreeCommunityUserIds(treeId);
-  const inScope = await findMessageInAdminTreeScope(id, treeId, communityIds);
-  if (!inScope) {
+  const visible = await findMessageVisibleToAdminUser(id, treeId, communityIds, user.id);
+  if (!visible) {
     return NextResponse.json({ error: "Message not found" }, { status: 404 });
   }
 
@@ -84,7 +84,7 @@ export const PATCH = withAdminAuth(async (request, user, ctx) => {
   return NextResponse.json({ message });
 });
 
-export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+export const DELETE = withAdminAuth(async (_req, user, ctx) => {
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
@@ -92,8 +92,8 @@ export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
 
   const { id } = await ctx.params;
   const communityIds = await getAdminTreeCommunityUserIds(treeId);
-  const inScope = await findMessageInAdminTreeScope(id, treeId, communityIds);
-  if (!inScope) {
+  const visible = await findMessageVisibleToAdminUser(id, treeId, communityIds, user.id);
+  if (!visible) {
     return NextResponse.json({ error: "Message not found" }, { status: 404 });
   }
 

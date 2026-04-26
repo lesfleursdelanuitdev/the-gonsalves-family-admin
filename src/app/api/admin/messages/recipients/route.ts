@@ -3,14 +3,14 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeCommunityUserIds } from "@/lib/admin/admin-message-tree-scope";
 
-/** Users who may appear as DM recipients for this admin tree (roles + individual links). */
-export const GET = withAdminAuth(async (_req, _user, _ctx) => {
+/** Users who may appear as DM recipients for this admin tree (roles + individual links). Excludes the current user. */
+export const GET = withAdminAuth(async (_req, user, _ctx) => {
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
   }
 
-  const ids = await getAdminTreeCommunityUserIds(treeId);
+  const ids = (await getAdminTreeCommunityUserIds(treeId)).filter((id) => id !== user.id);
   if (ids.length === 0) {
     return NextResponse.json({ users: [] });
   }

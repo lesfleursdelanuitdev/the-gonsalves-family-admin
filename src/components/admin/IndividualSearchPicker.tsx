@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/infra/api";
+import { ADMIN_PICKER_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   ADMIN_INDIVIDUALS_QUERY_KEY,
   buildIndividualsParams,
@@ -14,15 +15,6 @@ import { individualSearchDisplayName, individualSearchMetaLine } from "@/lib/ged
 import { IndividualNameSearchFields } from "@/components/admin/IndividualNameSearchFields";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-function useDebouncedValue<T>(value: T, ms: number): T {
-  const [out, setOut] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setOut(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return out;
-}
 
 export type IndividualSearchPickerProps = {
   idPrefix?: string;
@@ -73,8 +65,8 @@ export function IndividualSearchPicker({
     else setLastInternal(v);
   };
 
-  const debouncedGiven = useDebouncedValue(givenInput.trim().toLowerCase(), 250);
-  const debouncedLast = useDebouncedValue(lastInput.trim(), 250);
+  const debouncedGiven = useDebouncedValue(givenInput.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedLast = useDebouncedValue(lastInput.trim(), ADMIN_PICKER_DEBOUNCE_MS);
 
   const hasFilter = !!(debouncedGiven || debouncedLast);
   const queryEnabled = allowEmptySearch || hasFilter;

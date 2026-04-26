@@ -15,7 +15,7 @@ import {
   formatDateSuggestionLabel,
 } from "@/lib/forms/admin-date-suggestions";
 import { cn } from "@/lib/utils";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { ADMIN_MODAL_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAdminDateSuggestions } from "@/hooks/useAdminDateSuggestions";
 
 export type GedcomDateInputProps = {
@@ -50,7 +50,7 @@ export function GedcomDateInput({
   const showRange = gedcomDateSpecifierNeedsRange(value.dateSpecifier);
 
   const searchText = useMemo(() => buildDateSuggestionSearchText(value), [value]);
-  const debouncedSearch = useDebouncedValue(searchText, 280);
+  const debouncedSearch = useDebouncedValue(searchText, ADMIN_MODAL_DEBOUNCE_MS);
   const suggestionsQuery = useAdminDateSuggestions(debouncedSearch, {
     enabled: dateSuggestions,
     minLength: 2,

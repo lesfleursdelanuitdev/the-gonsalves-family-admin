@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarRange } from "lucide-react";
@@ -20,7 +20,8 @@ import {
   type AdminDateListItem,
   type AdminDatesListResponse,
 } from "@/hooks/useAdminGedcomCatalogs";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
+import { useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import {
   adminCatalogToEventsLinkClass,
   adminEventsHrefForDateYear,
@@ -137,57 +138,43 @@ function buildDatesConfig(router: ReturnType<typeof useRouter>): DataViewerConfi
 
 export default function AdminDatesPage() {
   const router = useRouter();
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminDates({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminDates(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildDatesConfig(router), [router]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dates</h1>
-        <p className="text-muted-foreground">
-          Canonical parsed dates for this tree (read-only). Search matches original text or an exact calendar year. When
-          a row has a calendar year, its title links to Events filtered to that year; otherwise open the date detail for
-          context.
-        </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters}>
-        <div className="space-y-2">
-          <Label htmlFor="dates-filter-q">Search dates</Label>
-          <Input
-            id="dates-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Original text or a calendar year (e.g. 1920)"
-          />
-          <p className="text-xs text-muted-foreground">
-            Click Apply to run the search against the catalog API.
-          </p>
-        </div>
-      </FilterPanel>
-
+    <AdminListPageShell
+      title="Dates"
+      description="Canonical parsed dates for this tree (read-only). Search matches original text or an exact calendar year. When a row has a calendar year, its title links to Events filtered to that year; otherwise open the date detail for context."
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters}>
+          <div className="space-y-2">
+            <Label htmlFor="dates-filter-q">Search dates</Label>
+            <Input
+              id="dates-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Original text or a calendar year (e.g. 1920)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Click Apply to run the search against the catalog API.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-dates-view"
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

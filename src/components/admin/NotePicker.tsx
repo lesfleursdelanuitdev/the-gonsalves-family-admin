@@ -4,7 +4,7 @@ import { useId, useMemo, useState } from "react";
 import { useAdminNoteSearch, type AdminNoteListItem } from "@/hooks/useAdminNotes";
 import { notePickerContentPreviewLines } from "@/lib/admin/note-picker-preview";
 import { notePickerLinkedBlocks } from "@/lib/admin/note-picker-linked-summary";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { NOTE_FULLTEXT_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,7 @@ export function NotePicker({
   const auto = useId().replace(/:/g, "");
   const p = idPrefixProp ?? `np-${auto}-`;
   const [rawQuery, setRawQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(rawQuery.trim(), 300);
+  const debouncedQuery = useDebouncedValue(rawQuery.trim(), NOTE_FULLTEXT_DEBOUNCE_MS);
 
   const search = useAdminNoteSearch(debouncedQuery, { limit, minLength: minSearchLength });
 

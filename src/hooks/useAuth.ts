@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { fetchJson, postJson, type ApiError } from "@/lib/infra/api";
+import { fetchJson, postJson } from "@/lib/infra/api";
 
 export interface AuthUser {
   id: string;

@@ -18,6 +18,7 @@ import {
   setBatchSummary,
   type ChangeCtx,
 } from "@/lib/admin/changelog";
+import { reserveNextGedcomMediaXref } from "@/lib/admin/gedcom-media-xref";
 
 const MEDIA_LIST_INCLUDE = {
   individualMedia: {
@@ -126,16 +127,17 @@ export const GET = withAdminAuth(async (request, _user, _ctx) => {
 export const POST = withAdminAuth(async (request, user, _ctx) => {
   const fileUuid = await getAdminFileUuid();
   const body = await request.json();
-  const { xref, fileRef, form, title, description, linkedIndividualId, linkedFamilyId, linkedEventId } = body;
+  const { fileRef, form, title, description, linkedIndividualId, linkedFamilyId, linkedEventId } = body;
 
   const batchId = newBatchId();
   try {
     const media = await prisma.$transaction(async (tx) => {
       const ctx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
+      const xref = await reserveNextGedcomMediaXref(tx, fileUuid);
       const created = await tx.gedcomMedia.create({
         data: {
           fileUuid,
-          xref: xref ?? null,
+          xref,
           fileRef: normalizeStoredMediaFileRef(fileRef),
           form: form ?? null,
           title: title ?? null,

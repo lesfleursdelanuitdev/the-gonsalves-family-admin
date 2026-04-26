@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
+import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
+import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 
@@ -45,7 +47,7 @@ const eventIncludeForMediaLink = {
   },
 } as const;
 
-export const POST = withAdminAuth(async (request, _user, ctx) => {
+export const POST = withAdminAuth(async (request, user, ctx) => {
   const { id: mediaId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await request.json()) as Record<string, unknown>;
@@ -70,10 +72,17 @@ export const POST = withAdminAuth(async (request, _user, ctx) => {
     return NextResponse.json({ error: "Event not found in this tree" }, { status: 404 });
   }
 
+  const batchId = newBatchId();
   try {
-    const row = await prisma.gedcomEventMedia.create({
-      data: { fileUuid, eventId, mediaId },
-      include: { event: { include: eventIncludeForMediaLink } },
+    const row = await prisma.$transaction(async (tx) => {
+      const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
+      const created = await tx.gedcomEventMedia.create({
+        data: { fileUuid, eventId, mediaId },
+        include: { event: { include: eventIncludeForMediaLink } },
+      });
+      const et = created.event.eventType?.trim() || "event";
+      await commitMediaJunctionLink(changeCtx, "event_media", created, `Linked media to event (${et})`);
+      return created;
     });
     return NextResponse.json({ eventMedia: row }, { status: 201 });
   } catch {

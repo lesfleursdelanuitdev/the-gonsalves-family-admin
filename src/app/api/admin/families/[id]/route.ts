@@ -56,7 +56,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 
   const existing = await prisma.gedcomFamily.findFirst({
     where: { id, fileUuid },
-    select: { id: true },
+    select: { id: true, husbandId: true, wifeId: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Family not found" }, { status: 404 });
@@ -75,6 +75,31 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 
   if (!hasMarriage && !hasDivorce && Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
+  const touchesPartnerSlots =
+    Object.prototype.hasOwnProperty.call(data, "husbandId") ||
+    Object.prototype.hasOwnProperty.call(data, "wifeId");
+  if (touchesPartnerSlots) {
+    let nextH: string | null = existing.husbandId;
+    let nextW: string | null = existing.wifeId;
+    if (Object.prototype.hasOwnProperty.call(data, "husbandId")) {
+      const v = data.husbandId;
+      nextH = v == null || v === "" ? null : String(v);
+    }
+    if (Object.prototype.hasOwnProperty.call(data, "wifeId")) {
+      const v = data.wifeId;
+      nextW = v == null || v === "" ? null : String(v);
+    }
+    if (!nextH && !nextW) {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot clear both parents. Keep at least one husband or wife, or delete the family instead.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   try {

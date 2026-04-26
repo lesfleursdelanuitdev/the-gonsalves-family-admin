@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MapPin } from "lucide-react";
@@ -20,7 +20,8 @@ import {
   type AdminPlaceListItem,
   type AdminPlacesListResponse,
 } from "@/hooks/useAdminGedcomCatalogs";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
+import { useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import {
   adminCatalogToEventsLinkClass,
   adminEventsHrefForPlaceOriginal,
@@ -137,58 +138,50 @@ function buildPlacesConfig(router: ReturnType<typeof useRouter>): DataViewerConf
 
 export default function AdminPlacesPage() {
   const router = useRouter();
-  const [draftQ, setDraftQ] = useState("");
-  const [appliedQ, setAppliedQ] = useState("");
-  const applyFilters = useCallback(() => setAppliedQ(draftQ), [draftQ]);
-  const clearFilters = useCallback(() => {
-    setDraftQ("");
-    setAppliedQ("");
-  }, []);
+  const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+    useAdminListQFilters();
 
-  const { data, isLoading } = useAdminPlaces({
-    q: appliedQ.trim() || undefined,
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  });
+  const { data, isLoading } = useAdminPlaces(queryOpts);
 
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildPlacesConfig(router), [router]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Places</h1>
+    <AdminListPageShell
+      title="Places"
+      description={
         <p className="text-muted-foreground">
           Deduplicated place records for this tree (read-only).{" "}
           <span className="font-medium text-base-content/90">First segment</span> is the leftmost part of a
           comma-separated GEDCOM place (usually city); county, state, and country are stored in separate columns when
           parsed. Edit data by changing individuals, families, or events that reference this row.
         </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters}>
-        <div className="space-y-2">
-          <Label htmlFor="places-filter-q">Search places</Label>
-          <Input
-            id="places-filter-q"
-            value={draftQ}
-            onChange={(e) => setDraftQ(e.target.value)}
-            placeholder="Substring in original PLAC text"
-          />
-          <p className="text-xs text-muted-foreground">
-            Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
-          </p>
-        </div>
-      </FilterPanel>
-
+      }
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters}>
+          <div className="space-y-2">
+            <Label htmlFor="places-filter-q">Search places</Label>
+            <Input
+              id="places-filter-q"
+              value={draft.q}
+              onChange={(e) => updateDraft("q", e.target.value)}
+              placeholder="Substring in original PLAC text"
+            />
+            <p className="text-xs text-muted-foreground">
+              Matches the API <span className="font-medium">q</span> parameter. Click Apply to run the search.
+            </p>
+          </div>
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-places-view"
-        paginationResetKey={appliedQ}
+        paginationResetKey={applied.q}
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

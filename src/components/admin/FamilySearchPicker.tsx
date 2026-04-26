@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/infra/api";
+import { ADMIN_PICKER_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   ADMIN_FAMILIES_QUERY_KEY,
   buildFamiliesParams,
@@ -14,15 +15,6 @@ import { familyUnionMetaLine, familyUnionPrimaryLine } from "@/lib/gedcom/family
 import { FamilyPartnerSearchFields } from "@/components/admin/FamilyPartnerSearchFields";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-function useDebouncedValue<T>(value: T, ms: number): T {
-  const [out, setOut] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setOut(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return out;
-}
 
 export type FamilySearchPickerProps = {
   idPrefix?: string;
@@ -90,10 +82,10 @@ export function FamilySearchPicker({
     else setP2LastInternal(v);
   };
 
-  const debouncedP1Given = useDebouncedValue(p1GivenInput.trim().toLowerCase(), 250);
-  const debouncedP1Last = useDebouncedValue(p1LastInput.trim(), 250);
-  const debouncedP2Given = useDebouncedValue(p2GivenInput.trim().toLowerCase(), 250);
-  const debouncedP2Last = useDebouncedValue(p2LastInput.trim(), 250);
+  const debouncedP1Given = useDebouncedValue(p1GivenInput.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP1Last = useDebouncedValue(p1LastInput.trim(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP2Given = useDebouncedValue(p2GivenInput.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP2Last = useDebouncedValue(p2LastInput.trim(), ADMIN_PICKER_DEBOUNCE_MS);
 
   const hasFilter = !!(debouncedP1Given || debouncedP1Last || debouncedP2Given || debouncedP2Last);
   const queryEnabled = allowEmptySearch || hasFilter;

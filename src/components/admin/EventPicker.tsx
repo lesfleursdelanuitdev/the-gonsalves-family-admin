@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/infra/api";
+import { ADMIN_PICKER_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   ADMIN_EVENTS_QUERY_KEY,
   buildEventsParams,
@@ -20,15 +21,6 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const EVENT_TYPE_TAGS = Object.keys(GEDCOM_EVENT_TYPE_LABELS).sort();
-
-function useDebouncedValue<T>(value: T, ms: number): T {
-  const [out, setOut] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setOut(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return out;
-}
 
 export type EventPickerProps = {
   idPrefix?: string;
@@ -97,12 +89,12 @@ export function EventPicker({
   partner1Legend,
   partner2Legend,
 }: EventPickerProps) {
-  const debouncedIndGiven = useDebouncedValue(indGiven.trim().toLowerCase(), 250);
-  const debouncedIndLast = useDebouncedValue(indLast.trim(), 250);
-  const debouncedP1Given = useDebouncedValue(famP1Given.trim().toLowerCase(), 250);
-  const debouncedP1Last = useDebouncedValue(famP1Last.trim(), 250);
-  const debouncedP2Given = useDebouncedValue(famP2Given.trim().toLowerCase(), 250);
-  const debouncedP2Last = useDebouncedValue(famP2Last.trim(), 250);
+  const debouncedIndGiven = useDebouncedValue(indGiven.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedIndLast = useDebouncedValue(indLast.trim(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP1Given = useDebouncedValue(famP1Given.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP1Last = useDebouncedValue(famP1Last.trim(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP2Given = useDebouncedValue(famP2Given.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedP2Last = useDebouncedValue(famP2Last.trim(), ADMIN_PICKER_DEBOUNCE_MS);
 
   const etTrim = eventType.trim();
   const typeOk = !requireEventType || etTrim.length > 0;

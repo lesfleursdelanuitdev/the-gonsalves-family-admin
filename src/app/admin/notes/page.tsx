@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FileText, Link2, StickyNote } from "lucide-react";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
@@ -21,10 +22,8 @@ import {
   useAdminNotes,
   useDeleteNote,
   type AdminNotesListResponse,
-  type UseAdminNotesOpts,
 } from "@/hooks/useAdminNotes";
-import { useFilterState } from "@/hooks/useFilterState";
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
+import { useAdminNotesPageFilters } from "@/hooks/useAdminNotesPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { markdownToPlainPreview } from "@/lib/utils/markdown-preview";
 
@@ -42,20 +41,6 @@ interface NoteRow {
   linkedTo: string;
   linkedTargets: NoteLinkedTarget[];
 }
-
-interface FilterState {
-  isTopLevel: string;
-  contentContains: string;
-  linkedGiven: string;
-  linkedLast: string;
-}
-
-const FILTER_DEFAULTS: FilterState = {
-  isTopLevel: "",
-  contentContains: "",
-  linkedGiven: "",
-  linkedLast: "",
-};
 
 function mapApiToRows(api: AdminNotesListResponse): NoteRow[] {
   return (api?.notes ?? []).map((n) => {
@@ -184,28 +169,11 @@ function buildNotesConfig(
   };
 }
 
-function filterStateToQueryOpts(applied: FilterState): UseAdminNotesOpts {
-  const opts: UseAdminNotesOpts = {
-    limit: ADMIN_LIST_MAX_LIMIT,
-    offset: 0,
-  };
-  if (applied.isTopLevel === "true" || applied.isTopLevel === "false") {
-    opts.isTopLevel = applied.isTopLevel;
-  }
-  const cc = applied.contentContains.trim();
-  if (cc) opts.contentContains = cc;
-  const lg = applied.linkedGiven.trim();
-  const ll = applied.linkedLast.trim();
-  if (lg) opts.linkedGiven = lg;
-  if (ll) opts.linkedLast = ll;
-  return opts;
-}
-
 export default function AdminNotesPage() {
   const router = useRouter();
   const deleteNote = useDeleteNote();
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
-    useFilterState(FILTER_DEFAULTS, filterStateToQueryOpts);
+    useAdminNotesPageFilters();
 
   const { data, isLoading } = useAdminNotes(queryOpts);
 
@@ -234,60 +202,56 @@ export default function AdminNotesPage() {
   const config = useMemo(() => buildNotesConfig(router, handleDelete), [router, handleDelete]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Notes</h1>
-        <p className="text-muted-foreground">
-          Free-text notes linked to individuals, families, events, or sources. Filter by top-level flag, content, or
-          names on linked individuals.
-        </p>
-      </div>
-
-      <FilterPanel onApply={applyFilters} onClear={clearFilters}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="filter-top-level">Top-level note</Label>
-            <select
-              id="filter-top-level"
-              className={selectClassName}
-              value={filterDraft.isTopLevel}
-              onChange={(e) => updateDraft("isTopLevel", e.target.value)}
-            >
-              <option value="">Any</option>
-              <option value="true">Top-level only</option>
-              <option value="false">Not top-level</option>
-            </select>
+    <AdminListPageShell
+      title="Notes"
+      description="Free-text notes linked to individuals, families, events, or sources. Filter by top-level flag, content, or names on linked individuals."
+      filters={
+        <FilterPanel onApply={applyFilters} onClear={clearFilters}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="filter-top-level">Top-level note</Label>
+              <select
+                id="filter-top-level"
+                className={selectClassName}
+                value={filterDraft.isTopLevel}
+                onChange={(e) => updateDraft("isTopLevel", e.target.value)}
+              >
+                <option value="">Any</option>
+                <option value="true">Top-level only</option>
+                <option value="false">Not top-level</option>
+              </select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="filter-content">Content contains</Label>
+              <Input
+                id="filter-content"
+                value={filterDraft.contentContains}
+                onChange={(e) => updateDraft("contentContains", e.target.value)}
+                placeholder="Substring in note body (case-insensitive)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="filter-linked-given">Linked person — given name contains</Label>
+              <Input
+                id="filter-linked-given"
+                value={filterDraft.linkedGiven}
+                onChange={(e) => updateDraft("linkedGiven", e.target.value)}
+                placeholder="Structured given tokens"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="filter-linked-last">Linked person — last name prefix</Label>
+              <Input
+                id="filter-linked-last"
+                value={filterDraft.linkedLast}
+                onChange={(e) => updateDraft("linkedLast", e.target.value)}
+                placeholder="GEDCOM slash-aware prefix"
+              />
+            </div>
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="filter-content">Content contains</Label>
-            <Input
-              id="filter-content"
-              value={filterDraft.contentContains}
-              onChange={(e) => updateDraft("contentContains", e.target.value)}
-              placeholder="Substring in note body (case-insensitive)"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="filter-linked-given">Linked person — given name contains</Label>
-            <Input
-              id="filter-linked-given"
-              value={filterDraft.linkedGiven}
-              onChange={(e) => updateDraft("linkedGiven", e.target.value)}
-              placeholder="Structured given tokens"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="filter-linked-last">Linked person — last name prefix</Label>
-            <Input
-              id="filter-linked-last"
-              value={filterDraft.linkedLast}
-              onChange={(e) => updateDraft("linkedLast", e.target.value)}
-              placeholder="GEDCOM slash-aware prefix"
-            />
-          </div>
-        </div>
-      </FilterPanel>
-
+        </FilterPanel>
+      }
+    >
       <DataViewer
         config={config}
         data={rows}
@@ -295,6 +259,6 @@ export default function AdminNotesPage() {
         viewModeKey="admin-notes-view"
         totalCount={data?.total}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

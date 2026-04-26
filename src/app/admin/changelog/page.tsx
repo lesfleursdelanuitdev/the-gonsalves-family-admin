@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { History, Undo2, ChevronRight, User, Clock } from "lucide-react";
+import { History, User, Clock } from "lucide-react";
+import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import {
   Card,
@@ -150,15 +150,10 @@ export default function AdminChangelogPage() {
   const config = useMemo(() => buildConfig(router, handleUndoClick), [router, handleUndoClick]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Changelog</h1>
-        <p className="text-muted-foreground">
-          Browse all changes made to the genealogy tree. Each entry represents a batch of related
-          modifications. You can view details or undo an entire batch.
-        </p>
-      </div>
-
+    <AdminListPageShell
+      title="Changelog"
+      description="Browse all changes made to the genealogy tree. Each entry represents a batch of related modifications. You can view details or undo an entire batch."
+    >
       <DataViewer
         config={config}
         data={rows}
@@ -188,6 +183,6 @@ export default function AdminChangelogPage() {
         summary={undoTarget?.summary ?? ""}
         isPending={undoMutation.isPending}
       />
-    </div>
+    </AdminListPageShell>
   );
 }

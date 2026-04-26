@@ -21,7 +21,7 @@ import { MediaGrid } from "@/components/admin/media-picker/MediaGrid";
 import { SelectedMediaBar } from "@/components/admin/media-picker/SelectedMediaBar";
 import { QuickUploadPanel } from "@/components/admin/media-picker/QuickUploadPanel";
 import type { MediaPickerMode, MediaPickerPurpose, MediaPickerTargetType } from "@/components/admin/media-picker/types";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { ADMIN_MODAL_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ADMIN_MEDIA_QUERY_KEY, useAdminMedia, type AdminMediaListItem } from "@/hooks/useAdminMedia";
 import type { AdminAlbumsListResponse } from "@/hooks/useAdminAlbums";
 import type { AdminTagsListResponse } from "@/hooks/useAdminTags";
@@ -78,7 +78,7 @@ export function MediaPickerModal({
   const [merged, setMerged] = useState<AdminMediaListItem[]>([]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelectedIds ?? []));
 
-  const debouncedQ = useDebouncedValue(q.trim(), 280);
+  const debouncedQ = useDebouncedValue(q.trim(), ADMIN_MODAL_DEBOUNCE_MS);
 
   useEffect(() => {
     if (!open) return;

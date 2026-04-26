@@ -18,6 +18,7 @@ import {
   History,
   Tag,
   FolderOpen,
+  Download,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -46,6 +47,7 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/places", label: "Places", icon: MapPin },
       { href: "/admin/notes", label: "Notes", icon: StickyNote },
       { href: "/admin/sources", label: "Sources", icon: BookOpen },
+      { href: "/admin/export", label: "Export", icon: Download },
     ],
   },
   {

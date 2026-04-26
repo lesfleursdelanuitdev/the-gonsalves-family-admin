@@ -1,95 +1,72 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FamilyEditForm } from "@/components/admin/FamilyEditForm";
+import { IndividualSearchPicker } from "@/components/admin/IndividualSearchPicker";
 import { Button } from "@/components/ui/button";
 import { ApiError, postJson } from "@/lib/infra/api";
-
-/**
- * Deduplicate the initial POST in React Strict Mode (and overlapping mounts) so only one empty family row is created.
- */
-let singletonDraftPost: Promise<string> | null = null;
-
-function ensureEmptyFamilyOnServer(): Promise<string> {
-  if (!singletonDraftPost) {
-    singletonDraftPost = postJson<{ family: { id?: string } }>("/api/admin/families", {}).then((res) => {
-      const id = typeof res.family?.id === "string" ? res.family.id : "";
-      if (!id) throw new Error("No family id returned from server.");
-      return id;
-    });
-  }
-  return singletonDraftPost;
-}
-
-function clearSingletonDraftPost() {
-  singletonDraftPost = null;
-}
+import type { AdminIndividualListItem } from "@/hooks/useAdminIndividuals";
 
 function FamilyCreateFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("id")?.trim() ?? "";
   const [bootError, setBootError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    if (idFromUrl) {
-      clearSingletonDraftPost();
-      setBootError(null);
-      return;
-    }
-
-    let cancelled = false;
+  async function onPickFirstParent(ind: AdminIndividualListItem) {
+    if (creating) return;
+    setCreating(true);
     setBootError(null);
-
-    ensureEmptyFamilyOnServer()
-      .then((id) => {
-        if (cancelled) return;
-        router.replace(`/admin/families/create?id=${encodeURIComponent(id)}`, { scroll: false });
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        clearSingletonDraftPost();
-        setBootError(
-          e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not create family.",
-        );
+    try {
+      const res = await postJson<{ family: { id?: string } }>("/api/admin/families", {
+        firstParentId: ind.id,
       });
+      const newId = typeof res.family?.id === "string" ? res.family.id : "";
+      if (!newId) throw new Error("No family id returned from server.");
+      router.replace(`/admin/families/create?id=${encodeURIComponent(newId)}`, { scroll: false });
+    } catch (e) {
+      setBootError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not create family.");
+      setCreating(false);
+    }
+  }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [idFromUrl, router]);
+  if (idFromUrl) {
+    return <FamilyEditForm familyId={idFromUrl} mode="create" />;
+  }
 
-  if (!idFromUrl && bootError) {
-    return (
-      <div className="mx-auto flex w-full max-w-none flex-col gap-4 pb-20 md:pb-24">
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 pb-20 md:pb-24">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" asChild>
+          <Link href="/admin/families">← Families</Link>
+        </Button>
+      </div>
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Add new family</h1>
+        <p className="text-sm text-muted-foreground">
+          Choose an existing person as the first parent. A second parent and children can be added on the next
+          screen.
+        </p>
+      </header>
+      {bootError ? (
         <p className="text-sm text-destructive" role="alert">
           {bootError}
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          className="w-fit"
-          onClick={() => {
-            clearSingletonDraftPost();
-            window.location.assign("/admin/families/create");
-          }}
-        >
-          Try again
-        </Button>
-      </div>
-    );
-  }
-
-  if (!idFromUrl) {
-    return (
-      <div className="mx-auto w-full max-w-none pb-20 md:pb-24">
-        <p className="text-sm text-muted-foreground">Preparing new family…</p>
-      </div>
-    );
-  }
-
-  return <FamilyEditForm familyId={idFromUrl} mode="create" />;
+      ) : null}
+      <IndividualSearchPicker
+        idPrefix="family-create-first-parent"
+        label="First parent"
+        description="Search by given and last name, then select one row."
+        onPick={onPickFirstParent}
+        isPickDisabled={() => creating}
+        allowEmptySearch
+      />
+      {creating ? <p className="text-sm text-muted-foreground">Creating family…</p> : null}
+    </div>
+  );
 }
 
 export default function AdminFamilyCreatePage() {
