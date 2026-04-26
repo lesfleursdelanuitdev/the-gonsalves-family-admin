@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FamilyEditForm } from "@/components/admin/FamilyEditForm";
 import { IndividualSearchPicker } from "@/components/admin/IndividualSearchPicker";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { ApiError, postJson } from "@/lib/infra/api";
 import type { AdminIndividualListItem } from "@/hooks/useAdminIndividuals";
 
@@ -40,9 +40,9 @@ function FamilyCreateFlow() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 pb-20 md:pb-24">
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" size="sm" asChild>
-          <Link href="/admin/families">← Families</Link>
-        </Button>
+        <Link href="/admin/families" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          ← Families
+        </Link>
       </div>
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Add new family</h1>

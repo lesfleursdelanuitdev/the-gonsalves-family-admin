@@ -17,7 +17,7 @@ import { Prisma, PrismaClient } from "@ligneous/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-import { nextMediaXrefsAfterOccupied } from "../lib/admin/gedcom-media-xref.ts";
+import { nextMediaXrefsAfterOccupied } from "../lib/admin/gedcom-media-xref";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
