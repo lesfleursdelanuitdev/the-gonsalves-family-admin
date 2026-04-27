@@ -10,7 +10,7 @@ import { normalizeSiteMediaPath } from "@/lib/admin/normalize-site-media-path";
  *   - If `ADMIN_MEDIA_FILES_ROOT` is set, it must resolve to a path starting with `/mnt/`.
  *   - If unset, defaults to `/mnt/storage/uploads` so deploys never silently write into the repo tree.
  *
- * New uploads are placed under `gedcom-admin/images|documents|audio/`; legacy files may still sit
+ * New uploads are placed under `gedcom-admin/images|documents|audio|videos/`; legacy files may still sit
  * directly under `gedcom-admin/` (single path segment in the URL).
  */
 const PRODUCTION_DEFAULT_UPLOADS_PARENT = "/mnt/storage/uploads";
@@ -50,7 +50,7 @@ export function normalizeStoredMediaFileRef(fileRef: unknown): string | null {
 }
 
 /** Subdirectory names for new uploads (matches on-disk layout under `gedcom-admin/`). */
-export const ADMIN_MEDIA_STORE_CATEGORIES = ["images", "documents", "audio"] as const;
+export const ADMIN_MEDIA_STORE_CATEGORIES = ["images", "documents", "audio", "videos"] as const;
 export type AdminMediaStoreCategory = (typeof ADMIN_MEDIA_STORE_CATEGORIES)[number];
 
 export function isAdminMediaStoreCategory(s: string): s is AdminMediaStoreCategory {
@@ -62,6 +62,7 @@ export function adminMediaStoreCategoryFromMime(mime: string): AdminMediaStoreCa
   const m = mime.toLowerCase().trim();
   if (m.startsWith("image/")) return "images";
   if (m.startsWith("audio/")) return "audio";
+  if (m.startsWith("video/")) return "videos";
   return "documents";
 }
 
@@ -102,10 +103,14 @@ export function guessContentType(filename: string): string {
   if (n.endsWith(".webp")) return "image/webp";
   if (n.endsWith(".avif")) return "image/avif";
   if (n.endsWith(".bmp")) return "image/bmp";
+  if (n.endsWith(".heic")) return "image/heic";
+  if (n.endsWith(".heif")) return "image/heif";
   if (n.endsWith(".svg")) return "image/svg+xml";
   if (n.endsWith(".pdf")) return "application/pdf";
   if (n.endsWith(".mp4")) return "video/mp4";
   if (n.endsWith(".webm")) return "video/webm";
+  if (n.endsWith(".mov") || n.endsWith(".qt")) return "video/quicktime";
+  if (n.endsWith(".3gp") || n.endsWith(".3g2")) return "video/3gpp";
   if (n.endsWith(".mp3")) return "audio/mpeg";
   if (n.endsWith(".wav")) return "audio/wav";
   if (n.endsWith(".ogg") || n.endsWith(".oga")) return "audio/ogg";

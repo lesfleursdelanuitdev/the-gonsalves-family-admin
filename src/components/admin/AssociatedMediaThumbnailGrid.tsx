@@ -1,13 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { FileImage } from "lucide-react";
+import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import {
   isLikelyRasterImage,
   isLikelyVideoFile,
   isPlayableVideoRef,
-  mediaImageUnoptimized,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 import { displayTagName } from "@/lib/admin/display-tag-name";
@@ -74,13 +73,14 @@ export function AssociatedMediaThumbnailGrid({ items }: { items: readonly Associ
             >
               <div className="relative aspect-square w-full bg-base-200/40">
                 {showThumb && src ? (
-                  <Image
+                  <MediaRasterImage
+                    fileRef={m.fileRef}
+                    form={m.form}
                     src={src}
                     alt={m.title}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1280px) 25vw, 20vw"
                     className="object-contain p-1"
-                    unoptimized={mediaImageUnoptimized(src)}
                   />
                 ) : showVideoPeek && src ? (
                   <video

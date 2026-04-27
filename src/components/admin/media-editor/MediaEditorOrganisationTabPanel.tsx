@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { displayTagName } from "@/lib/admin/display-tag-name";
@@ -21,6 +22,8 @@ export type MediaEditorOrganisationTabPanelProps = {
   setTagQuery: (v: string) => void;
   albumQuery: string;
   setAlbumQuery: (v: string) => void;
+  createAlbumAsPublic: boolean;
+  setCreateAlbumAsPublic: (v: boolean) => void;
   tagsLoading: boolean;
   albumsLoading: boolean;
   tagResults: AdminTagListItem[];
@@ -46,6 +49,8 @@ export function MediaEditorOrganisationTabPanel({
   setTagQuery,
   albumQuery,
   setAlbumQuery,
+  createAlbumAsPublic,
+  setCreateAlbumAsPublic,
   tagsLoading,
   albumsLoading,
   tagResults,
@@ -141,6 +146,21 @@ export function MediaEditorOrganisationTabPanel({
           {stagedAlbums.length === 0 ? (
             <span className="text-sm text-muted-foreground">No albums yet.</span>
           ) : null}
+        </div>
+        <div className="flex items-start gap-3 rounded-md border border-base-content/10 p-3">
+          <Checkbox
+            id={`${panelId}-album-public`}
+            checked={createAlbumAsPublic}
+            onCheckedChange={(v) => setCreateAlbumAsPublic(v === true)}
+          />
+          <div className="grid gap-1.5 leading-none">
+            <Label htmlFor={`${panelId}-album-public`} className="cursor-pointer font-medium">
+              Public album
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Public names must be unique on your account. Leave unchecked for a personal album (duplicate names allowed).
+            </p>
+          </div>
         </div>
         <div className="relative space-y-2">
           <Input

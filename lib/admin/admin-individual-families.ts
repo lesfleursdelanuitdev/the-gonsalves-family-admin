@@ -48,6 +48,29 @@ export async function syncFamilySpouseXrefs(tx: Tx, familyId: string) {
   });
 }
 
+/**
+ * When both partner slots are filled, each couple should map to at most one `gedcom_families_v2`
+ * row per file (duplicate empty families break spouse-edge uniqueness and GEDCOM export).
+ */
+export async function findExistingCoupleFamilyId(
+  tx: Tx,
+  fileUuid: string,
+  husbandId: string,
+  wifeId: string,
+  excludeFamilyId?: string,
+): Promise<string | null> {
+  const row = await tx.gedcomFamily.findFirst({
+    where: {
+      fileUuid,
+      husbandId,
+      wifeId,
+      ...(excludeFamilyId ? { id: { not: excludeFamilyId } } : {}),
+    },
+    select: { id: true },
+  });
+  return row?.id ?? null;
+}
+
 export async function rebuildSpouseRowsForFamily(ctx: ChangeCtx, familyId: string) {
   const { tx, fileUuid } = ctx;
   await tx.gedcomSpouse.deleteMany({ where: { familyId } });

@@ -81,6 +81,8 @@ function useMediaEditorOrganisationLinks({
   );
   const [tagQuery, setTagQuery] = useState("");
   const [albumQuery, setAlbumQuery] = useState("");
+  /** When creating an album from the media editor search ("Create album …"), maps to `is_public` (uniqueness applies only to public). */
+  const [createAlbumAsPublic, setCreateAlbumAsPublic] = useState(false);
 
   const debouncedTagQ = useDebouncedValue(tagQuery.trim(), ADMIN_PICKER_DEBOUNCE_MS);
   const debouncedAlbumQ = useDebouncedValue(albumQuery.trim(), ADMIN_PICKER_DEBOUNCE_MS);
@@ -201,7 +203,10 @@ function useMediaEditorOrganisationLinks({
     if (!name) return;
     setErrMsg(null);
     try {
-      const res = await postJson<{ album: AdminAlbumListItem }>("/api/admin/albums", { name });
+      const res = await postJson<{ album: AdminAlbumListItem }>("/api/admin/albums", {
+        name,
+        isPublic: createAlbumAsPublic,
+      });
       await addAlbum(res.album);
     } catch (e) {
       setErrMsg(e instanceof ApiError ? e.message : "Could not create album");
@@ -215,6 +220,8 @@ function useMediaEditorOrganisationLinks({
     setTagQuery,
     albumQuery,
     setAlbumQuery,
+    createAlbumAsPublic,
+    setCreateAlbumAsPublic,
     tagsQuery,
     albumsQuery,
     tagResults,
@@ -646,6 +653,8 @@ export function useMediaEditorLinks({
     setTagQuery,
     albumQuery,
     setAlbumQuery,
+    createAlbumAsPublic,
+    setCreateAlbumAsPublic,
     tagsQuery,
     albumsQuery,
     tagResults,
@@ -772,6 +781,8 @@ export function useMediaEditorLinks({
     setTagQuery,
     albumQuery,
     setAlbumQuery,
+    createAlbumAsPublic,
+    setCreateAlbumAsPublic,
     eventTypeFilter,
     setEventTypeFilter,
     eventLinkKind,

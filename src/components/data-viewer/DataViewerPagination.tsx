@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ interface DataViewerPaginationProps {
   /** Total rows after filtering — used for "Showing X–Y of Z" display */
   filteredTotal: number;
   onPaginationChange: (updater: Updater<PaginationState>) => void;
+  /** Renders to the left of the “Showing …” range (e.g. page size selector). */
+  leading?: ReactNode;
 }
 
 export function DataViewerPagination({
@@ -17,6 +20,7 @@ export function DataViewerPagination({
   pageCount,
   filteredTotal,
   onPaginationChange,
+  leading,
 }: DataViewerPaginationProps) {
   const safeCount = Math.max(1, pageCount);
   const canPrev = pagination.pageIndex > 0;
@@ -43,20 +47,22 @@ export function DataViewerPagination({
   const to = Math.min((pagination.pageIndex + 1) * pagination.pageSize, filteredTotal);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      {/* Range label */}
-      <p className="text-sm text-muted-foreground">
-        {filteredTotal === 0 ? (
-          "No results"
-        ) : (
-          <>
-            Showing{" "}
-            <span className="font-medium text-base-content">{from.toLocaleString()}–{to.toLocaleString()}</span>
-            {" of "}
-            <span className="font-medium text-base-content">{filteredTotal.toLocaleString()}</span>
-          </>
-        )}
-      </p>
+    <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
+        {leading ? <div className="flex shrink-0 flex-wrap items-center gap-2">{leading}</div> : null}
+        <p className="text-sm text-muted-foreground">
+          {filteredTotal === 0 ? (
+            "No results"
+          ) : (
+            <>
+              Showing{" "}
+              <span className="font-medium text-base-content">{from.toLocaleString()}–{to.toLocaleString()}</span>
+              {" of "}
+              <span className="font-medium text-base-content">{filteredTotal.toLocaleString()}</span>
+            </>
+          )}
+        </p>
+      </div>
 
       {/* Page controls */}
       <div className="flex items-center gap-1">

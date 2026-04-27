@@ -1,6 +1,7 @@
 import type { Prisma } from "@ligneous/prisma";
 import {
   canonicalSpouseSlotsForPair,
+  findExistingCoupleFamilyId,
   normalizeChildRelationshipType,
   recomputeIndividualFamilyFlags,
   rebuildSpouseRowsForFamily,
@@ -235,6 +236,13 @@ export async function createNewFamilyLinkingPair(
     { id: a.id, sex: a.sex },
     { id: b.id, sex: b.sex },
   );
+
+  const existingFamilyId = await findExistingCoupleFamilyId(tx, fileUuid, husbandId, wifeId);
+  if (existingFamilyId) {
+    await rebuildSpouseRowsForFamily(ctx, existingFamilyId);
+    await syncFamilySpouseXrefs(tx, existingFamilyId);
+    return existingFamilyId;
+  }
 
   const xref = await allocateNewFamilyXref(tx, fileUuid);
   const fam = await tx.gedcomFamily.create({

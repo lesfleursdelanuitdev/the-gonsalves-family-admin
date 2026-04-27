@@ -1,12 +1,14 @@
 "use client";
 
 import type { RefObject } from "react";
-import Image from "next/image";
 import { Loader2, Upload } from "lucide-react";
+import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { mediaImageUnoptimized } from "@/lib/admin/mediaPreview";
+import { adminMediaUploadMaxMbForUi } from "@/constants/admin";
+import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";
+import type { MediaEditorUploadProgressState } from "@/hooks/useMediaEditorUploadAndMeta";
 
 export type MediaEditorFileTabPanelProps = {
   panelId: string;
@@ -17,6 +19,7 @@ export type MediaEditorFileTabPanelProps = {
   dragOver: boolean;
   setDragOver: (v: boolean) => void;
   uploading: boolean;
+  uploadProgress?: MediaEditorUploadProgressState | null;
   onDrop: (e: React.DragEvent) => void;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onFilesChosenFromPicker: (list: FileList | null) => void;
@@ -42,6 +45,7 @@ export function MediaEditorFileTabPanel({
   dragOver,
   setDragOver,
   uploading,
+  uploadProgress = null,
   onDrop,
   fileInputRef,
   onFilesChosenFromPicker,
@@ -97,6 +101,16 @@ export function MediaEditorFileTabPanel({
         ) : (
           <Upload className="size-8 text-muted-foreground" aria-hidden />
         )}
+        {uploading && uploadProgress ? (
+          <MediaUploadProgressInline
+            className="mt-1"
+            loaded={uploadProgress.loaded}
+            total={uploadProgress.total}
+            expectedSize={uploadProgress.expectedBytes}
+            caption={uploadProgress.caption ?? null}
+            subCaption={uploadProgress.subCaption ?? null}
+          />
+        ) : null}
         <p className="font-medium text-base-content">
           {mode === "create" ? "Drop multiple files or click to choose several" : "Drop a file or click to choose"}
         </p>
@@ -107,8 +121,8 @@ export function MediaEditorFileTabPanel({
         ) : null}
         <p className="text-muted-foreground">
           {mode === "create"
-            ? "Up to 80 MB each · each file becomes a new media row (you return to the media list if you pick more than one)"
-            : "Up to 80 MB · one file replaces the current upload"}
+            ? `Up to ${adminMediaUploadMaxMbForUi()} MB each · each file becomes a new media row (you return to the media list if you pick more than one)`
+            : `Up to ${adminMediaUploadMaxMbForUi()} MB · one file replaces the current upload`}
         </p>
         <input
           ref={fileInputRef}
@@ -149,14 +163,15 @@ export function MediaEditorFileTabPanel({
         </p>
         {showImagePreview && imagePreviewSrc ? (
           <div className="relative h-40 w-40 overflow-hidden rounded-box border border-base-content/10 bg-base-200/40">
-            <Image
+            <MediaRasterImage
               key={`thumb-${imagePreviewSrc}`}
+              fileRef={fileRef}
+              form={form}
               src={imagePreviewSrc}
               alt=""
               fill
               sizes="160px"
               className="object-contain p-1"
-              unoptimized={mediaImageUnoptimized(imagePreviewSrc)}
             />
           </div>
         ) : showVideoPreview && imagePreviewSrc ? (

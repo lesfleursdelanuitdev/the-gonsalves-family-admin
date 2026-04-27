@@ -10,9 +10,17 @@ import {
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
-import { ApiError, postFormData } from "@/lib/infra/api";
+import { ApiError, postFormDataWithUploadProgress } from "@/lib/infra/api";
 import { ADMIN_MEDIA_QUERY_KEY, useCreateMedia } from "@/hooks/useAdminMedia";
 import type { MediaEditorInitial } from "@/components/admin/media-editor/media-editor-types";
+
+export type MediaEditorUploadProgressState = {
+  loaded: number;
+  total: number | null;
+  expectedBytes: number;
+  caption?: string;
+  subCaption?: string;
+};
 
 export type UseMediaEditorUploadAndMetaArgs = {
   mode: "create" | "edit";
@@ -36,6 +44,7 @@ export function useMediaEditorUploadAndMeta({
   const [fileRef, setFileRef] = useState(initial?.fileRef ?? "");
   const [form, setForm] = useState(initial?.form ?? "");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<MediaEditorUploadProgressState | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploadMimeType, setUploadMimeType] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,15 +68,28 @@ export function useMediaEditorUploadAndMeta({
   const processUploadFile = useCallback(async (file: File) => {
     setErrMsg(null);
     setUploading(true);
+    setUploadProgress({
+      loaded: 0,
+      total: null,
+      expectedBytes: file.size,
+      subCaption: "Uploading…",
+    });
     try {
       const fd = new FormData();
       fd.set("file", file);
-      const res = await postFormData<{
+      const res = await postFormDataWithUploadProgress<{
         fileRef: string;
         suggestedForm: string | null;
         originalName: string;
         mimeType: string | null;
-      }>("/api/admin/media/upload", fd);
+      }>("/api/admin/media/upload", fd, (p) => {
+        setUploadProgress({
+          loaded: p.loaded,
+          total: p.total,
+          expectedBytes: file.size,
+          subCaption: "Uploading…",
+        });
+      });
       setFileRef(res.fileRef);
       setUploadMimeType(res.mimeType ?? null);
       if (res.suggestedForm) {
@@ -78,6 +100,7 @@ export function useMediaEditorUploadAndMeta({
     } catch (e) {
       setErrMsg(e instanceof ApiError ? e.message : "Upload failed");
     } finally {
+      setUploadProgress(null);
       setUploading(false);
     }
   }, [setErrMsg]);
@@ -96,12 +119,34 @@ export function useMediaEditorUploadAndMeta({
           try {
             const fd = new FormData();
             fd.set("file", file);
-            const up = await postFormData<{
+            setUploadProgress({
+              loaded: 0,
+              total: null,
+              expectedBytes: file.size,
+              caption: `${i + 1} of ${files.length}: ${label}`,
+              subCaption: "Uploading…",
+            });
+            const up = await postFormDataWithUploadProgress<{
               fileRef: string;
               suggestedForm: string | null;
               originalName: string;
               mimeType: string | null;
-            }>("/api/admin/media/upload", fd);
+            }>("/api/admin/media/upload", fd, (p) => {
+              setUploadProgress({
+                loaded: p.loaded,
+                total: p.total,
+                expectedBytes: file.size,
+                caption: `${i + 1} of ${files.length}: ${label}`,
+                subCaption: "Uploading…",
+              });
+            });
+            setUploadProgress({
+              loaded: file.size,
+              total: file.size,
+              expectedBytes: file.size,
+              caption: `${i + 1} of ${files.length}: ${label}`,
+              subCaption: "Saving media row…",
+            });
             const rowTitle = titleFromUploadedFilename(up.originalName);
             await createMedia.mutateAsync({
               title: rowTitle,
@@ -129,6 +174,7 @@ export function useMediaEditorUploadAndMeta({
         }
         setErrMsg(errors.slice(0, 6).join("\n"));
       } finally {
+        setUploadProgress(null);
         setUploading(false);
       }
     },
@@ -177,6 +223,7 @@ export function useMediaEditorUploadAndMeta({
     form,
     setForm,
     uploading,
+    uploadProgress,
     dragOver,
     setDragOver,
     uploadMimeType,

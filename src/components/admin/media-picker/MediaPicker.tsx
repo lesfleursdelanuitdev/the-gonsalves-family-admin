@@ -15,7 +15,7 @@ export type MediaPickerProps = {
   targetType: MediaPickerTargetType;
   targetId: string;
   mode?: MediaPickerMode;
-  allowedTypes?: readonly ("photo" | "document" | "video")[];
+  allowedTypes?: readonly ("photo" | "document" | "video" | "audio")[];
   purpose?: MediaPickerPurpose;
   initialSelectedIds?: readonly string[];
   excludeMediaIds?: ReadonlySet<string>;

@@ -31,7 +31,8 @@ export function adminMediaPageFilterStateToQueryOpts(applied: AdminMediaPageFilt
   if (
     applied.mediaCategory === "photo" ||
     applied.mediaCategory === "document" ||
-    applied.mediaCategory === "video"
+    applied.mediaCategory === "video" ||
+    applied.mediaCategory === "audio"
   ) {
     opts.mediaCategory = applied.mediaCategory;
   }

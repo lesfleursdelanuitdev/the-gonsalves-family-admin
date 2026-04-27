@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import Image from "next/image";
+import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +8,7 @@ import {
   FileImage,
   FileText,
   Film,
+  Headphones,
   Images,
   Link2,
   Loader2,
@@ -20,15 +20,19 @@ import {
   Upload,
 } from "lucide-react";
 import {
+  isLikelyAudioFile,
   isLikelyRasterImage,
   isLikelyVideoFile,
+  isPlayableAudioRef,
   isPlayableVideoRef,
-  mediaImageUnoptimized,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
+import { inferAdminMediaCategory, type AdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
+import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
+import { adminMediaUploadMaxMbForUi } from "@/constants/admin";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +54,9 @@ import { useAdminMediaPageFilters } from "@/hooks/useAdminMediaPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
-import { fetchJson, ApiError, postFormData } from "@/lib/infra/api";
+import { fetchJson, ApiError, postFormDataWithUploadProgress } from "@/lib/infra/api";
+import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";
+import type { MediaEditorUploadProgressState } from "@/hooks/useMediaEditorUploadAndMeta";
 import { cn } from "@/lib/utils";
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -59,7 +65,7 @@ interface MediaRow {
   id: string;
   title: string;
   description: string;
-  mediaType: "photo" | "document" | "video";
+  mediaType: AdminMediaCategory;
   filename: string;
   form: string;
   linkedTo: string;
@@ -71,10 +77,11 @@ interface MediaRow {
   tagCount: number;
 }
 
-const mediaTypeIcon: Record<MediaRow["mediaType"], React.ComponentType<{ className?: string }>> = {
+const mediaTypeIcon: Record<MediaRow["mediaType"], ComponentType<{ className?: string }>> = {
   photo: FileImage,
   document: FileText,
   video: Film,
+  audio: Headphones,
 };
 
 const mediaTypeBadge: Record<
@@ -84,6 +91,7 @@ const mediaTypeBadge: Record<
   photo:    { label: "Photo",    className: "bg-success/15 text-success" },
   document: { label: "Document", className: "bg-warning/15 text-warning" },
   video:    { label: "Video",    className: "bg-info/15 text-info" },
+  audio:    { label: "Audio",    className: "bg-secondary/20 text-secondary" },
 };
 
 interface AdminSetupPayload {
@@ -95,10 +103,7 @@ interface AdminSetupPayload {
 
 function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
   return (api?.media ?? []).map((m) => {
-    const form = (m.form ?? "").toLowerCase();
-    let mediaType: MediaRow["mediaType"] = "photo";
-    if (form.includes("video") || form === "video") mediaType = "video";
-    else if (form.includes("doc") || form === "document") mediaType = "document";
+    const mediaType = inferAdminMediaCategory(m.form, m.fileRef);
 
     const parts: string[] = [];
     m.individualMedia?.forEach((im) => {
@@ -188,6 +193,15 @@ function MediaCardItem({
     isPlayableVideoRef(fileRefRaw)
       ? resolvedRef
       : null;
+  const audioCardSrc =
+    fileRefRaw &&
+    !thumbSrc &&
+    !videoCardSrc &&
+    resolvedRef &&
+    isLikelyAudioFile(fileRefRaw, record.form) &&
+    isPlayableAudioRef(fileRefRaw)
+      ? resolvedRef
+      : null;
   const titleDisplay = record.title.trim() && record.title !== "—" ? record.title : "Untitled";
 
   return (
@@ -195,14 +209,15 @@ function MediaCardItem({
       {/* Thumbnail */}
       <div className="relative aspect-[4/3] w-full shrink-0 border-b border-base-content/10 bg-gradient-to-b from-base-200/70 to-base-300/35">
         {thumbSrc ? (
-          <Image
+          <MediaRasterImage
             key={thumbSrc + record.id}
+            fileRef={fileRefRaw}
+            form={record.form}
             src={thumbSrc}
             alt={titleDisplay}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             className="object-contain p-2"
-            unoptimized={mediaImageUnoptimized(thumbSrc)}
           />
         ) : videoCardSrc ? (
           <video
@@ -214,6 +229,17 @@ function MediaCardItem({
             className="pointer-events-none absolute inset-0 h-full w-full object-contain p-2"
             aria-hidden
           />
+        ) : audioCardSrc ? (
+          <div className="absolute inset-0 flex items-end justify-center bg-base-200/40 p-3 pb-4" onClick={(e) => e.stopPropagation()}>
+            <audio
+              key={audioCardSrc + record.id}
+              src={audioCardSrc}
+              controls
+              className="h-9 w-full max-w-[min(100%,18rem)]"
+              preload="metadata"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         ) : (
           <div className="flex h-full min-h-[7rem] flex-col items-center justify-center gap-2 px-4 py-6 text-center">
             <Icon className="size-11 shrink-0 text-muted-foreground/55" aria-hidden />
@@ -374,6 +400,7 @@ export default function AdminMediaPage() {
   const listUploadInputRef = useRef<HTMLInputElement>(null);
   const [listUploadDragOver, setListUploadDragOver] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [listUploadProgress, setListUploadProgress] = useState<MediaEditorUploadProgressState | null>(null);
 
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminMediaPageFilters();
@@ -389,46 +416,73 @@ export default function AdminMediaPage() {
       const errors: string[] = [];
       let lastId: string | undefined;
       let lastTitle = "";
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]!;
-        const label = file.name?.trim() || `File ${i + 1}`;
-        try {
-          const fd = new FormData();
-          fd.set("file", file);
-          const up = await postFormData<{ fileRef: string; suggestedForm: string | null; originalName: string }>(
-            "/api/admin/media/upload",
-            fd,
-          );
-          const title = titleFromUploadedFilename(up.originalName);
-          const res = (await createMedia.mutateAsync({
-            title,
-            fileRef: up.fileRef,
-            form: up.suggestedForm ?? null,
-          })) as { media: { id: string } };
-          lastId = res.media.id;
-          lastTitle = title;
-        } catch (err) {
-          const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Upload failed";
-          errors.push(`${label}: ${msg}`);
+      try {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i]!;
+          const label = file.name?.trim() || `File ${i + 1}`;
+          try {
+            const fd = new FormData();
+            fd.set("file", file);
+            setListUploadProgress({
+              loaded: 0,
+              total: null,
+              expectedBytes: file.size,
+              caption: `${i + 1} of ${files.length}: ${label}`,
+              subCaption: "Uploading…",
+            });
+            const up = await postFormDataWithUploadProgress<{
+              fileRef: string;
+              suggestedForm: string | null;
+              originalName: string;
+            }>("/api/admin/media/upload", fd, (p) => {
+              setListUploadProgress({
+                loaded: p.loaded,
+                total: p.total,
+                expectedBytes: file.size,
+                caption: `${i + 1} of ${files.length}: ${label}`,
+                subCaption: "Uploading…",
+              });
+            });
+            setListUploadProgress({
+              loaded: file.size,
+              total: file.size,
+              expectedBytes: file.size,
+              caption: `${i + 1} of ${files.length}: ${label}`,
+              subCaption: "Saving media row…",
+            });
+            const title = titleFromUploadedFilename(up.originalName);
+            const res = (await createMedia.mutateAsync({
+              title,
+              fileRef: up.fileRef,
+              form: up.suggestedForm ?? null,
+            })) as { media: { id: string } };
+            lastId = res.media.id;
+            lastTitle = title;
+          } catch (err) {
+            const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Upload failed";
+            errors.push(`${label}: ${msg}`);
+          }
         }
-      }
-      await queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
-      if (errors.length === 0) {
-        if (files.length === 1 && lastId) {
-          toast.success(`Added media "${lastTitle}".`);
-          router.push(`/admin/media/${lastId}/edit`);
-        } else {
-          toast.success(`Added ${files.length} media files.`);
+        await queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
+        if (errors.length === 0) {
+          if (files.length === 1 && lastId) {
+            toast.success(`Added media "${lastTitle}".`);
+            router.push(`/admin/media/${lastId}/edit`);
+          } else {
+            toast.success(`Added ${files.length} media files.`);
+          }
+          return;
         }
-        return;
+        if (errors.length < files.length) {
+          toast.warning(`Uploaded ${files.length - errors.length} of ${files.length} files.`, {
+            description: errors.slice(0, 5).join(" · "),
+          });
+          return;
+        }
+        toast.error(errors.slice(0, 3).join(" · "));
+      } finally {
+        setListUploadProgress(null);
       }
-      if (errors.length < files.length) {
-        toast.warning(`Uploaded ${files.length - errors.length} of ${files.length} files.`, {
-          description: errors.slice(0, 5).join(" · "),
-        });
-        return;
-      }
-      toast.error(errors.slice(0, 3).join(" · "));
     },
     [createMedia, queryClient, router],
   );
@@ -467,7 +521,7 @@ export default function AdminMediaPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Media</h1>
           <p className="text-sm text-muted-foreground">
-            Photos, documents, and videos linked to people, families, and events in this tree.
+            Photos, documents, video, and audio linked to people, families, and events in this tree.
           </p>
           {setup?.configured && setup.gedcomFile && (
             <p className="mt-1 text-xs text-muted-foreground">
@@ -529,23 +583,37 @@ export default function AdminMediaPage() {
             className={cn(
               "flex min-h-[110px] cursor-pointer flex-col items-center justify-center gap-2 rounded-box border-2 border-dashed px-4 py-6 text-center text-sm transition-colors",
               listUploadDragOver ? "border-primary bg-primary/5" : "border-base-content/15 bg-base-200/25",
-              createMedia.isPending && "pointer-events-none opacity-60",
+              listUploadProgress != null && "pointer-events-none opacity-60",
             )}
           >
-            {createMedia.isPending
-              ? <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
-              : <Upload className="size-8 text-muted-foreground" aria-hidden />}
+            {listUploadProgress != null ? (
+              <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
+            ) : (
+              <Upload className="size-8 text-muted-foreground" aria-hidden />
+            )}
+            {listUploadProgress != null ? (
+              <MediaUploadProgressInline
+                className="w-full max-w-sm"
+                loaded={listUploadProgress.loaded}
+                total={listUploadProgress.total}
+                expectedSize={listUploadProgress.expectedBytes}
+                caption={listUploadProgress.caption ?? null}
+                subCaption={listUploadProgress.subCaption ?? null}
+              />
+            ) : null}
             <span className="font-medium text-base-content">
-              {createMedia.isPending
-                ? "Uploading and creating…"
+              {listUploadProgress != null
+                ? "Please wait…"
                 : "Drop multiple files here, or click to choose several"}
             </span>
-            {!createMedia.isPending ? (
+            {listUploadProgress == null ? (
               <span className="badge badge-sm border border-primary/30 bg-primary/10 font-normal text-primary">
                 Multi-file upload
               </span>
             ) : null}
-            <span className="text-xs text-muted-foreground">Up to 80 MB per file · any file type</span>
+            <span className="text-xs text-muted-foreground">
+              Up to {adminMediaUploadMaxMbForUi()} MB per file · any file type
+            </span>
             <input
               ref={listUploadInputRef}
               type="file"
@@ -553,7 +621,7 @@ export default function AdminMediaPage() {
               className="sr-only"
               accept="*/*"
               aria-label="Choose one or more media files to upload"
-              disabled={createMedia.isPending}
+              disabled={listUploadProgress != null}
               onChange={(ev) => {
                 const list = ev.target.files;
                 if (list?.length) void handleListUploadFiles(list);
@@ -580,6 +648,7 @@ export default function AdminMediaPage() {
               <option value="photo">Photo</option>
               <option value="document">Document</option>
               <option value="video">Video</option>
+              <option value="audio">Audio</option>
             </select>
           </div>
           <div className="space-y-2 sm:col-span-2">

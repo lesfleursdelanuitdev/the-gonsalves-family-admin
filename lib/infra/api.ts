@@ -39,6 +39,71 @@ export async function postFormData<T>(url: string, formData: FormData): Promise<
   return handleResponse<T>(res);
 }
 
+/** Bytes sent toward the server for the multipart body (when known). */
+export type FormDataUploadProgress = {
+  loaded: number;
+  total: number | null;
+};
+
+/**
+ * POST multipart `FormData` with upload progress via `XMLHttpRequest`
+ * (`fetch` does not expose upload progress).
+ */
+export function postFormDataWithUploadProgress<T>(
+  url: string,
+  formData: FormData,
+  onProgress?: (p: FormDataUploadProgress) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.withCredentials = true;
+    xhr.responseType = "json";
+
+    xhr.upload.onprogress = (e) => {
+      onProgress?.({
+        loaded: e.loaded,
+        total: e.lengthComputable ? e.total : null,
+      });
+    };
+
+    xhr.onload = () => {
+      const status = xhr.status;
+      if (status >= 200 && status < 300) {
+        if (status === 204) {
+          resolve(undefined as T);
+          return;
+        }
+        resolve(xhr.response as T);
+        return;
+      }
+      let msg = xhr.statusText || `HTTP ${status}`;
+      const body = xhr.response;
+      if (body && typeof body === "object" && "error" in body && typeof (body as { error: unknown }).error === "string") {
+        msg = (body as { error: string }).error;
+      } else if (xhr.responseText) {
+        try {
+          const j = JSON.parse(xhr.responseText) as { error?: string };
+          if (typeof j.error === "string") msg = j.error;
+        } catch {
+          /* keep msg */
+        }
+      }
+      reject(new ApiError(status, msg));
+    };
+
+    xhr.onerror = () => {
+      reject(new ApiError(0, "Network error"));
+    };
+
+    xhr.onabort = () => {
+      reject(new ApiError(0, "Upload aborted"));
+    };
+
+    xhr.send(formData);
+  });
+}
+
 export async function postJson<T>(url: string, body?: unknown): Promise<T> {
   const fullUrl = typeof window !== "undefined" ? `${window.location.origin}${url}` : url;
   if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {

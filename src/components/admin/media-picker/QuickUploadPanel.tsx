@@ -3,23 +3,27 @@
 import { useRef } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";
+import type { MediaEditorUploadProgressState } from "@/hooks/useMediaEditorUploadAndMeta";
 import { cn } from "@/lib/utils";
 
 export function QuickUploadPanel({
   disabled,
   busy,
+  uploadProgress,
   onFiles,
   className,
 }: {
   disabled?: boolean;
   busy?: boolean;
+  uploadProgress?: MediaEditorUploadProgressState | null;
   onFiles: (files: FileList | null) => void;
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className={cn(className)}>
+    <div className={cn("flex min-w-0 flex-col gap-2", className)}>
       <input
         ref={inputRef}
         type="file"
@@ -43,6 +47,15 @@ export function QuickUploadPanel({
         <Upload size={18} className="shrink-0" aria-hidden />
         Quick upload
       </Button>
+      {busy && uploadProgress ? (
+        <MediaUploadProgressInline
+          loaded={uploadProgress.loaded}
+          total={uploadProgress.total}
+          expectedSize={uploadProgress.expectedBytes}
+          caption={uploadProgress.caption ?? null}
+          subCaption={uploadProgress.subCaption ?? null}
+        />
+      ) : null}
     </div>
   );
 }

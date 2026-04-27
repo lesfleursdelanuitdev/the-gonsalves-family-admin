@@ -4,7 +4,11 @@ import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { mergeFamilyChildrenForApi } from "@/lib/admin/admin-family-children-merge";
 import { upsertFamilyDivorceFact, upsertFamilyMarriageFact } from "@/lib/admin/admin-family-marriage";
-import { syncFamilySpouseXrefs } from "@/lib/admin/admin-individual-families";
+import {
+  findExistingCoupleFamilyId,
+  rebuildSpouseRowsForFamily,
+  syncFamilySpouseXrefs,
+} from "@/lib/admin/admin-individual-families";
 import { deleteGedcomFamilyWithCleanup } from "@/lib/admin/admin-family-delete";
 import { newBatchId } from "@/lib/admin/changelog";
 import { ADMIN_FAMILY_DETAIL_INCLUDE } from "@/app/api/admin/families/family-admin-detail-include";
@@ -80,18 +84,18 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
   const touchesPartnerSlots =
     Object.prototype.hasOwnProperty.call(data, "husbandId") ||
     Object.prototype.hasOwnProperty.call(data, "wifeId");
+  let nextHusbandId = existing.husbandId;
+  let nextWifeId = existing.wifeId;
   if (touchesPartnerSlots) {
-    let nextH: string | null = existing.husbandId;
-    let nextW: string | null = existing.wifeId;
     if (Object.prototype.hasOwnProperty.call(data, "husbandId")) {
       const v = data.husbandId;
-      nextH = v == null || v === "" ? null : String(v);
+      nextHusbandId = v == null || v === "" ? null : String(v);
     }
     if (Object.prototype.hasOwnProperty.call(data, "wifeId")) {
       const v = data.wifeId;
-      nextW = v == null || v === "" ? null : String(v);
+      nextWifeId = v == null || v === "" ? null : String(v);
     }
-    if (!nextH && !nextW) {
+    if (!nextHusbandId && !nextWifeId) {
       return NextResponse.json(
         {
           error:
@@ -99,6 +103,24 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
         },
         { status: 400 },
       );
+    }
+    if (nextHusbandId && nextWifeId) {
+      const dupId = await findExistingCoupleFamilyId(
+        prisma,
+        fileUuid,
+        nextHusbandId,
+        nextWifeId,
+        id,
+      );
+      if (dupId) {
+        return NextResponse.json(
+          {
+            error: "A family for this couple already exists.",
+            existingFamilyId: dupId,
+          },
+          { status: 409 },
+        );
+      }
     }
   }
 
@@ -124,6 +146,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
         });
       }
       if (data.husbandId !== undefined || data.wifeId !== undefined) {
+        await rebuildSpouseRowsForFamily(changeCtx, id);
         await syncFamilySpouseXrefs(tx, id);
       }
     });

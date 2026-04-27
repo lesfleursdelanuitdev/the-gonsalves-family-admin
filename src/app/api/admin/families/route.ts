@@ -4,7 +4,13 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { allocateNewFamilyXref, registerXrefInFileObjects } from "@/lib/admin/admin-individual-editor-apply";
-import { singleSpouseSlotForFirstParent, syncFamilySpouseXrefs } from "@/lib/admin/admin-individual-families";
+import { newBatchId } from "@/lib/admin/changelog";
+import {
+  findExistingCoupleFamilyId,
+  rebuildSpouseRowsForFamily,
+  singleSpouseSlotForFirstParent,
+  syncFamilySpouseXrefs,
+} from "@/lib/admin/admin-individual-families";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
   adminFamiliesFilterConditions,
@@ -160,7 +166,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
   });
 });
 
-export const POST = withAdminAuth(async (req, _user, _ctx) => {
+export const POST = withAdminAuth(async (req, user, _ctx) => {
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
 
@@ -205,7 +211,21 @@ export const POST = withAdminAuth(async (req, _user, _ctx) => {
       ? Math.trunc(body.childrenCount as number)
       : 0;
 
+  if (husbandId && wifeId) {
+    const dupId = await findExistingCoupleFamilyId(prisma, fileUuid, husbandId, wifeId);
+    if (dupId) {
+      return NextResponse.json(
+        {
+          error: "A family for this couple already exists.",
+          existingFamilyId: dupId,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const family = await prisma.$transaction(async (tx) => {
+    const changeCtx = { tx, fileUuid, userId: user.id, batchId: newBatchId() };
     const xref = await allocateNewFamilyXref(tx, fileUuid);
     const fam = await tx.gedcomFamily.create({
       data: {
@@ -218,6 +238,7 @@ export const POST = withAdminAuth(async (req, _user, _ctx) => {
       },
     });
     await registerXrefInFileObjects(tx, fileUuid, xref, "FAM", fam.id);
+    await rebuildSpouseRowsForFamily(changeCtx, fam.id);
     await syncFamilySpouseXrefs(tx, fam.id);
     return fam;
   });

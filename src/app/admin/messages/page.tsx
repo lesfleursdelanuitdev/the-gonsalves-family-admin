@@ -29,7 +29,10 @@ interface Conversation {
   replyRecipientIds: string[];
   userName: string;
   userUsername: string;
+  /** Raw DB rows for this thread (used for delete/read semantics). */
   messages: AdminMessageListItem[];
+  /** UI-collapsed timeline (hides sender fan-out duplicates). */
+  displayMessages: AdminMessageListItem[];
   lastMessage: AdminMessageListItem;
   unreadCount: number;
 }
@@ -104,6 +107,46 @@ function collectOtherParticipantIds(msgs: AdminMessageListItem[], myId: string):
   return [...ids];
 }
 
+/**
+ * In multi-recipient threads, one logical send from "me" is stored as one row per recipient.
+ * Collapse those fan-out siblings so the sender sees one bubble per send action.
+ */
+function collapseFanoutForDisplay(
+  msgs: AdminMessageListItem[],
+  myId: string,
+): AdminMessageListItem[] {
+  const sorted = [...msgs].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  const out: AdminMessageListItem[] = [];
+  const FANOUT_WINDOW_MS = 2_000;
+
+  for (const m of sorted) {
+    const last = out[out.length - 1];
+    if (!last) {
+      out.push(m);
+      continue;
+    }
+    const bothMine = m.senderId === myId && last.senderId === myId;
+    const sameConversation = m.conversationId && m.conversationId === last.conversationId;
+    const sameBody = m.content === last.content;
+    const sameSubject = (m.subject ?? "") === (last.subject ?? "");
+    const nearInTime =
+      Math.abs(
+        new Date(m.createdAt).getTime() - new Date(last.createdAt).getTime(),
+      ) <= FANOUT_WINDOW_MS;
+
+    if (bothMine && sameConversation && sameBody && sameSubject && nearInTime) {
+      // Keep the latest row for timestamp/read-state display.
+      out[out.length - 1] = m;
+      continue;
+    }
+    out.push(m);
+  }
+
+  return out;
+}
+
 function groupConversations(messages: AdminMessageListItem[], myId: string): Conversation[] {
   const byConversationId = new Map<string, AdminMessageListItem[]>();
   const byPair = new Map<string, AdminMessageListItem[]>();
@@ -129,6 +172,7 @@ function groupConversations(messages: AdminMessageListItem[], myId: string): Con
     const sorted = [...msgs].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
+    const display = collapseFanoutForDisplay(sorted, myId);
     const userMap = buildUserMapFromMessages(sorted);
     const otherIds = collectOtherParticipantIds(sorted, myId);
     otherIds.sort((a, b) =>
@@ -147,6 +191,7 @@ function groupConversations(messages: AdminMessageListItem[], myId: string): Con
       userName,
       userUsername: usernames.join(", "),
       messages: sorted,
+      displayMessages: display,
       lastMessage: sorted[sorted.length - 1]!,
       unreadCount: msgs.filter((m) => m.senderId !== myId && !m.isRead).length,
     });
@@ -165,6 +210,7 @@ function groupConversations(messages: AdminMessageListItem[], myId: string): Con
       userName: getDisplayName(otherUser),
       userUsername: otherUser.username,
       messages: sorted,
+      displayMessages: sorted,
       lastMessage: sorted[sorted.length - 1]!,
       unreadCount: msgs.filter((m) => m.senderId !== myId && !m.isRead).length,
     });
@@ -295,11 +341,14 @@ function ThreadView({
   const bottomRef = useRef<HTMLDivElement>(null);
   const textGetterRef = useRef<(() => string) | null>(null);
   const send = useSendMessage();
-  const grouped = useMemo(() => groupByDate(conv.messages), [conv.messages]);
+  const grouped = useMemo(
+    () => groupByDate(conv.displayMessages),
+    [conv.displayMessages],
+  );
 
   useEffect(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ block: "end" }), 60);
-  }, [conv.messages.length]);
+  }, [conv.displayMessages.length]);
 
   const handleSend = useCallback(() => {
     if (send.isPending) return;
@@ -344,7 +393,10 @@ function ThreadView({
         <Avatar name={conv.userName} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-base-content leading-tight">{conv.userName}</p>
-          <p className="text-xs text-muted-foreground">{conv.userUsername} · {conv.messages.length} message{conv.messages.length !== 1 ? "s" : ""}</p>
+          <p className="text-xs text-muted-foreground">
+            {conv.userUsername} · {conv.displayMessages.length} message
+            {conv.displayMessages.length !== 1 ? "s" : ""}
+          </p>
         </div>
         <button
           type="button"

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copy admin uploads to a new files root (optional), move flat `gedcom-admin/<file>` files into
- * `gedcom-admin/{images|documents|audio}/`, and update `gedcom_media_v2.file_ref` for legacy paths.
+ * `gedcom-admin/{images|documents|audio|videos}/`, and update `gedcom_media_v2.file_ref` for legacy paths.
  *
  * Prisma schema unchanged — only `GedcomMedia.fileRef` text values.
  *

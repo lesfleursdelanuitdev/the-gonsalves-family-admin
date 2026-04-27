@@ -17,4 +17,4 @@ export type MediaPickerPurpose =
   | "documentaryEvidence"
   | "eventMedia";
 
-export type MediaPickerMediaTypeFilter = "photo" | "document" | "video";
+export type MediaPickerMediaTypeFilter = "photo" | "document" | "video" | "audio";

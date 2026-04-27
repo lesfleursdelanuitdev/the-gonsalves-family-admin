@@ -13,6 +13,7 @@ import {
   type NameFormForDisplay,
 } from "@/lib/gedcom/display-name";
 import { cn } from "@/lib/utils";
+import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
 
 function individualEditPageLabel(ind: Record<string, unknown>): string {
   const fromForms = formatDisplayNameFromNameForms(
@@ -34,13 +35,6 @@ function isHttpUrl(s: string): boolean {
   }
 }
 
-function inferMediaKind(form: string | null | undefined): "photo" | "document" | "video" {
-  const f = (form ?? "").toLowerCase();
-  if (f.includes("video") || f === "video") return "video";
-  if (f.includes("doc") || f === "document") return "document";
-  return "photo";
-}
-
 function firstIndividualPhotoUrl(
   individualMedia: { media: Record<string, unknown> }[] | null | undefined,
 ): string | null {
@@ -48,7 +42,8 @@ function firstIndividualPhotoUrl(
     const m = row.media;
     const ref = typeof m.fileRef === "string" ? m.fileRef.trim() : "";
     if (!ref || !isHttpUrl(ref)) continue;
-    if (inferMediaKind(typeof m.form === "string" ? m.form : null) !== "photo") continue;
+    const form = typeof m.form === "string" ? m.form : null;
+    if (inferAdminMediaCategory(form, ref) !== "photo") continue;
     return ref;
   }
   return null;

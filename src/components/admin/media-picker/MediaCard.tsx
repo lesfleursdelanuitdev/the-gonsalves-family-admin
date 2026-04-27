@@ -1,29 +1,23 @@
 "use client";
 
-import Image from "next/image";
-import { Check, FileImage, FileText, Film } from "lucide-react";
+import { Check, FileImage, FileText, Film, Headphones } from "lucide-react";
+import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import type { AdminMediaListItem } from "@/hooks/useAdminMedia";
 import {
   isLikelyRasterImage,
   isLikelyVideoFile,
   isPlayableVideoRef,
-  mediaImageUnoptimized,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
+import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
 import { displayTagName } from "@/lib/admin/display-tag-name";
 import { cn } from "@/lib/utils";
-
-function mediaRowKind(m: AdminMediaListItem): "photo" | "document" | "video" {
-  const form = (m.form ?? "").toLowerCase();
-  if (form.includes("video") || form === "video") return "video";
-  if (form.includes("doc") || form === "document") return "document";
-  return "photo";
-}
 
 const kindIcon = {
   photo: FileImage,
   document: FileText,
   video: Film,
+  audio: Headphones,
 } as const;
 
 export function MediaCard({
@@ -42,7 +36,7 @@ export function MediaCard({
     (media.title ?? "").trim() ||
     (fileRef ? fileRef.split("/").pop() ?? "" : "").trim() ||
     "Media";
-  const kind = mediaRowKind(media);
+  const kind = inferAdminMediaCategory(media.form, media.fileRef);
   const Icon = kindIcon[kind];
   const src = resolveMediaImageSrc(fileRef);
   const showThumb = Boolean(src && isLikelyRasterImage(fileRef, media.form ?? "", null));
@@ -71,13 +65,14 @@ export function MediaCard({
       ) : null}
       <div className="relative aspect-square w-full bg-base-200/50">
         {showThumb && src ? (
-          <Image
+          <MediaRasterImage
+            fileRef={fileRef}
+            form={media.form ?? ""}
             src={src}
             alt={title}
             fill
             sizes="(max-width: 640px) 45vw, 180px"
             className="object-contain p-1"
-            unoptimized={mediaImageUnoptimized(src)}
           />
         ) : showVideoPeek && src ? (
           <video
@@ -94,7 +89,13 @@ export function MediaCard({
           </div>
         )}
         <span className="absolute left-2 top-2 rounded-full border border-base-content/10 bg-base-100/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/80">
-          {kind === "photo" ? "Photo" : kind === "video" ? "Video" : "Doc"}
+          {kind === "photo"
+            ? "Photo"
+            : kind === "video"
+              ? "Video"
+              : kind === "audio"
+                ? "Audio"
+                : "Doc"}
         </span>
       </div>
       <div className="min-w-0 space-y-0.5 border-t border-base-content/10 p-2">

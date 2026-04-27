@@ -25,7 +25,8 @@ import { ADMIN_MODAL_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebounced
 import { ADMIN_MEDIA_QUERY_KEY, useAdminMedia, type AdminMediaListItem } from "@/hooks/useAdminMedia";
 import type { AdminAlbumsListResponse } from "@/hooks/useAdminAlbums";
 import type { AdminTagsListResponse } from "@/hooks/useAdminTags";
-import { ApiError, fetchJson, postFormData, postJson } from "@/lib/infra/api";
+import { ApiError, fetchJson, postFormDataWithUploadProgress, postJson } from "@/lib/infra/api";
+import type { MediaEditorUploadProgressState } from "@/hooks/useMediaEditorUploadAndMeta";
 import { attachMediaToTarget, isMediaPickerTargetLinkable } from "@/lib/admin/media-picker-attach";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
 import { cn } from "@/lib/utils";
@@ -33,8 +34,8 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 36;
 
 function pickMediaCategory(
-  allowed?: readonly ("photo" | "document" | "video")[],
-): "photo" | "document" | "video" | undefined {
+  allowed?: readonly ("photo" | "document" | "video" | "audio")[],
+): "photo" | "document" | "video" | "audio" | undefined {
   if (!allowed || allowed.length !== 1) return undefined;
   return allowed[0];
 }
@@ -60,7 +61,7 @@ export function MediaPickerModal({
   targetId: string;
   mode?: MediaPickerMode;
   purpose?: MediaPickerPurpose;
-  allowedTypes?: readonly ("photo" | "document" | "video")[];
+  allowedTypes?: readonly ("photo" | "document" | "video" | "audio")[];
   initialSelectedIds?: readonly string[];
   excludeMediaIds?: ReadonlySet<string>;
   onAttach?: (media: AdminMediaListItem[]) => void;
@@ -135,6 +136,7 @@ export function MediaPickerModal({
   });
 
   useEffect(() => {
+    if (!open) return;
     if (!data?.media) return;
     if (listOffset === 0) setMerged(data.media);
     else setMerged((prev) => {
@@ -148,7 +150,7 @@ export function MediaPickerModal({
       }
       return next;
     });
-  }, [data, listOffset]);
+  }, [open, data, listOffset]);
 
   const albums = albumsRes?.albums ?? [];
   const tags = tagsRes?.tags ?? [];
@@ -172,6 +174,7 @@ export function MediaPickerModal({
 
   const [attaching, setAttaching] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<MediaEditorUploadProgressState | null>(null);
 
   const handleAttach = async () => {
     if (!canLink) {
@@ -195,8 +198,26 @@ export function MediaPickerModal({
     try {
       const picked: AdminMediaListItem[] = [];
       for (const mid of ids) {
-        await attachMediaToTarget(mid, targetType, targetId);
         const row = merged.find((m) => m.id === mid);
+        const alreadyInThisAlbum =
+          targetType === "album" &&
+          Boolean(row?.albumLinks?.some((l) => l.album.id === targetId));
+        if (!alreadyInThisAlbum) {
+          try {
+            await attachMediaToTarget(mid, targetType, targetId);
+          } catch (e) {
+            // Duplicate link (e.g. row missing `albumLinks` in list payload).
+            if (
+              targetType === "album" &&
+              e instanceof ApiError &&
+              e.status === 409
+            ) {
+              /* already linked — continue */
+            } else {
+              throw e;
+            }
+          }
+        }
         if (row) picked.push(row);
       }
       await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
@@ -221,15 +242,41 @@ export function MediaPickerModal({
     }
     setUploading(true);
     const created: AdminMediaListItem[] = [];
+    const fileArr = Array.from(files);
     try {
-      for (const file of Array.from(files)) {
+      let index = 0;
+      for (const file of fileArr) {
+        index += 1;
         const fd = new FormData();
         fd.set("file", file);
-        const up = await postFormData<{
+        const label = file.name?.trim() || `File ${index}`;
+        setUploadProgress({
+          loaded: 0,
+          total: null,
+          expectedBytes: file.size,
+          caption: `${index} of ${fileArr.length}: ${label}`,
+          subCaption: "Uploading…",
+        });
+        const up = await postFormDataWithUploadProgress<{
           fileRef: string;
           suggestedForm: string | null;
           originalName: string;
-        }>("/api/admin/media/upload", fd);
+        }>("/api/admin/media/upload", fd, (p) => {
+          setUploadProgress({
+            loaded: p.loaded,
+            total: p.total,
+            expectedBytes: file.size,
+            caption: `${index} of ${fileArr.length}: ${label}`,
+            subCaption: "Uploading…",
+          });
+        });
+        setUploadProgress({
+          loaded: file.size,
+          total: file.size,
+          expectedBytes: file.size,
+          caption: `${index} of ${fileArr.length}: ${label}`,
+          subCaption: "Saving and linking…",
+        });
         const title = titleFromUploadedFilename(up.originalName || file.name);
         const body: Record<string, unknown> = {
           fileRef: up.fileRef,
@@ -265,6 +312,7 @@ export function MediaPickerModal({
       const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Upload failed.";
       toast.error(msg);
     } finally {
+      setUploadProgress(null);
       setUploading(false);
     }
   };
@@ -303,6 +351,7 @@ export function MediaPickerModal({
                 className="sm:shrink-0"
                 disabled={!quickLinkSupported && targetType !== "story" && targetType !== "document"}
                 busy={uploading}
+                uploadProgress={uploadProgress}
                 onFiles={(files) => void handleQuickUploadFiles(files)}
               />
             ) : null}

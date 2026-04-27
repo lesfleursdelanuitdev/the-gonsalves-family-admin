@@ -19,7 +19,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
   const fileUuid = await getAdminFileUuid();
   const enriched = await buildEnrichedDocumentForExport(fileUuid);
 
-  const pass = startExportBundleZipStream({ enriched, basename });
+  const pass = startExportBundleZipStream({ enriched, basename, treeId: fileUuid });
   const webStream = Readable.toWeb(pass) as ReadableStream<Uint8Array>;
 
   return new NextResponse(webStream, {

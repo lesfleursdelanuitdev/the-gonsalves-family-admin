@@ -36,7 +36,7 @@ export interface UseAdminMediaOpts {
   q?: string;
   limit?: number;
   offset?: number;
-  mediaCategory?: "photo" | "document" | "video";
+  mediaCategory?: "photo" | "document" | "video" | "audio";
   titleContains?: string;
   fileRefContains?: string;
   fileTypeContains?: string;
@@ -51,7 +51,12 @@ function buildMediaParams(opts: UseAdminMediaOpts): URLSearchParams {
   if (opts.q) params.set("q", opts.q);
   if (opts.limit != null) params.set("limit", String(opts.limit));
   if (opts.offset != null) params.set("offset", String(opts.offset));
-  if (opts.mediaCategory === "photo" || opts.mediaCategory === "document" || opts.mediaCategory === "video") {
+  if (
+    opts.mediaCategory === "photo" ||
+    opts.mediaCategory === "document" ||
+    opts.mediaCategory === "video" ||
+    opts.mediaCategory === "audio"
+  ) {
     params.set("mediaCategory", opts.mediaCategory);
   }
   if (opts.titleContains) params.set("titleContains", opts.titleContains);

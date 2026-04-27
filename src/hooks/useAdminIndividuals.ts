@@ -10,8 +10,8 @@ export interface AdminIndividualListItem {
   xref: string;
   fullName: string | null;
   sex: string | null;
-  birthYear: string | null;
-  deathYear: string | null;
+  birthYear: number | null;
+  deathYear: number | null;
   individualNameForms?: Array<{
     isPrimary: boolean | null;
     sortOrder: number | null;

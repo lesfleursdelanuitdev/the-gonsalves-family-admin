@@ -2,11 +2,11 @@
 
 import type { ComponentType } from "react";
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FileImage, FileText, Film } from "lucide-react";
+import { FileImage, FileText, Film, Headphones } from "lucide-react";
 import { useAdminMediaItem } from "@/hooks/useAdminMedia";
+import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { LinkedIndividualLink } from "@/components/admin/LinkedIndividualLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,36 +20,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  isLikelyAudioFile,
   isLikelyRasterImage,
   isLikelyVideoFile,
+  isPlayableAudioRef,
   isPlayableVideoRef,
-  mediaImageUnoptimized,
   normalizeSiteMediaPath,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
+import { inferAdminMediaCategory, type AdminMediaCategory as MediaKind } from "@/lib/admin/infer-admin-media-category";
 import { displayTagName } from "@/lib/admin/display-tag-name";
 import { cn } from "@/lib/utils";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
-
-type MediaKind = "photo" | "document" | "video";
-
-function inferMediaKind(form: string | null | undefined): MediaKind {
-  const f = (form ?? "").toLowerCase();
-  if (f.includes("video") || f === "video") return "video";
-  if (f.includes("doc") || f === "document") return "document";
-  return "photo";
-}
 
 const kindIcon: Record<MediaKind, ComponentType<{ className?: string }>> = {
   photo: FileImage,
   document: FileText,
   video: Film,
+  audio: Headphones,
 };
 
 const kindBadge: Record<MediaKind, { label: string; className: string }> = {
   photo:    { label: "Photo",    className: "bg-success/15 text-success" },
   document: { label: "Document", className: "bg-warning/15 text-warning" },
   video:    { label: "Video",    className: "bg-info/15 text-info" },
+  audio:    { label: "Audio",    className: "bg-secondary/20 text-secondary" },
 };
 
 function isHttpUrl(s: string): boolean {
@@ -72,7 +67,7 @@ export default function AdminMediaDetailPage() {
   const fileRef = (media?.fileRef as string | null) ?? "";
   const form = (media?.form as string | null) ?? "";
   const createdAt = media?.createdAt as string | undefined;
-  const kind = inferMediaKind(form);
+  const kind = inferAdminMediaCategory(form, fileRef);
   const HeaderIcon = kindIcon[kind];
   const headline = titleTrim || xref || "Media";
   const { label: kindLabel, className: kindClassName } = kindBadge[kind];
@@ -92,9 +87,15 @@ export default function AdminMediaDetailPage() {
     Boolean(imageSrc) &&
     (isLikelyRasterImage(refTrim, form, null) || (kind === "photo" && isHttpUrl(refTrim)));
   const imageAlt = titleTrim || xref || "Media";
-  const videoSrc = refTrim ? normalizeSiteMediaPath(refTrim) : "";
+  const mediaSrc = refTrim ? normalizeSiteMediaPath(refTrim) : "";
   const showInlineVideo =
-    Boolean(videoSrc) && !showImageThumb && isLikelyVideoFile(refTrim, form) && isPlayableVideoRef(refTrim);
+    Boolean(mediaSrc) && !showImageThumb && isLikelyVideoFile(refTrim, form) && isPlayableVideoRef(refTrim);
+  const showInlineAudio =
+    Boolean(mediaSrc) &&
+    !showImageThumb &&
+    !showInlineVideo &&
+    isLikelyAudioFile(refTrim, form) &&
+    isPlayableAudioRef(refTrim);
 
   return (
     <DetailPageShell
@@ -141,13 +142,14 @@ export default function AdminMediaDetailPage() {
                 className="group relative block w-full overflow-hidden rounded-box border border-base-content/[0.08] bg-base-200/50 shadow-sm shadow-black/15 outline-none ring-offset-background transition hover:border-base-content/20 focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="relative block aspect-[4/3] w-full">
-                  <Image
+                  <MediaRasterImage
+                    fileRef={refTrim}
+                    form={form}
                     src={imageSrc}
                     alt={imageAlt}
                     fill
                     sizes="(max-width: 640px) 100vw, 36rem"
                     className="object-contain p-2 transition group-hover:opacity-95"
-                    unoptimized={mediaImageUnoptimized(imageSrc)}
                   />
                 </span>
                 <span className="absolute bottom-2 right-2 rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -159,7 +161,16 @@ export default function AdminMediaDetailPage() {
                   <DialogTitle className="sr-only">Image preview</DialogTitle>
                   <DialogDescription className="sr-only">Full-size preview of {imageAlt}. Press Escape to close.</DialogDescription>
                   <div className="relative mx-auto h-[min(78vh,880px)] w-full min-h-[200px]">
-                    <Image src={imageSrc} alt={imageAlt} fill sizes="100vw" className="object-contain" priority unoptimized={mediaImageUnoptimized(imageSrc)} />
+                    <MediaRasterImage
+                      fileRef={refTrim}
+                      form={form}
+                      src={imageSrc}
+                      alt={imageAlt}
+                      fill
+                      priority
+                      sizes="100vw"
+                      className="object-contain"
+                    />
                   </div>
                   <DialogFooter className="pt-2 sm:justify-center">
                     <DialogClose type="button">Close</DialogClose>
@@ -169,7 +180,11 @@ export default function AdminMediaDetailPage() {
             </div>
           ) : showInlineVideo ? (
             <div className="overflow-hidden rounded-box border border-base-content/[0.08] bg-base-content/[0.035] shadow-sm shadow-black/15">
-              <video src={videoSrc} controls playsInline className="max-h-[min(70vh,32rem)] w-full" />
+              <video src={mediaSrc} controls playsInline className="max-h-[min(70vh,32rem)] w-full" />
+            </div>
+          ) : showInlineAudio ? (
+            <div className="overflow-hidden rounded-box border border-base-content/[0.08] bg-base-content/[0.035] shadow-sm shadow-black/15 p-4">
+              <audio src={mediaSrc} controls className="w-full" preload="metadata" />
             </div>
           ) : (
             <div className="flex aspect-[4/3] max-w-sm items-center justify-center rounded-box border border-base-content/[0.08] bg-base-200/40">

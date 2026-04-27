@@ -3,8 +3,9 @@ import { escapeLike } from "@/lib/gedcom/gedcom-name-search";
 import { linkedIndividualExistsSql } from "@/lib/admin/admin-linked-name-sql";
 import { joinAndConditions } from "@/lib/admin/admin-sql-helpers";
 
-/** UI bucket aligned with `admin/media/page.tsx` mapApiToRows. */
-export type AdminMediaCategory = "photo" | "document" | "video";
+import type { AdminMediaCategory } from "./infer-admin-media-category";
+
+export type { AdminMediaCategory } from "./infer-admin-media-category";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -30,7 +31,7 @@ export interface AdminMediaStructuredFilters {
 
 export function parseMediaCategoryParam(searchParams: URLSearchParams): AdminMediaCategory | null {
   const v = searchParams.get("mediaCategory")?.trim().toLowerCase() || "";
-  if (v === "photo" || v === "document" || v === "video") return v;
+  if (v === "photo" || v === "document" || v === "video" || v === "audio") return v;
   return null;
 }
 
@@ -77,20 +78,35 @@ export function adminMediaFilterConditions(
 ): Prisma.Sql[] {
   const parts: Prisma.Sql[] = [Prisma.sql`m.file_uuid = ${fileUuid}::uuid`];
 
+  /** Match `inferAdminMediaCategory` + `isLikelyVideoFile` / `isLikelyAudioFile` (see `infer-admin-media-category.ts`). */
+  const videoSql = Prisma.sql`(
+    LOWER(COALESCE(m.form,'')) LIKE '%video%'
+    OR LOWER(TRIM(COALESCE(m.form,''))) = 'video'
+    OR LOWER(COALESCE(m.file_ref,'')) LIKE '%/gedcom-admin/videos/%'
+    OR LOWER(COALESCE(m.file_ref,'')) ~ '\\.(mp4|webm|mov|m4v|ogv|mkv|mpg|mpeg|3gp|3g2)(\\?|#|$)'
+  )`;
+  const docSql = Prisma.sql`(
+    LOWER(COALESCE(m.form,'')) LIKE '%doc%'
+    OR LOWER(TRIM(COALESCE(m.form,''))) = 'document'
+  )`;
+  const audioSql = Prisma.sql`(
+    LOWER(COALESCE(m.form,'')) LIKE 'audio/%'
+    OR LOWER(COALESCE(m.form,'')) LIKE '%audio%'
+    OR LOWER(TRIM(COALESCE(m.form,''))) IN (
+      'mp3','mpeg','wav','ogg','oga','aac','m4a','flac','opus','x-m4a','mp4a'
+    )
+    OR LOWER(COALESCE(m.file_ref,'')) LIKE '%/gedcom-admin/audio/%'
+    OR LOWER(COALESCE(m.file_ref,'')) ~ '\\.(mp3|m4a|wav|ogg|oga|aac|flac|opus)(\\?|#|$)'
+  )`;
+
   if (structured.mediaCategory === "photo") {
-    parts.push(Prisma.sql`(
-      m.form IS NULL OR TRIM(m.form) = '' OR (
-        LOWER(m.form) NOT LIKE '%video%' AND LOWER(m.form) NOT LIKE '%doc%'
-      )
-    )`);
+    parts.push(Prisma.sql`NOT (${videoSql}) AND NOT (${docSql}) AND NOT (${audioSql})`);
   } else if (structured.mediaCategory === "document") {
-    parts.push(
-      Prisma.sql`(LOWER(COALESCE(m.form,'')) LIKE '%doc%' OR LOWER(TRIM(COALESCE(m.form,''))) = 'document')`
-    );
+    parts.push(Prisma.sql`(${docSql})`);
   } else if (structured.mediaCategory === "video") {
-    parts.push(
-      Prisma.sql`(LOWER(COALESCE(m.form,'')) LIKE '%video%' OR LOWER(TRIM(COALESCE(m.form,''))) = 'video')`
-    );
+    parts.push(Prisma.sql`(${videoSql})`);
+  } else if (structured.mediaCategory === "audio") {
+    parts.push(Prisma.sql`(${audioSql})`);
   }
 
   const titleTrim = structured.titleContains?.trim() || "";

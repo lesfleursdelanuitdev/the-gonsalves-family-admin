@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ADMIN_MEDIA_QUERY_KEY, useCreateMedia, useUpdateMedia } from "@/hooks/useAdminMedia";
+import { toast } from "sonner";
+import { ADMIN_MEDIA_QUERY_KEY, useCreateMedia, useDeleteMedia, useUpdateMedia } from "@/hooks/useAdminMedia";
 import type { MediaEditorInitial, MediaEditorTab } from "@/components/admin/media-editor/media-editor-types";
 
 export type { MediaEditorInitial } from "@/components/admin/media-editor/media-editor-types";
@@ -20,6 +21,7 @@ import { MediaEditorOrganisationTabPanel } from "@/components/admin/media-editor
 import { MediaEditorPreviewSection } from "@/components/admin/media-editor/MediaEditorPreviewSection";
 import { MediaEditorFormHeader } from "@/components/admin/media-editor/MediaEditorFormHeader";
 import { MediaEditorFormActions } from "@/components/admin/media-editor/MediaEditorFormActions";
+import { Button } from "@/components/ui/button";
 import { useMediaEditorUploadAndMeta } from "@/hooks/useMediaEditorUploadAndMeta";
 import { useMediaEditorSubmit } from "@/hooks/useMediaEditorSubmit";
 
@@ -49,6 +51,7 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
 
   const createMedia = useCreateMedia();
   const updateMedia = useUpdateMedia();
+  const deleteMedia = useDeleteMedia();
 
   const file = useMediaEditorUploadAndMeta({
     mode,
@@ -75,6 +78,8 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
     setTagQuery,
     albumQuery,
     setAlbumQuery,
+    createAlbumAsPublic,
+    setCreateAlbumAsPublic,
     eventTypeFilter,
     setEventTypeFilter,
     eventLinkKind,
@@ -149,6 +154,25 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
   const mediaIdOrNew = mediaId || "new";
   const tab = mediaEditorTab;
 
+  const handleDeleteMedia = useCallback(async () => {
+    if (mode !== "edit" || !mediaId) return;
+    const label = file.title.trim() || file.fileRef.trim() || mediaId;
+    if (
+      !window.confirm(
+        `Delete media "${label}"? This removes the GEDCOM media row, its tree links, tags, and album links. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteMedia.mutateAsync(mediaId);
+      toast.success(`Deleted "${label}".`);
+      router.push("/admin/media");
+    } catch (err) {
+      toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }, [mode, mediaId, file.title, file.fileRef, deleteMedia, router]);
+
   return (
     <div className="space-y-6">
       <MediaEditorFormHeader hideBackLink={hideBackLink} backHref={backHref} mode={mode} />
@@ -164,6 +188,8 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           showImagePreview={file.showImagePreview}
           showVideoPreview={file.showVideoPreview}
           imagePreviewSrc={file.imagePreviewSrc}
+          fileRef={file.fileRef}
+          form={file.form}
         />
 
         <MediaEditorTabBar activeTab={tab} onTabChange={setMediaEditorTab} tabIdPrefix={mediaEditorTabId} />
@@ -177,6 +203,7 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           dragOver={file.dragOver}
           setDragOver={file.setDragOver}
           uploading={file.uploading}
+          uploadProgress={file.uploadProgress}
           onDrop={file.onDrop}
           fileInputRef={file.fileInputRef}
           onFilesChosenFromPicker={file.onFilesChosenFromPicker}
@@ -285,6 +312,8 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           setTagQuery={setTagQuery}
           albumQuery={albumQuery}
           setAlbumQuery={setAlbumQuery}
+          createAlbumAsPublic={createAlbumAsPublic}
+          setCreateAlbumAsPublic={setCreateAlbumAsPublic}
           tagsLoading={tagsQuery.isLoading}
           albumsLoading={albumsQuery.isLoading}
           tagResults={tagResults}
@@ -296,6 +325,26 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           onCreateAndAddTag={createAndAddTag}
           onCreateAndAddAlbum={createAndAddAlbum}
         />
+
+        {mode === "edit" ? (
+          <div className="rounded-box border border-destructive/30 bg-destructive/5 p-4">
+            <p className="text-sm font-medium text-destructive">Danger zone</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Deleting removes this media record and all links to people, families, events, sources, places, dates,
+              tags, and albums. This cannot be undone.
+            </p>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="mt-3"
+              disabled={submitting || deleteMedia.isPending}
+              onClick={() => void handleDeleteMedia()}
+            >
+              {deleteMedia.isPending ? "Deleting…" : "Delete media"}
+            </Button>
+          </div>
+        ) : null}
 
         <MediaEditorFormActions mode={mode} mediaId={mediaId} backHref={backHref} submitting={submitting} />
       </form>

@@ -23,7 +23,7 @@ export function MediaSearchBar({
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search photos, documents, videos…"
+        placeholder="Search photos, documents, videos, audio…"
         className="border-base-content/15 bg-base-100/80 pl-10 shadow-inner shadow-black/5"
         autoComplete="off"
       />

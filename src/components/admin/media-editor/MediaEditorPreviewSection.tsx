@@ -1,19 +1,22 @@
 "use client";
 
-import Image from "next/image";
 import { Upload } from "lucide-react";
-import { mediaImageUnoptimized } from "@/lib/admin/mediaPreview";
+import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 
 export type MediaEditorPreviewSectionProps = {
   showImagePreview: boolean;
   showVideoPreview: boolean;
   imagePreviewSrc: string | null;
+  fileRef: string;
+  form: string;
 };
 
 export function MediaEditorPreviewSection({
   showImagePreview,
   showVideoPreview,
   imagePreviewSrc,
+  fileRef,
+  form,
 }: MediaEditorPreviewSectionProps) {
   return (
     <section
@@ -22,14 +25,15 @@ export function MediaEditorPreviewSection({
     >
       {showImagePreview && imagePreviewSrc ? (
         <div className="relative mx-auto aspect-video max-h-[min(50vh,28rem)] w-full max-w-3xl">
-          <Image
+          <MediaRasterImage
             key={imagePreviewSrc}
+            fileRef={fileRef}
+            form={form}
             src={imagePreviewSrc}
             alt=""
             fill
             sizes="(max-width: 768px) 100vw, 768px"
             className="object-contain p-2"
-            unoptimized={mediaImageUnoptimized(imagePreviewSrc)}
           />
         </div>
       ) : showVideoPreview && imagePreviewSrc ? (

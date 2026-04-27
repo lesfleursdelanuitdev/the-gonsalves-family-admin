@@ -1,5 +1,9 @@
 import type { Prisma } from "@ligneous/prisma";
-import { recomputeIndividualFamilyFlags, syncFamilySpouseXrefs } from "@/lib/admin/admin-individual-families";
+import {
+  rebuildSpouseRowsForFamily,
+  recomputeIndividualFamilyFlags,
+  syncFamilySpouseXrefs,
+} from "@/lib/admin/admin-individual-families";
 import { refreshIndividualKeyFactsDenorm } from "@/lib/admin/admin-individual-key-events";
 import { logCreate, logDelete, logLink, logUnlink, logUpdate, setBatchSummary, type ChangeCtx } from "@/lib/admin/changelog";
 
@@ -178,6 +182,7 @@ async function recomputeDenormForBatch(ctx: ChangeCtx, entries: ChangeLogRow[]):
     const exists = await tx.gedcomFamily.findUnique({ where: { id }, select: { id: true } });
     if (!exists) continue;
     try {
+      await rebuildSpouseRowsForFamily(ctx, id);
       await syncFamilySpouseXrefs(tx, id);
       const childCount = await tx.gedcomFamilyChild.count({ where: { familyId: id } });
       await tx.gedcomFamily.update({ where: { id }, data: { childrenCount: childCount } });

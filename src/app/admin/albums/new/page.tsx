@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { postJson } from "@/lib/infra/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export default function AdminNewAlbumPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -37,6 +39,7 @@ export default function AdminNewAlbumPage() {
     try {
       await postJson<{ album: { id: string } }>("/api/admin/albums", {
         name: n,
+        isPublic,
         ...(description.trim() ? { description: description.trim() } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: ["admin", "albums"] });
@@ -84,6 +87,21 @@ export default function AdminNewAlbumPage() {
             rows={3}
             className={textareaClass}
           />
+        </div>
+        <div className="flex items-start gap-3 rounded-md border border-base-content/10 p-3">
+          <Checkbox
+            id="album-public"
+            checked={isPublic}
+            onCheckedChange={(v) => setIsPublic(v === true)}
+          />
+          <div className="grid gap-1.5 leading-none">
+            <Label htmlFor="album-public" className="cursor-pointer font-medium">
+              Public album
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Public names must be unique on your account. Leave unchecked for a personal album (duplicate names allowed).
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 pt-2">
           <Button type="submit" disabled={pending}>
