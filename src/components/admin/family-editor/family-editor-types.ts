@@ -1,5 +1,3 @@
-export type FamilyEditTab = "events" | "parents" | "children" | "notes" | "media" | "sources";
-
 export type FamilyMemberAddStep = "existing" | "create";
 
 /** Partner slot row (husband / wife) in the family editor. */
@@ -17,6 +15,7 @@ export type FamilyEditChildRow = {
     xref: string | null;
     fullName: string | null;
     sex?: string | null;
+    birthYear?: number | null;
   };
 };
 

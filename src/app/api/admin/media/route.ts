@@ -20,6 +20,17 @@ import {
 } from "@/lib/admin/changelog";
 import { reserveNextGedcomMediaXref } from "@/lib/admin/gedcom-media-xref";
 
+/**
+ * Slim include set tuned for the media list/dataviewer.
+ *
+ * - Drops `placeLinks` and `dateLinks` row arrays (they were only used for counts) in favour of
+ *   `_count` aggregates returned on the response as `placeCount`/`dateCount`.
+ * - Keeps `albumLinks` and `appTags` as full rows because the picker/album views render the first
+ *   album/tag name; counts are also surfaced on the response for cards/table footers.
+ * - Keeps the individual/family/event/source name slices needed to build the "Linked to" summary.
+ *
+ * Detail endpoints (`/api/admin/media/[id]`) still return the full relation arrays.
+ */
 const MEDIA_LIST_INCLUDE = {
   individualMedia: {
     include: {
@@ -50,7 +61,46 @@ const MEDIA_LIST_INCLUDE = {
   },
   appTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
   albumLinks: { include: { album: { select: { id: true, name: true } } } },
+  _count: {
+    select: {
+      placeLinks: true,
+      dateLinks: true,
+      appTags: true,
+      albumLinks: true,
+      individualMedia: true,
+      familyMedia: true,
+      eventMedia: true,
+      sourceMedia: true,
+    },
+  },
 } as const;
+
+type MediaListRow = Awaited<ReturnType<typeof prisma.gedcomMedia.findMany<{ include: typeof MEDIA_LIST_INCLUDE }>>>[number];
+
+/** Project a Prisma row to the wire DTO consumed by the dataviewer. */
+function toListDto(row: MediaListRow) {
+  const counts = row._count ?? {
+    placeLinks: 0,
+    dateLinks: 0,
+    appTags: 0,
+    albumLinks: 0,
+    individualMedia: 0,
+    familyMedia: 0,
+    eventMedia: 0,
+    sourceMedia: 0,
+  };
+  const { _count: _omitCount, ...rest } = row;
+  void _omitCount;
+  return {
+    ...rest,
+    placeCount: counts.placeLinks,
+    dateCount: counts.dateLinks,
+    tagCount: counts.appTags,
+    albumCount: counts.albumLinks,
+    linkedCount:
+      counts.individualMedia + counts.familyMedia + counts.eventMedia + counts.sourceMedia,
+  };
+}
 
 async function listMediaFiltered(
   fileUuid: string,
@@ -109,18 +159,20 @@ export const GET = withAdminAuth(async (request, _user, _ctx) => {
       }),
       prisma.gedcomMedia.count({ where: { fileUuid } }),
     ]);
+    const dto = media.map(toListDto);
     return NextResponse.json({
-      media,
+      media: dto,
       total,
-      hasMore: offset + media.length < total,
+      hasMore: offset + dto.length < total,
     });
   }
 
   const { media, total } = await listMediaFiltered(fileUuid, structured, q, limit, offset);
+  const dto = media.map(toListDto);
   return NextResponse.json({
-    media,
+    media: dto,
     total,
-    hasMore: offset + media.length < total,
+    hasMore: offset + dto.length < total,
   });
 });
 

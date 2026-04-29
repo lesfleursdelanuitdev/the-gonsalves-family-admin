@@ -34,6 +34,10 @@ const EVENT_SOURCE_LABELS: Record<string, string> = {
 
 export type IndividualEditorEventsTabPanelProps = {
   hidden: boolean;
+  /** When true, birth/death editors are omitted (shown elsewhere). */
+  omitBirthDeath?: boolean;
+  /** When true, living status block is omitted (shown in Basic info). */
+  omitLivingBlock?: boolean;
   birth: KeyFactFormState;
   onBirthChange: (next: KeyFactFormState) => void;
   death: KeyFactFormState;
@@ -54,6 +58,8 @@ export type IndividualEditorEventsTabPanelProps = {
 
 export function IndividualEditorEventsTabPanel({
   hidden,
+  omitBirthDeath = false,
+  omitLivingBlock = false,
   birth,
   onBirthChange,
   death,
@@ -72,69 +78,64 @@ export function IndividualEditorEventsTabPanel({
   onEventPaginationChange,
 }: IndividualEditorEventsTabPanelProps) {
   return (
-    <div
-      id="individual-editor-panel-events"
-      role="tabpanel"
-      aria-labelledby="individual-editor-tab-events"
-      hidden={hidden}
-      className="space-y-8 pt-2"
-    >
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Birth & Death</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            One BIRT and one DEAT per person. Clear all date and place fields to remove the fact. Use the{" "}
-            <span className="font-medium text-base-content">Birth</span> and{" "}
-            <span className="font-medium text-base-content">Death</span> headers to show or hide each editor.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <KeyFactSection title="Birth" fact={birth} onChange={onBirthChange} />
-          <KeyFactSection title="Death" fact={death} onChange={onDeathChange} />
-        </CardContent>
-      </Card>
+    <div role="region" aria-label="Life events" hidden={hidden} className="space-y-8 pt-2">
+      {!omitBirthDeath ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Birth & death</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Clear all date and place fields on an event to remove it from this person&apos;s record.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+          <KeyFactSection title="Birth" fact={birth} onChange={onBirthChange} defaultOpen />
+          <KeyFactSection title="Death" fact={death} onChange={onDeathChange} defaultOpen />
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Living status</CardTitle>
-          <p
-            className={cn(
-              "flex items-center gap-2 text-lg font-semibold",
-              livingStatus.deceased ? "text-destructive" : "text-green-600 dark:text-green-500",
-            )}
-          >
-            {livingStatus.deceased ? (
-              <IconSkull size={24} stroke={1.5} className="shrink-0" aria-hidden />
-            ) : (
-              <IconHeartbeat size={24} stroke={1.5} className="shrink-0" aria-hidden />
-            )}
-            {livingStatus.text}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="living-mode">Mode</Label>
-            <select
-              id="living-mode"
-              className={selectClassName}
-              value={livingMode}
-              onChange={(e) => onLivingModeChange(e.target.value as LivingMode)}
+      {!omitLivingBlock ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Living status</CardTitle>
+            <p
+              className={cn(
+                "flex items-center gap-2 text-lg font-semibold",
+                livingStatus.deceased ? "text-destructive" : "text-green-600 dark:text-green-500",
+              )}
             >
-              <option value="auto">Automatic (death + 120-year rule)</option>
-              <option value="living">Force living</option>
-              <option value="deceased">Force deceased</option>
-            </select>
-          </div>
-        </CardContent>
-      </Card>
+              {livingStatus.deceased ? (
+                <IconSkull size={24} stroke={1.5} className="shrink-0" aria-hidden />
+              ) : (
+                <IconHeartbeat size={24} stroke={1.5} className="shrink-0" aria-hidden />
+              )}
+              {livingStatus.text}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="living-mode">Mode</Label>
+              <select
+                id="living-mode"
+                className={selectClassName}
+                value={livingMode}
+                onChange={(e) => onLivingModeChange(e.target.value as LivingMode)}
+              >
+                <option value="auto">Automatic (death + 120-year rule)</option>
+                <option value="living">Force living</option>
+                <option value="deceased">Force deceased</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
           <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg">Other events</CardTitle>
+            <CardTitle className="text-lg">Other life events</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Full timeline for this person (self, family, and relative-derived events). Birth and death above are the
-              canonical BIRT/DEAT editors; open any row below in Events admin to change other types or add more.
+              Residences, occupations, marriages, and other milestones. Open a row to edit it in Events.
             </p>
           </div>
           {individualId ? (
@@ -142,7 +143,7 @@ export function IndividualEditorEventsTabPanel({
               href={`/admin/events/new?individualId=${encodeURIComponent(individualId)}&individualLabel=${encodeURIComponent(individualNewEventLabel)}`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
             >
-              Add event
+              Add another life event
             </Link>
           ) : null}
         </CardHeader>

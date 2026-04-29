@@ -7,6 +7,7 @@ import {
   isLikelyRasterImage,
   isLikelyVideoFile,
   isPlayableVideoRef,
+  mediaThumbSrc,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
@@ -38,10 +39,11 @@ export function MediaCard({
     "Media";
   const kind = inferAdminMediaCategory(media.form, media.fileRef);
   const Icon = kindIcon[kind];
-  const src = resolveMediaImageSrc(fileRef);
-  const showThumb = Boolean(src && isLikelyRasterImage(fileRef, media.form ?? "", null));
+  const fullSrc = resolveMediaImageSrc(fileRef);
+  const showThumb = Boolean(fullSrc && isLikelyRasterImage(fileRef, media.form ?? "", null));
+  const thumbSrc = showThumb ? mediaThumbSrc(fileRef, media.form, 360) ?? fullSrc : fullSrc;
   const showVideoPeek =
-    Boolean(src) && !showThumb && isLikelyVideoFile(fileRef, media.form ?? "") && isPlayableVideoRef(fileRef);
+    Boolean(fullSrc) && !showThumb && isLikelyVideoFile(fileRef, media.form ?? "") && isPlayableVideoRef(fileRef);
 
   const firstAlbum = media.albumLinks?.[0]?.album?.name?.trim();
   const tagHint = media.appTags?.[0]?.tag?.name ? displayTagName(media.appTags[0].tag.name) : "";
@@ -64,22 +66,22 @@ export function MediaCard({
         </span>
       ) : null}
       <div className="relative aspect-square w-full bg-base-200/50">
-        {showThumb && src ? (
+        {showThumb && thumbSrc ? (
           <MediaRasterImage
             fileRef={fileRef}
             form={media.form ?? ""}
-            src={src}
+            src={thumbSrc}
             alt={title}
             fill
             sizes="(max-width: 640px) 45vw, 180px"
             className="object-contain p-1"
           />
-        ) : showVideoPeek && src ? (
+        ) : showVideoPeek && fullSrc ? (
           <video
-            src={src}
+            src={fullSrc}
             muted
             playsInline
-            preload="metadata"
+            preload="none"
             className="pointer-events-none absolute inset-0 h-full w-full object-contain p-1"
             aria-hidden
           />

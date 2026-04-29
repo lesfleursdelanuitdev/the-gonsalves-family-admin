@@ -48,6 +48,7 @@ function eventItem(
     value: (r.value as string) ?? null,
     cause: (r.cause as string) ?? null,
     dateOriginal: (r.date_original as string) ?? null,
+    dateType: (r.date_type as string | null | undefined) ?? null,
     year: r.year != null ? Number(r.year) : null,
     month: r.month != null ? Number(r.month) : null,
     day: r.day != null ? Number(r.day) : null,
@@ -115,7 +116,7 @@ export async function buildFamilyDetailEvents(
   const familyEventRows = await prisma.$queryRaw<Row[]>(
     Prisma.sql`
       SELECT fe.family_id, e.id AS event_id, e.event_type, e.custom_type, e.value, e.cause, e.sort_order,
-             d.original AS date_original, d.year, d.month, d.day,
+             d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
              p.original AS place_original, p.name AS place_name
       FROM gedcom_family_events_v2 fe
       JOIN gedcom_events_v2 e ON e.id = fe.event_id AND e.file_uuid = fe.file_uuid
@@ -202,7 +203,7 @@ export async function buildFamilyDetailEvents(
     const indEventRows = await prisma.$queryRaw<Row[]>(
       Prisma.sql`
         SELECT e.id AS event_id, e.event_type, e.custom_type, e.value, e.cause, e.sort_order,
-               d.original AS date_original, d.year, d.month, d.day,
+               d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                p.original AS place_original, p.name AS place_name
         FROM gedcom_individual_events_v2 ie
         JOIN gedcom_events_v2 e ON e.id = ie.event_id AND e.file_uuid = ie.file_uuid

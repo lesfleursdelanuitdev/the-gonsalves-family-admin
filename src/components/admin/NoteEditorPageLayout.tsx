@@ -11,12 +11,15 @@ export function NoteEditorPageLayout({
   backLabel,
   children,
   fullWidth = false,
+  hideBackLink = false,
 }: {
   backHref: string;
   backLabel: string;
   children: React.ReactNode;
   /** Use full admin main column width (same idea as `DetailPageShell` `fullWidth`). */
   fullWidth?: boolean;
+  /** When true, omit the shell back link (child page supplies its own navigation). */
+  hideBackLink?: boolean;
 }) {
   return (
     <div
@@ -25,13 +28,15 @@ export function NoteEditorPageLayout({
         fullWidth ? "w-full max-w-none" : "max-w-3xl",
       )}
     >
-      <Link
-        href={backHref}
-        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "inline-flex w-fit gap-2")}
-      >
-        <ArrowLeft className="size-4" />
-        {backLabel}
-      </Link>
+      {!hideBackLink ? (
+        <Link
+          href={backHref}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "inline-flex w-fit gap-2")}
+        >
+          <ArrowLeft className="size-4" />
+          {backLabel}
+        </Link>
+      ) : null}
       {children}
     </div>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
 import type { UseAdminMediaOpts } from "@/hooks/useAdminMedia";
 import { useFilterState } from "@/hooks/useFilterState";
 
@@ -24,8 +23,12 @@ export const ADMIN_MEDIA_PAGE_FILTER_DEFAULTS: AdminMediaPageFilterState = {
   q: "",
 };
 
+/**
+ * Filter-only query opts (no `limit`/`offset`). Pagination is owned by the page so the
+ * server returns a single page at a time instead of the full dataset.
+ */
 export function adminMediaPageFilterStateToQueryOpts(applied: AdminMediaPageFilterState): UseAdminMediaOpts {
-  const opts: UseAdminMediaOpts = { limit: ADMIN_LIST_MAX_LIMIT, offset: 0 };
+  const opts: UseAdminMediaOpts = {};
   const q = applied.q.trim();
   if (q) opts.q = q;
   if (

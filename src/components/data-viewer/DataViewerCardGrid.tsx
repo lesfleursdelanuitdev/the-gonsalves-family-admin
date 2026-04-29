@@ -4,6 +4,7 @@ import { Inbox } from "lucide-react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
 import type { DataViewerConfig } from "./types";
 import { DataViewerPagination } from "./DataViewerPagination";
+import { cn } from "@/lib/utils";
 
 interface DataViewerCardGridProps<TRecord> {
   config: DataViewerConfig<TRecord>;
@@ -14,6 +15,8 @@ interface DataViewerCardGridProps<TRecord> {
   pagination: PaginationState;
   pageCount: number;
   onPaginationChange: (updater: Updater<PaginationState>) => void;
+  /** Visual hint that a background fetch is in flight. */
+  isFetching?: boolean;
 }
 
 export function DataViewerCardGrid<TRecord>({
@@ -23,6 +26,7 @@ export function DataViewerCardGrid<TRecord>({
   pagination,
   pageCount,
   onPaginationChange,
+  isFetching = false,
 }: DataViewerCardGridProps<TRecord>) {
   const { actions, getRowId, renderCard, labels } = config;
 
@@ -44,7 +48,12 @@ export function DataViewerCardGrid<TRecord>({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity",
+            isFetching && "opacity-80",
+          )}
+        >
           {data.map((record) => {
             const id = getRowId(record);
             return (

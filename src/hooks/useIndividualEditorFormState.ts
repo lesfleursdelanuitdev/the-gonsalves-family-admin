@@ -8,7 +8,6 @@ import type {
   SpouseNewFamilyExistingSearchSlot,
 } from "@/components/admin/individual-editor/individual-family-editor-slots";
 import type { ChildFamilyParentPickLabels } from "@/components/admin/individual-editor/individual-family-search-types";
-import type { IndividualEditorTab } from "@/components/admin/individual-editor/individual-editor-types";
 import {
   emptyIndividualEditorFormSeed,
   familyChildrenToSummaries,
@@ -59,8 +58,6 @@ function useIndividualEditorUiState() {
   const [userSearch, setUserSearch] = useState("");
   const [linkUserId, setLinkUserId] = useState<string | null>(null);
   const [linkUserLabel, setLinkUserLabel] = useState("");
-  const [editorTab, setEditorTab] = useState<IndividualEditorTab>("identity");
-
   return {
     spouseFamilySearchSlots,
     setSpouseFamilySearchSlots,
@@ -76,8 +73,6 @@ function useIndividualEditorUiState() {
     setLinkUserId,
     linkUserLabel,
     setLinkUserLabel,
-    editorTab,
-    setEditorTab,
   };
 }
 
@@ -174,6 +169,31 @@ function useIndividualEditorDerivedState(seed: IndividualEditorFormSeed, individ
     return ids;
   }, [seed.familiesAsChild, seed.familiesAsSpouse]);
 
+  /** Existing parents (by family) so “create one new parent” can marry them to a chosen parent. */
+  const spouseLinkOptionsForNewParent = useMemo(() => {
+    type Opt = { familyId: string; parentIndividualId: string; label: string };
+    const opts: Opt[] = [];
+    for (const r of seed.familiesAsChild) {
+      if (!r.familyId.trim() || r.pendingNewParents) continue;
+      const fid = r.familyId.trim();
+      if (r.parentHusbandId) {
+        opts.push({
+          familyId: fid,
+          parentIndividualId: r.parentHusbandId,
+          label: `${FAMILY_PARTNER_1_LABEL}: ${(r.parentHusbandDisplay ?? "").trim() || "Unknown"}`,
+        });
+      }
+      if (r.parentWifeId) {
+        opts.push({
+          familyId: fid,
+          parentIndividualId: r.parentWifeId,
+          label: `${FAMILY_PARTNER_2_LABEL}: ${(r.parentWifeDisplay ?? "").trim() || "Unknown"}`,
+        });
+      }
+    }
+    return opts;
+  }, [seed.familiesAsChild]);
+
   const livingStatus = useMemo(() => {
     if (seed.livingMode === "living") return { text: "Living" as const, deceased: false };
     if (seed.livingMode === "deceased") return { text: "Deceased" as const, deceased: true };
@@ -207,16 +227,25 @@ function useIndividualEditorDerivedState(seed: IndividualEditorFormSeed, individ
   const hasPendingSpouseFamilyChildAdds = seed.familiesAsSpouse.some(
     (r) => (r.pendingSpouseFamilyChildren?.length ?? 0) > 0,
   );
-  const hasPendingNewParentsChild = seed.familiesAsChild.some(
-    (r) =>
-      !!r.pendingNewParents &&
-      (r.pendingNewParents.parent1.givenNames.trim() ||
-        r.pendingNewParents.parent1.surname.trim() ||
-        r.pendingNewParents.parent1.sex.trim() ||
-        r.pendingNewParents.parent2.givenNames.trim() ||
-        r.pendingNewParents.parent2.surname.trim() ||
-        r.pendingNewParents.parent2.sex.trim()),
-  );
+  const hasPendingNewParentsChild = seed.familiesAsChild.some((r) => {
+    if (!r.pendingNewParents) return false;
+    const d = r.pendingNewParents;
+    if (d.mode === "single") {
+      return (
+        d.parent.givenNames.trim() ||
+        d.parent.surname.trim() ||
+        d.parent.sex.trim()
+      );
+    }
+    return (
+      d.parent1.givenNames.trim() ||
+      d.parent1.surname.trim() ||
+      d.parent1.sex.trim() ||
+      d.parent2.givenNames.trim() ||
+      d.parent2.surname.trim() ||
+      d.parent2.sex.trim()
+    );
+  });
   const spouseFamiliesNeedSex =
     (seed.familiesAsSpouse.some((r) => r.familyId.trim()) || hasPendingNewSpouseFamily) &&
     seed.sex.trim().toUpperCase() !== "M" &&
@@ -227,6 +256,7 @@ function useIndividualEditorDerivedState(seed: IndividualEditorFormSeed, individ
     individualNewEventLabel,
     excludedSpousePartnerIndividualIds,
     excludedChildSpouseFamilyIds,
+    spouseLinkOptionsForNewParent,
     livingStatus,
     spouseSlotHelp,
     hasPendingNewSpouseFamily,
@@ -262,8 +292,6 @@ export function useIndividualEditorFormState({
     setLinkUserId,
     linkUserLabel,
     setLinkUserLabel,
-    editorTab,
-    setEditorTab,
   } = useIndividualEditorUiState();
 
   const syncedIndividualIdRef = useRef<string | null>(null);
@@ -302,6 +330,7 @@ export function useIndividualEditorFormState({
     individualNewEventLabel,
     excludedSpousePartnerIndividualIds,
     excludedChildSpouseFamilyIds,
+    spouseLinkOptionsForNewParent,
     livingStatus,
     spouseSlotHelp,
     hasPendingNewSpouseFamily,
@@ -441,6 +470,38 @@ export function useIndividualEditorFormState({
       }),
     }));
 
+  const setPrimaryGivenNamesFromJoined = useCallback((joined: string) => {
+    const parts = joined.trim() === "" ? [""] : joined.trim().split(/\s+/);
+    setSeed((s) => {
+      const idx = s.nameForms.findIndex((r) => r.role === "primary");
+      const formIdx = idx >= 0 ? idx : 0;
+      return {
+        ...s,
+        nameForms: s.nameForms.map((f, j) => (j === formIdx ? { ...f, givenNames: parts } : f)),
+      };
+    });
+  }, [setSeed]);
+
+  const setPrimaryFirstSurnameText = useCallback((text: string) => {
+    setSeed((s) => {
+      const idx = s.nameForms.findIndex((r) => r.role === "primary");
+      const formIdx = idx >= 0 ? idx : 0;
+      return {
+        ...s,
+        nameForms: s.nameForms.map((f, j) => {
+          if (j !== formIdx) return f;
+          if (f.surnames.length === 0) {
+            return { ...f, surnames: [{ text, pieceType: "" }] };
+          }
+          return {
+            ...f,
+            surnames: f.surnames.map((row, k) => (k === 0 ? { ...row, text } : row)),
+          };
+        }),
+      };
+    });
+  }, [setSeed]);
+
   const addSpouseRow = useCallback(
     (familyId: string, extra?: Partial<Omit<SpouseFamilyFormRow, "familyId">>) => {
       setSeed((s) => {
@@ -534,6 +595,10 @@ export function useIndividualEditorFormState({
           familyId,
           relationshipType: "biological",
           pedigree: "",
+          relationshipToHusband: "biological",
+          relationshipToWife: "biological",
+          pedigreeToHusband: "",
+          pedigreeToWife: "",
           birthOrder: "",
           ...(parentLabels
             ? {
@@ -586,10 +651,56 @@ export function useIndividualEditorFormState({
           familyId: "",
           relationshipType: "biological",
           pedigree: "",
+          relationshipToHusband: "biological",
+          relationshipToWife: "biological",
+          pedigreeToHusband: "",
+          pedigreeToWife: "",
           birthOrder: "",
           pendingNewParents: {
-            parent1: { givenNames: "", surname: "", sex: "", relationshipType: "biological" },
-            parent2: { givenNames: "", surname: "", sex: "", relationshipType: "biological" },
+            mode: "pair",
+            parent1: {
+              givenNames: "",
+              surname: "",
+              sex: "",
+              relationshipType: "biological",
+              pedigree: "",
+            },
+            parent2: {
+              givenNames: "",
+              surname: "",
+              sex: "",
+              relationshipType: "biological",
+              pedigree: "",
+            },
+          },
+        },
+      ],
+    }));
+  }, []);
+
+  const addChildSingleNewParentDraftRow = useCallback(() => {
+    setSeed((s) => ({
+      ...s,
+      familiesAsChild: [
+        ...s.familiesAsChild,
+        {
+          familyId: "",
+          relationshipType: "biological",
+          pedigree: "",
+          relationshipToHusband: "biological",
+          relationshipToWife: "biological",
+          pedigreeToHusband: "",
+          pedigreeToWife: "",
+          birthOrder: "",
+          pendingNewParents: {
+            mode: "single",
+            parent: {
+              givenNames: "",
+              surname: "",
+              sex: "",
+              relationshipType: "biological",
+              pedigree: "",
+            },
           },
         },
       ],
@@ -622,8 +733,6 @@ export function useIndividualEditorFormState({
   return {
     seed,
     setSeed,
-    editorTab,
-    setEditorTab,
     spouseFamilySearchSlots,
     setSpouseFamilySearchSlots,
     spouseNewFamilyExistingSearchSlots,
@@ -658,6 +767,8 @@ export function useIndividualEditorFormState({
     removeGiven,
     addSurname,
     removeSurname,
+    setPrimaryGivenNamesFromJoined,
+    setPrimaryFirstSurnameText,
     addSpouseRow,
     enrichSpouseFamilyRow,
     addSpouseNewFamilyExisting,
@@ -666,9 +777,11 @@ export function useIndividualEditorFormState({
     updateSpouseRow,
     removeSpouseRow,
     excludedChildSpouseFamilyIds,
+    spouseLinkOptionsForNewParent,
     addChildRow,
     enrichChildFamilyPick,
     addChildNewParentsDraftRow,
+    addChildSingleNewParentDraftRow,
     updateChildRow,
     removeChildRow,
     spouseSlotHelp,

@@ -11,14 +11,14 @@ export default function AdminIndividualNewPage() {
     <div className="space-y-6">
       <Link
         href="/admin/individuals"
-        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "inline-flex gap-1.5")}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden gap-1.5 lg:inline-flex")}
       >
         <ArrowLeft className="size-4" />
-        Back
+        Back to people
       </Link>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New individual</h1>
-        <p className="text-muted-foreground">Create a person in the admin tree.</p>
+      <div className="hidden lg:block">
+        <h1 className="text-2xl font-semibold tracking-tight">New person</h1>
+        <p className="text-muted-foreground">Add someone to the tree—basics first; you can refine everything later.</p>
       </div>
       <IndividualEditForm mode="create" />
     </div>

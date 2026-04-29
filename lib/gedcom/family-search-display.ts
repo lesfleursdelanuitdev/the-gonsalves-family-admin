@@ -29,13 +29,18 @@ export function familyUnionPrimaryLine(f: FamilyUnionNameSource): string {
 /** Mono line: xref and optional marriage year when present on list items. */
 export function familyUnionMetaLine(f: {
   xref?: string | null;
-  marriageYear?: string | null;
+  marriageYear?: string | number | null;
   childrenCount?: number | null;
 }): string | null {
   const bits: string[] = [];
   const xr = f.xref?.trim();
   if (xr) bits.push(xr);
-  const y = f.marriageYear?.trim();
+  const y =
+    typeof f.marriageYear === "number"
+      ? String(f.marriageYear)
+      : typeof f.marriageYear === "string"
+        ? f.marriageYear.trim()
+        : "";
   if (y) bits.push(y);
   if (f.childrenCount != null) bits.push(`${f.childrenCount} ch.`);
   return bits.length ? bits.join(" · ") : null;

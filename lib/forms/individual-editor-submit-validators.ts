@@ -34,6 +34,25 @@ export function validateIndividualEditorSubmitSeed(seed: IndividualEditorFormSee
   for (const row of seed.familiesAsChild) {
     if (!row.pendingNewParents) continue;
     const draft = row.pendingNewParents;
+    if (draft.mode === "single") {
+      const g = draft.parent.givenNames.trim();
+      const sur = draft.parent.surname.trim();
+      const sx = draft.parent.sex.trim();
+      const any = g || sur || sx;
+      if (!any) continue;
+      const tokens = g.split(/\s+/).filter(Boolean);
+      if (tokens.length === 0 || !sur || !isSupportedGedcomSex(draft.parent.sex)) {
+        return "Add parents - create one new parent: complete given names, last name, and sex, or remove the row.";
+      }
+      if (draft.linkAsSpouse) {
+        const lf = draft.linkAsSpouse.familyId.trim();
+        const lp = draft.linkAsSpouse.existingParentIndividualId.trim();
+        if (!lf || !lp) {
+          return "Create one parent — spouse link: choose an existing parent or clear the spouse link.";
+        }
+      }
+      continue;
+    }
     const g1 = draft.parent1.givenNames.trim();
     const g2 = draft.parent2.givenNames.trim();
     const s1 = draft.parent1.surname.trim();

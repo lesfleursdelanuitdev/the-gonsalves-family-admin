@@ -12,6 +12,8 @@ import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 
 export type IndividualEditorIdentityTabPanelProps = {
   hidden: boolean;
+  /** When false, sex is edited elsewhere (e.g. Basic info). Default true. */
+  showSexField?: boolean;
   mode: "create" | "edit";
   sex: string;
   onSexChange: (sex: string) => void;
@@ -33,6 +35,7 @@ export type IndividualEditorIdentityTabPanelProps = {
 
 export function IndividualEditorIdentityTabPanel({
   hidden,
+  showSexField = true,
   mode,
   sex,
   onSexChange,
@@ -52,52 +55,58 @@ export function IndividualEditorIdentityTabPanel({
   onAddUserLinkForEdit,
 }: IndividualEditorIdentityTabPanelProps) {
   return (
-    <div
-      id="individual-editor-panel-identity"
-      role="tabpanel"
-      aria-labelledby="individual-editor-tab-identity"
-      hidden={hidden}
-      className="space-y-8 pt-2"
-    >
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Identity</CardTitle>
-          {mode === "create" ? (
-            <p className="text-sm text-muted-foreground">
-              A new XREF is assigned automatically when you save. Sex uses GEDCOM codes.
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              XREF is system-assigned (shown for reference only). Sex and living follow GEDCOM rules.
-            </p>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {mode === "edit" ? (
-              <div className="space-y-2 sm:col-span-2">
-                <Label>XREF</Label>
-                <p className="font-mono text-sm">{xrefDisplay || "—"}</p>
-              </div>
-            ) : null}
-            <div className="space-y-2">
-              <Label htmlFor="indi-sex">Sex</Label>
-              <select
-                id="indi-sex"
-                className={selectClassName}
-                value={sex}
-                onChange={(e) => onSexChange(e.target.value)}
-              >
-                <option value="">Unknown</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-                <option value="U">Unknown (U)</option>
-                <option value="X">Other (X)</option>
-              </select>
+    <div role="region" aria-label="Accounts and record reference" hidden={hidden} className="space-y-6">
+      {showSexField || mode === "edit" ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">{showSexField ? "Identity" : "Record reference"}</CardTitle>
+            {showSexField ? (
+              mode === "create" ? (
+                <p className="text-sm text-muted-foreground">
+                  A stable record id is assigned automatically when you save.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Internal id used for imports, links, and editing tools.</p>
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Used when exchanging data with desktop genealogy apps. You don&apos;t need to change it.
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {mode === "edit" ? (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Record id (XREF)</Label>
+                  <p className="font-mono text-sm">{xrefDisplay || "—"}</p>
+                </div>
+              ) : showSexField ? null : (
+                <p className="text-sm text-muted-foreground sm:col-span-2">
+                  Save this person once to see their record id here.
+                </p>
+              )}
+              {showSexField ? (
+                <div className="space-y-2">
+                  <Label htmlFor="indi-sex">Sex</Label>
+                  <select
+                    id="indi-sex"
+                    className={selectClassName}
+                    value={sex}
+                    onChange={(e) => onSexChange(e.target.value)}
+                  >
+                    <option value="">Unknown</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                    <option value="U">Unknown (U)</option>
+                    <option value="X">Other (X)</option>
+                  </select>
+                </div>
+              ) : null}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {mode === "edit" ? (
         <Card>

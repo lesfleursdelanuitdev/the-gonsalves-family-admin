@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { cleanupNonFkReferencesToGedcomMedia } from "@/lib/admin/delete-gedcom-media-cleanup";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
 
 const primaryNameFormSelect = {
@@ -181,7 +182,8 @@ export const DELETE = withAdminAuth(async (_req, user, ctx) => {
   const batchId = newBatchId();
   await prisma.$transaction(async (tx) => {
     const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
-    // Related junction rows: FK onDelete Cascade from GedcomMedia in schema (no deleteMany here).
+    await cleanupNonFkReferencesToGedcomMedia(tx, id, fileUuid);
+    // Junction rows with FK onDelete Cascade (individual/family/source/event media, places, dates, album_gedcom, app_tags) drop with this delete.
     await tx.gedcomMedia.delete({ where: { id } });
     await logDelete(changeCtx, "media", id, existing.xref, { ...existing });
     await setBatchSummary(changeCtx, `Deleted media ${existing.xref ?? id}`);

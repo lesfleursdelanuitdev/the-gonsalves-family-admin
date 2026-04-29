@@ -15,6 +15,8 @@ export type IndividualDetailEvent = {
   value: string | null;
   cause: string | null;
   dateOriginal: string | null;
+  /** From `gedcom_dates_v2.date_type` when joined; null for denormalized-only rows. */
+  dateType: string | null;
   year: number | null;
   month: number | null;
   day: number | null;
@@ -59,7 +61,7 @@ export async function buildIndividualDetailEvents(
     prisma.$queryRaw<Row[]>(
       Prisma.sql`
           SELECT e.id, e.event_type, e.custom_type, e.value, e.cause, e.sort_order,
-                 d.original AS date_original, d.year, d.month, d.day,
+                 d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                  p.original AS place_original, p.name AS place_name
           FROM gedcom_individual_events_v2 ie
           JOIN gedcom_events_v2 e ON e.id = ie.event_id AND e.file_uuid = ie.file_uuid
@@ -75,11 +77,14 @@ export async function buildIndividualDetailEvents(
                  spouse.id AS spouse_id, spouse.xref AS spouse_xref, spouse.full_name AS spouse_name,
                  spouse.death_date_display AS spouse_death_date, spouse.death_place_display AS spouse_death_place,
                  spouse_death_d.year AS spouse_death_year, spouse_death_d.month AS spouse_death_month, spouse_death_d.day AS spouse_death_day,
+                 spouse_death_d.date_type AS spouse_death_date_type,
                  ch.id AS child_id, ch.xref AS child_xref, ch.full_name AS child_name,
                  ch.birth_date_display AS child_birth_date, ch.birth_place_display AS child_birth_place,
                  ch_birth_d.year AS child_birth_year, ch_birth_d.month AS child_birth_month, ch_birth_d.day AS child_birth_day,
+                 ch_birth_d.date_type AS child_birth_date_type,
                  ch.death_date_display AS child_death_date, ch.death_place_display AS child_death_place,
-                 ch_death_d.year AS child_death_year, ch_death_d.month AS child_death_month, ch_death_d.day AS child_death_day
+                 ch_death_d.year AS child_death_year, ch_death_d.month AS child_death_month, ch_death_d.day AS child_death_day,
+                 ch_death_d.date_type AS child_death_date_type
           FROM gedcom_families_v2 f
           LEFT JOIN gedcom_individuals_v2 spouse ON (spouse.id = f.wife_id AND f.husband_id = ${personId}::uuid)
             OR (spouse.id = f.husband_id AND f.wife_id = ${personId}::uuid)
@@ -105,6 +110,7 @@ export async function buildIndividualDetailEvents(
         death?: {
           date: string | null;
           place: string | null;
+          dateType?: string | null;
           year?: number | null;
           month?: number | null;
           day?: number | null;
@@ -117,6 +123,7 @@ export async function buildIndividualDetailEvents(
         birth?: {
           date: string | null;
           place: string | null;
+          dateType?: string | null;
           year?: number | null;
           month?: number | null;
           day?: number | null;
@@ -124,6 +131,7 @@ export async function buildIndividualDetailEvents(
         death?: {
           date: string | null;
           place: string | null;
+          dateType?: string | null;
           year?: number | null;
           month?: number | null;
           day?: number | null;
@@ -150,6 +158,7 @@ export async function buildIndividualDetailEvents(
             ? {
                 date: (r.spouse_death_date as string) ?? null,
                 place: (r.spouse_death_place as string) ?? null,
+                dateType: (r.spouse_death_date_type as string) ?? null,
                 year: r.spouse_death_year != null ? Number(r.spouse_death_year) : null,
                 month: r.spouse_death_month != null ? Number(r.spouse_death_month) : null,
                 day: r.spouse_death_day != null ? Number(r.spouse_death_day) : null,
@@ -181,6 +190,7 @@ export async function buildIndividualDetailEvents(
           ? {
               date: (r.child_birth_date as string) ?? null,
               place: (r.child_birth_place as string) ?? null,
+              dateType: (r.child_birth_date_type as string) ?? null,
               year: r.child_birth_year != null ? Number(r.child_birth_year) : null,
               month: r.child_birth_month != null ? Number(r.child_birth_month) : null,
               day: r.child_birth_day != null ? Number(r.child_birth_day) : null,
@@ -190,6 +200,7 @@ export async function buildIndividualDetailEvents(
           ? {
               date: (r.child_death_date as string) ?? null,
               place: (r.child_death_place as string) ?? null,
+              dateType: (r.child_death_date_type as string) ?? null,
               year: r.child_death_year != null ? Number(r.child_death_year) : null,
               month: r.child_death_month != null ? Number(r.child_death_month) : null,
               day: r.child_death_day != null ? Number(r.child_death_day) : null,
@@ -207,7 +218,7 @@ export async function buildIndividualDetailEvents(
       ? await prisma.$queryRaw<Row[]>(
           Prisma.sql`
               SELECT fe.family_id, e.id AS event_id, e.event_type, e.custom_type, e.value, e.cause, e.sort_order,
-                     d.original AS date_original, d.year, d.month, d.day,
+                     d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                      p.original AS place_original, p.name AS place_name
               FROM gedcom_family_events_v2 fe
               JOIN gedcom_events_v2 e ON e.id = fe.event_id AND e.file_uuid = fe.file_uuid
@@ -242,6 +253,7 @@ export async function buildIndividualDetailEvents(
     value: (r.value as string) ?? null,
     cause: (r.cause as string) ?? null,
     dateOriginal: (r.date_original as string) ?? null,
+    dateType: (r.date_type as string | null | undefined) ?? null,
     year: r.year != null ? Number(r.year) : null,
     month: r.month != null ? Number(r.month) : null,
     day: r.day != null ? Number(r.day) : null,
@@ -287,6 +299,7 @@ export async function buildIndividualDetailEvents(
           {
             event_type: "DEAT",
             date_original: fam.spouse.death.date,
+            date_type: fam.spouse.death.dateType ?? null,
             place_original: fam.spouse.death.place,
             place_name: fam.spouse.death.place,
             year: fam.spouse.death.year ?? undefined,
@@ -311,6 +324,7 @@ export async function buildIndividualDetailEvents(
             {
               event_type: "BIRT",
               date_original: ch.birth.date,
+              date_type: ch.birth.dateType ?? null,
               place_original: ch.birth.place,
               place_name: ch.birth.place,
               year: ch.birth.year ?? undefined,
@@ -334,6 +348,7 @@ export async function buildIndividualDetailEvents(
             {
               event_type: "DEAT",
               date_original: ch.death.date,
+              date_type: ch.death.dateType ?? null,
               place_original: ch.death.place,
               place_name: ch.death.place,
               year: ch.death.year ?? undefined,
@@ -360,7 +375,7 @@ export async function buildIndividualDetailEvents(
       ? await prisma.$queryRaw<Row[]>(
           Prisma.sql`
               SELECT f.id AS family_id, f.husband_id, f.wife_id,
-                     d.original AS date_original, d.year, d.month, d.day,
+                     d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                      p.original AS place_original, p.name AS place_name,
                      husb.xref AS husband_xref, husb.full_name AS husband_name,
                      wife.xref AS wife_xref, wife.full_name AS wife_name
@@ -392,6 +407,7 @@ export async function buildIndividualDetailEvents(
         {
           event_type: "MARR",
           date_original: r.date_original ?? null,
+          date_type: r.date_type ?? null,
           place_original: r.place_original ?? null,
           place_name: r.place_name ?? null,
           year: r.year ?? undefined,
@@ -419,7 +435,8 @@ export async function buildIndividualDetailEvents(
           Prisma.sql`
               SELECT f.id AS family_id, ch.id AS grandchild_id, ch.xref AS grandchild_xref, ch.full_name AS grandchild_name,
                      ch.birth_date_display AS grandchild_birth_date, ch.birth_place_display AS grandchild_birth_place,
-                     ch_birth_d.year AS grandchild_birth_year, ch_birth_d.month AS grandchild_birth_month, ch_birth_d.day AS grandchild_birth_day
+                     ch_birth_d.year AS grandchild_birth_year, ch_birth_d.month AS grandchild_birth_month, ch_birth_d.day AS grandchild_birth_day,
+                     ch_birth_d.date_type AS grandchild_birth_date_type
               FROM gedcom_families_v2 f
               JOIN gedcom_family_children_v2 fch ON fch.family_id = f.id AND fch.file_uuid = f.file_uuid
               JOIN gedcom_individuals_v2 ch ON ch.id = fch.child_id
@@ -443,6 +460,7 @@ export async function buildIndividualDetailEvents(
           {
             event_type: "BIRT",
             date_original: r.grandchild_birth_date ?? null,
+            date_type: r.grandchild_birth_date_type ?? null,
             place_original: r.grandchild_birth_place ?? null,
             place_name: r.grandchild_birth_place ?? null,
             year: r.grandchild_birth_year ?? undefined,
@@ -478,9 +496,11 @@ export async function buildIndividualDetailEvents(
                  husb.id AS father_id, husb.xref AS father_xref, husb.full_name AS father_name,
                  husb.death_date_display AS father_death_date, husb.death_place_display AS father_death_place,
                  husb_death_d.year AS father_death_year, husb_death_d.month AS father_death_month, husb_death_d.day AS father_death_day,
+                 husb_death_d.date_type AS father_death_date_type,
                  wife.id AS mother_id, wife.xref AS mother_xref, wife.full_name AS mother_name,
                  wife.death_date_display AS mother_death_date, wife.death_place_display AS mother_death_place,
-                 wife_death_d.year AS mother_death_year, wife_death_d.month AS mother_death_month, wife_death_d.day AS mother_death_day
+                 wife_death_d.year AS mother_death_year, wife_death_d.month AS mother_death_month, wife_death_d.day AS mother_death_day,
+                 wife_death_d.date_type AS mother_death_date_type
           FROM gedcom_families_v2 f
           LEFT JOIN gedcom_individuals_v2 husb ON husb.id = f.husband_id
           LEFT JOIN gedcom_dates_v2 husb_death_d ON husb_death_d.id = husb.death_date_id
@@ -503,6 +523,7 @@ export async function buildIndividualDetailEvents(
             {
               event_type: "DEAT",
               date_original: r.father_death_date ?? null,
+              date_type: r.father_death_date_type ?? null,
               place_original: r.father_death_place ?? null,
               place_name: r.father_death_place ?? null,
               year: r.father_death_year ?? undefined,
@@ -532,6 +553,7 @@ export async function buildIndividualDetailEvents(
             {
               event_type: "DEAT",
               date_original: r.mother_death_date ?? null,
+              date_type: r.mother_death_date_type ?? null,
               place_original: r.mother_death_place ?? null,
               place_name: r.mother_death_place ?? null,
               year: r.mother_death_year ?? undefined,
@@ -555,7 +577,8 @@ export async function buildIndividualDetailEvents(
       Prisma.sql`
           SELECT fch.family_id, ch.id AS sibling_id, ch.xref AS sibling_xref, ch.full_name AS sibling_name,
                  ch.death_date_display AS sibling_death_date, ch.death_place_display AS sibling_death_place,
-                 sibling_death_d.year AS sibling_death_year, sibling_death_d.month AS sibling_death_month, sibling_death_d.day AS sibling_death_day
+                 sibling_death_d.year AS sibling_death_year, sibling_death_d.month AS sibling_death_month, sibling_death_d.day AS sibling_death_day,
+                 sibling_death_d.date_type AS sibling_death_date_type
           FROM gedcom_family_children_v2 fch
           JOIN gedcom_individuals_v2 ch ON ch.id = fch.child_id
           LEFT JOIN gedcom_dates_v2 sibling_death_d ON sibling_death_d.id = ch.death_date_id
@@ -577,6 +600,7 @@ export async function buildIndividualDetailEvents(
             {
               event_type: "DEAT",
               date_original: r.sibling_death_date ?? null,
+              date_type: r.sibling_death_date_type ?? null,
               place_original: r.sibling_death_place ?? null,
               place_name: r.sibling_death_place ?? null,
               year: r.sibling_death_year ?? undefined,
@@ -629,9 +653,11 @@ export async function buildIndividualDetailEvents(
                      husb.id AS grandfather_id, husb.xref AS grandfather_xref, husb.full_name AS grandfather_name,
                      husb.death_date_display AS grandfather_death_date, husb.death_place_display AS grandfather_death_place,
                      husb_death_d.year AS grandfather_death_year, husb_death_d.month AS grandfather_death_month, husb_death_d.day AS grandfather_death_day,
+                     husb_death_d.date_type AS grandfather_death_date_type,
                      wife.id AS grandmother_id, wife.xref AS grandmother_xref, wife.full_name AS grandmother_name,
                      wife.death_date_display AS grandmother_death_date, wife.death_place_display AS grandmother_death_place,
-                     wife_death_d.year AS grandmother_death_year, wife_death_d.month AS grandmother_death_month, wife_death_d.day AS grandmother_death_day
+                     wife_death_d.year AS grandmother_death_year, wife_death_d.month AS grandmother_death_month, wife_death_d.day AS grandmother_death_day,
+                     wife_death_d.date_type AS grandmother_death_date_type
               FROM gedcom_families_v2 f
               LEFT JOIN gedcom_individuals_v2 husb ON husb.id = f.husband_id
               LEFT JOIN gedcom_dates_v2 husb_death_d ON husb_death_d.id = husb.death_date_id
@@ -654,6 +680,7 @@ export async function buildIndividualDetailEvents(
                 {
                   event_type: "DEAT",
                   date_original: r.grandfather_death_date ?? null,
+                  date_type: r.grandfather_death_date_type ?? null,
                   place_original: r.grandfather_death_place ?? null,
                   place_name: r.grandfather_death_place ?? null,
                   year: r.grandfather_death_year ?? undefined,
@@ -683,6 +710,7 @@ export async function buildIndividualDetailEvents(
                 {
                   event_type: "DEAT",
                   date_original: r.grandmother_death_date ?? null,
+                  date_type: r.grandmother_death_date_type ?? null,
                   place_original: r.grandmother_death_place ?? null,
                   place_name: r.grandmother_death_place ?? null,
                   year: r.grandmother_death_year ?? undefined,

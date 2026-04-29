@@ -15,6 +15,7 @@ import { LinkedIndividualLink } from "@/components/admin/LinkedIndividualLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 
 export default function AdminEventDetailPage() {
   const params = useParams();
@@ -196,14 +197,17 @@ export default function AdminEventDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ImageIcon className="size-5 text-muted-foreground" aria-hidden />
-            Media
-          </CardTitle>
-          <p className="text-sm font-normal text-muted-foreground">
-            Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
-          </p>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ImageIcon className="size-5 text-muted-foreground" aria-hidden />
+              Media
+            </CardTitle>
+            <p className="text-sm font-normal text-muted-foreground">
+              Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
+            </p>
+          </div>
+          <ViewAsAlbumLink entityType="event" entityId={id} label="View event media" count={eventMedia.length} />
         </CardHeader>
         <CardContent>
           {eventMedia.length === 0 ? (

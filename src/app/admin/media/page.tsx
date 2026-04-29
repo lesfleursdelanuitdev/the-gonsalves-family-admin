@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { PaginationState, Updater } from "@tanstack/react-table";
 import {
   FileImage,
   FileText,
@@ -18,6 +19,8 @@ import {
   Tag,
   Trash2,
   Upload,
+  CalendarDays,
+  MapPin,
 } from "lucide-react";
 import {
   isLikelyAudioFile,
@@ -25,6 +28,7 @@ import {
   isLikelyVideoFile,
   isPlayableAudioRef,
   isPlayableVideoRef,
+  mediaThumbSrc,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 import { inferAdminMediaCategory, type AdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
@@ -71,6 +75,10 @@ interface MediaRow {
   linkedTo: string;
   /** Number of individuals/families/events linked */
   linkedCount: number;
+  /** Number of linked places */
+  placeCount: number;
+  /** Number of linked dates */
+  dateCount: number;
   /** Number of albums this media belongs to */
   albumCount: number;
   /** Number of tags */
@@ -132,10 +140,11 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
     });
 
     const linkedCount =
+      m.linkedCount ??
       (m.individualMedia?.length ?? 0) +
-      (m.familyMedia?.length ?? 0) +
-      (m.eventMedia?.length ?? 0) +
-      (m.sourceMedia?.length ?? 0);
+        (m.familyMedia?.length ?? 0) +
+        (m.eventMedia?.length ?? 0) +
+        (m.sourceMedia?.length ?? 0);
 
     return {
       id: m.id,
@@ -146,8 +155,10 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
       form: m.form ?? "",
       linkedTo: parts.length ? parts.join("; ") : "—",
       linkedCount,
-      albumCount: m.albumLinks?.length ?? 0,
-      tagCount: m.appTags?.length ?? 0,
+      placeCount: m.placeCount ?? 0,
+      dateCount: m.dateCount ?? 0,
+      albumCount: m.albumCount ?? m.albumLinks?.length ?? 0,
+      tagCount: m.tagCount ?? m.appTags?.length ?? 0,
     };
   });
 }
@@ -182,7 +193,7 @@ function MediaCardItem({
   const fileRefRaw = record.filename.trim() === "—" ? "" : record.filename;
   const thumbSrc =
     fileRefRaw && isLikelyRasterImage(fileRefRaw, record.form, null)
-      ? resolveMediaImageSrc(fileRefRaw)
+      ? mediaThumbSrc(fileRefRaw, record.form, 480) ?? resolveMediaImageSrc(fileRefRaw)
       : null;
   const resolvedRef = fileRefRaw ? resolveMediaImageSrc(fileRefRaw) : null;
   const videoCardSrc =
@@ -203,29 +214,42 @@ function MediaCardItem({
       ? resolvedRef
       : null;
   const titleDisplay = record.title.trim() && record.title !== "—" ? record.title : "Untitled";
+  const [thumbLoaded, setThumbLoaded] = useState(false);
 
   return (
     <Card className="group h-full min-h-0 overflow-hidden border-base-content/12 pt-0 shadow-sm shadow-black/10 transition-shadow hover:shadow-md hover:shadow-black/15">
       {/* Thumbnail */}
       <div className="relative aspect-[4/3] w-full shrink-0 border-b border-base-content/10 bg-gradient-to-b from-base-200/70 to-base-300/35">
         {thumbSrc ? (
-          <MediaRasterImage
-            key={thumbSrc + record.id}
-            fileRef={fileRefRaw}
-            form={record.form}
-            src={thumbSrc}
-            alt={titleDisplay}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-contain p-2"
-          />
+          <>
+            {!thumbLoaded && (
+              <div
+                className="pointer-events-none absolute inset-0 animate-pulse bg-base-content/[0.05]"
+                aria-hidden
+              />
+            )}
+            <MediaRasterImage
+              key={thumbSrc + record.id}
+              fileRef={fileRefRaw}
+              form={record.form}
+              src={thumbSrc}
+              alt={titleDisplay}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className={cn(
+                "object-contain p-2 transition-opacity duration-200",
+                thumbLoaded ? "opacity-100" : "opacity-0",
+              )}
+              onLoad={() => setThumbLoaded(true)}
+            />
+          </>
         ) : videoCardSrc ? (
           <video
             key={videoCardSrc + record.id}
             src={videoCardSrc}
             muted
             playsInline
-            preload="metadata"
+            preload="none"
             className="pointer-events-none absolute inset-0 h-full w-full object-contain p-2"
             aria-hidden
           />
@@ -236,7 +260,7 @@ function MediaCardItem({
               src={audioCardSrc}
               controls
               className="h-9 w-full max-w-[min(100%,18rem)]"
-              preload="metadata"
+              preload="none"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -290,7 +314,7 @@ function MediaCardItem({
                 <Pencil className="size-4 opacity-70" aria-hidden /> Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => onDelete?.()}>
+              <DropdownMenuItem variant="destructive" nativeButton onClick={() => onDelete?.()}>
                 <Trash2 className="size-4" aria-hidden /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -326,6 +350,18 @@ function MediaCardItem({
           <span className="inline-flex items-center gap-1">
             <Images className="size-3 shrink-0 opacity-70" aria-hidden />
             {record.albumCount} {record.albumCount === 1 ? "album" : "albums"}
+          </span>
+        )}
+        {record.placeCount > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="size-3 shrink-0 opacity-70" aria-hidden />
+            {record.placeCount} {record.placeCount === 1 ? "place" : "places"}
+          </span>
+        )}
+        {record.dateCount > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <CalendarDays className="size-3 shrink-0 opacity-70" aria-hidden />
+            {record.dateCount} {record.dateCount === 1 ? "date" : "dates"}
           </span>
         )}
         {record.tagCount > 0 && (
@@ -392,6 +428,28 @@ function buildMediaConfig(
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
 
+/** Cards/page on desktop. Keep moderate so a single fetch + thumbnail batch stays under typical mobile budgets. */
+const MEDIA_PAGE_SIZE_DESKTOP = 24;
+const MEDIA_PAGE_SIZE_MOBILE = 12;
+const MEDIA_PAGE_SIZE_BREAKPOINT = "(max-width: 640px)";
+
+function useMediaPageSize(): number {
+  const [size, setSize] = useState<number>(() => {
+    if (typeof window === "undefined") return MEDIA_PAGE_SIZE_DESKTOP;
+    return window.matchMedia(MEDIA_PAGE_SIZE_BREAKPOINT).matches
+      ? MEDIA_PAGE_SIZE_MOBILE
+      : MEDIA_PAGE_SIZE_DESKTOP;
+  });
+  useEffect(() => {
+    const mq = window.matchMedia(MEDIA_PAGE_SIZE_BREAKPOINT);
+    const apply = () => setSize(mq.matches ? MEDIA_PAGE_SIZE_MOBILE : MEDIA_PAGE_SIZE_DESKTOP);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return size;
+}
+
 export default function AdminMediaPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -402,8 +460,52 @@ export default function AdminMediaPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [listUploadProgress, setListUploadProgress] = useState<MediaEditorUploadProgressState | null>(null);
 
-  const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
+  const { draft: filterDraft, queryOpts: filterOpts, updateDraft, apply: applyFiltersBase, clear: clearFiltersBase } =
     useAdminMediaPageFilters();
+
+  const pageSize = useMediaPageSize();
+  const [pageIndex, setPageIndex] = useState(0);
+
+  useEffect(() => {
+    // Reset to first page whenever the responsive breakpoint flips (cards/page changes).
+    setPageIndex(0);
+  }, [pageSize]);
+
+  const pagination = useMemo<PaginationState>(
+    () => ({ pageIndex, pageSize }),
+    [pageIndex, pageSize],
+  );
+
+  const handlePaginationChange = useCallback(
+    (updater: Updater<PaginationState>) => {
+      setPageIndex((prev) => {
+        const current: PaginationState = { pageIndex: prev, pageSize };
+        const next =
+          typeof updater === "function" ? updater(current) : updater;
+        return next.pageIndex;
+      });
+    },
+    [pageSize],
+  );
+
+  const applyFilters = useCallback(() => {
+    setPageIndex(0);
+    applyFiltersBase();
+  }, [applyFiltersBase]);
+
+  const clearFilters = useCallback(() => {
+    setPageIndex(0);
+    clearFiltersBase();
+  }, [clearFiltersBase]);
+
+  const queryOpts = useMemo(
+    () => ({
+      ...filterOpts,
+      limit: pagination.pageSize,
+      offset: pagination.pageIndex * pagination.pageSize,
+    }),
+    [filterOpts, pagination.pageIndex, pagination.pageSize],
+  );
 
   const handleListUploadFiles = useCallback(
     async (fileList: FileList | File[] | null | undefined) => {
@@ -507,9 +609,11 @@ export default function AdminMediaPage() {
     staleTime: 60 * 1000,
   });
 
-  const { data, isLoading, isError, error } = useAdminMedia(queryOpts);
+  const { data, isLoading, isFetching, isError, error } = useAdminMedia(queryOpts);
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
   const config = useMemo(() => buildMediaConfig(router, handleDelete), [router, handleDelete]);
+  const totalCount = data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / pagination.pageSize) || 1);
 
   const loadErrorMessage =
     error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Could not load media.";
@@ -681,10 +785,15 @@ export default function AdminMediaPage() {
       <DataViewer
         config={config}
         data={rows}
-        isLoading={isLoading}
+        isLoading={isLoading && !data}
+        isFetching={isFetching}
         defaultViewMode="cards"
         viewModeKey="admin-media-view"
-        totalCount={data?.total}
+        totalCount={totalCount}
+        serverPagination
+        pagination={pagination}
+        onPaginationChange={handlePaginationChange}
+        pageCount={pageCount}
       />
     </div>
   );

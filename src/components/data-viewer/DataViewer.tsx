@@ -49,6 +49,11 @@ export function DataViewer<TRecord>({
   skipClientGlobalFilter = false,
   paginationResetKey,
   totalCount,
+  serverPagination = false,
+  pagination: controlledPagination,
+  onPaginationChange: controlledOnPaginationChange,
+  pageCount: controlledPageCount,
+  isFetching = false,
 }: DataViewerProps<TRecord>) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return defaultViewMode;
@@ -78,40 +83,56 @@ export function DataViewer<TRecord>({
 
   const filteredData = useMemo(
     () =>
-      skipClientGlobalFilter
+      skipClientGlobalFilter || serverPagination
         ? data
         : filterRowsByGlobalSearch(data, config.globalFilterColumnId, filter),
-    [data, config.globalFilterColumnId, filter, skipClientGlobalFilter],
+    [data, config.globalFilterColumnId, filter, skipClientGlobalFilter, serverPagination],
   );
 
-  const [pagination, setPagination] = useState<PaginationState>(() => ({
+  const [internalPagination, setInternalPagination] = useState<PaginationState>(() => ({
     pageIndex: 0,
     pageSize: DATA_VIEWER_PAGE_SIZE,
   }));
 
-  useEffect(() => {
-    setPagination((p) => ({ ...p, pageIndex: 0 }));
-  }, [filter, paginationResetKey]);
+  const pagination = controlledPagination ?? internalPagination;
 
-  const pageCount = Math.max(1, Math.ceil(filteredData.length / pagination.pageSize) || 1);
+  const setPagination = useCallback(
+    (updater: Updater<PaginationState>) => {
+      if (controlledOnPaginationChange) {
+        controlledOnPaginationChange(updater);
+        return;
+      }
+      setInternalPagination((prev) =>
+        typeof updater === "function" ? updater(prev) : updater,
+      );
+    },
+    [controlledOnPaginationChange],
+  );
 
   useEffect(() => {
-    if (pagination.pageIndex >= pageCount) {
-      setPagination((p) => ({ ...p, pageIndex: Math.max(0, pageCount - 1) }));
+    if (controlledPagination) return;
+    setInternalPagination((p) => ({ ...p, pageIndex: 0 }));
+  }, [filter, paginationResetKey, controlledPagination]);
+
+  const computedPageCount = serverPagination
+    ? Math.max(1, controlledPageCount ?? 1)
+    : Math.max(1, Math.ceil(filteredData.length / pagination.pageSize) || 1);
+
+  useEffect(() => {
+    if (controlledPagination) return;
+    if (pagination.pageIndex >= computedPageCount) {
+      setInternalPagination((p) => ({ ...p, pageIndex: Math.max(0, computedPageCount - 1) }));
     }
-  }, [pageCount, pagination.pageIndex]);
+  }, [computedPageCount, pagination.pageIndex, controlledPagination]);
 
-  const onPaginationChange = useCallback((updater: Updater<PaginationState>) => {
-    setPagination((prev) =>
-      typeof updater === "function" ? updater(prev) : updater,
-    );
-  }, []);
+  const onPaginationChange = setPagination;
 
   const paginatedCardData = useMemo(() => {
+    if (serverPagination) return filteredData;
     const { pageIndex, pageSize } = pagination;
     const start = pageIndex * pageSize;
     return filteredData.slice(start, start + pageSize);
-  }, [filteredData, pagination]);
+  }, [filteredData, pagination, serverPagination]);
 
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
@@ -127,7 +148,8 @@ export function DataViewer<TRecord>({
 
   // Counts for toolbar
   const resolvedTotal = totalCount ?? data.length;
-  const filteredCount = filteredData.length;
+  const filteredCount = serverPagination ? (totalCount ?? data.length) : filteredData.length;
+  const cardFilteredTotal = serverPagination ? (totalCount ?? data.length) : filteredData.length;
 
   return (
     <div className="space-y-4">
@@ -150,15 +172,20 @@ export function DataViewer<TRecord>({
           data={filteredData}
           pagination={pagination}
           onPaginationChange={onPaginationChange}
+          manualPagination={serverPagination}
+          manualPageCount={serverPagination ? computedPageCount : undefined}
+          manualRowCount={serverPagination ? (totalCount ?? data.length) : undefined}
+          isFetching={isFetching}
         />
       ) : (
         <DataViewerCardGrid
           config={config}
           data={paginatedCardData}
-          filteredTotal={filteredData.length}
+          filteredTotal={cardFilteredTotal}
           pagination={pagination}
-          pageCount={pageCount}
+          pageCount={computedPageCount}
           onPaginationChange={onPaginationChange}
+          isFetching={isFetching}
         />
       )}
     </div>

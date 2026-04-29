@@ -31,7 +31,7 @@ function NewEventFormWithQuery() {
 
 export default function AdminNewEventPage() {
   return (
-    <NoteEditorPageLayout backHref="/admin/events" backLabel="Events" fullWidth>
+    <NoteEditorPageLayout backHref="/admin/events" backLabel="Back to events" fullWidth hideBackLink>
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
         <NewEventFormWithQuery />
       </Suspense>

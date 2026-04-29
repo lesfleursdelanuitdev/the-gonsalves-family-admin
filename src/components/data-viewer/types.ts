@@ -1,4 +1,4 @@
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
+import type { ColumnDef, PaginationState, SortingState, Updater } from "@tanstack/react-table";
 
 export type ViewMode = "table" | "cards";
 
@@ -88,4 +88,21 @@ export interface DataViewerProps<TRecord> {
    * If not provided, falls back to data.length.
    */
   totalCount?: number;
+  /**
+   * When true, `data` already represents the current server-paginated page; the viewer
+   * skips client-side slicing and trusts {@link pagination} + {@link pageCount} from the
+   * caller. Caller is responsible for refetching when pagination changes.
+   */
+  serverPagination?: boolean;
+  /**
+   * Controlled pagination state. Required when {@link serverPagination} is true; otherwise
+   * the viewer manages pagination internally.
+   */
+  pagination?: PaginationState;
+  /** Controlled pagination setter. Required alongside {@link pagination}. */
+  onPaginationChange?: (updater: Updater<PaginationState>) => void;
+  /** Server-driven page count (total pages) when {@link serverPagination} is true. */
+  pageCount?: number;
+  /** Indicates a background fetch is in flight (e.g. when paging on the server). */
+  isFetching?: boolean;
 }

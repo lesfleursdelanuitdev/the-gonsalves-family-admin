@@ -53,6 +53,14 @@ interface DataViewerTableProps<TRecord> {
   data: TRecord[];
   pagination: PaginationState;
   onPaginationChange: OnChangeFn<PaginationState>;
+  /** When true, parent owns pagination (server-side); table won't slice rows. */
+  manualPagination?: boolean;
+  /** Server-driven total page count. Required when {@link manualPagination} is true. */
+  manualPageCount?: number;
+  /** Server-driven total row count after filters. */
+  manualRowCount?: number;
+  /** Indicates a background fetch is in flight. */
+  isFetching?: boolean;
 }
 
 export function DataViewerTable<TRecord>({
@@ -60,6 +68,10 @@ export function DataViewerTable<TRecord>({
   data,
   pagination,
   onPaginationChange,
+  manualPagination = false,
+  manualPageCount,
+  manualRowCount,
+  isFetching = false,
 }: DataViewerTableProps<TRecord>) {
   const [sorting, setSorting] = useState<SortingState>(config.defaultSorting ?? []);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -119,13 +131,21 @@ export function DataViewerTable<TRecord>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(manualPagination
+      ? {
+          manualPagination: true as const,
+          pageCount: Math.max(1, manualPageCount ?? 1),
+          rowCount: manualRowCount ?? data.length,
+        }
+      : { getPaginationRowModel: getPaginationRowModel() }),
     onPaginationChange,
     state: { sorting, columnFilters, rowSelection, pagination },
   });
 
   const selectedCount = table.getFilteredSelectedRowModel().rows.length;
-  const totalCount = table.getFilteredRowModel().rows.length;
+  const totalCount = manualPagination
+    ? (manualRowCount ?? data.length)
+    : table.getFilteredRowModel().rows.length;
 
   const handleBulkDelete = useCallback(() => {
     if (!actions.delete?.bulkHandler) return;
@@ -166,7 +186,12 @@ export function DataViewerTable<TRecord>({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-box border border-base-content/[0.08] bg-base-100 shadow-md shadow-black/15">
+      <div
+        className={cn(
+          "overflow-hidden rounded-box border border-base-content/[0.08] bg-base-100 shadow-md shadow-black/15 transition-opacity",
+          isFetching && "opacity-70",
+        )}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -318,6 +343,7 @@ function RowActions<TRecord>({
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   variant="destructive"
+                  nativeButton
                   onClick={() => actions.delete!.handler(record)}
                 >
                   <Trash2 className="size-4" />

@@ -11,9 +11,9 @@ import {
 } from "@tabler/icons-react";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -38,6 +38,7 @@ import {
   parseAdminIndividualsFiltersFromSearchParams,
   type AdminIndividualsUrlFilterState,
 } from "@/lib/admin/admin-individuals-url-filters";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 
 interface IndividualRow {
   id: string;
@@ -119,52 +120,85 @@ function buildIndividualsConfig(
       const avatarInitials = initialsFromPersonLabel(nameDisplay);
 
       return (
-      <Card>
-        <CardHeader className="flex flex-col items-center gap-2 pb-2 pt-5 text-center">
-          <p
-            className="font-mono text-[10px] leading-tight tracking-wide text-muted-foreground"
-            title={xrefDisplay}
-          >
-            {xrefDisplay}
-          </p>
+      <Card className="group overflow-hidden border-base-content/12 bg-base-100/95 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md hover:shadow-black/20">
+        <CardHeader className="space-y-2 pb-2 pt-3 text-center">
+          <div className="flex justify-center">
+            <span
+              className="inline-flex max-w-full items-center rounded-full border border-base-content/15 bg-base-content/[0.03] px-2.5 py-0.5 font-mono text-[10px] leading-tight tracking-wide text-base-content/70"
+              title={xrefDisplay}
+            >
+              {xrefDisplay}
+            </span>
+          </div>
           <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-full border border-base-content/12 bg-white/8 text-sm font-bold text-base-content"
+            className="mx-auto flex size-11 shrink-0 items-center justify-center rounded-full border border-base-content/12 bg-white/8 text-sm font-bold text-base-content"
             aria-hidden
           >
             {avatarInitials}
           </div>
-          <CardTitle className="text-balance text-lg font-semibold leading-snug sm:text-xl">
+          <CardTitle className="text-balance text-base font-semibold leading-tight text-base-content sm:text-lg">
             {nameDisplay}
           </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-center text-sm">
-          <div className="flex w-full min-w-0 flex-row flex-wrap items-center justify-between gap-x-6 gap-y-2">
-            <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-left">
-              <GedcomEventTypeIcon eventType="BIRT" className="size-[18px] shrink-0 text-muted-foreground" />
-              <span className="font-bold text-base-content">Birth: </span>
-              <span className="text-muted-foreground">{birthDisplay}</span>
-            </p>
-            <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-right">
-              <GedcomEventTypeIcon
-                eventType="DEAT"
-                className="ml-px size-[18px] shrink-0 text-muted-foreground"
-              />
-              <span className="font-bold text-base-content">Death: </span>
-              <span className="text-muted-foreground">{deathDisplay}</span>
-            </p>
-          </div>
-          <p className="flex flex-wrap items-center justify-center gap-1.5 text-muted-foreground">
+          <p className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground">
             {sexIcon}
             <span>{sexLabel}</span>
           </p>
-          <p
-            className="break-all pt-1 font-mono text-[10px] leading-snug text-base-content/60"
+        </CardHeader>
+        <CardContent className="space-y-3 pb-3 pt-1 text-sm">
+          <div className="grid grid-cols-2 gap-2 rounded-md border border-base-content/10 bg-base-content/[0.02] px-2.5 py-2">
+            <p className="flex min-w-0 items-center gap-1.5 text-xs">
+              <GedcomEventTypeIcon eventType="BIRT" className="size-4 shrink-0 text-muted-foreground" />
+              <span className="font-medium text-base-content/80">Birth</span>
+              <span className="ml-auto text-muted-foreground">{birthDisplay}</span>
+            </p>
+            <p className="flex min-w-0 items-center gap-1.5 text-xs">
+              <GedcomEventTypeIcon
+                eventType="DEAT"
+                className="size-4 shrink-0 text-muted-foreground"
+              />
+              <span className="font-medium text-base-content/80">Death</span>
+              <span className="ml-auto text-muted-foreground">{deathDisplay}</span>
+            </p>
+          </div>
+          <div
+            className="truncate rounded-md border border-base-content/10 bg-base-content/[0.015] px-2 py-1 text-center font-mono text-[10px] leading-tight text-base-content/45"
             title={record.id}
           >
             {record.id}
-          </p>
+          </div>
         </CardContent>
-        <CardActionFooter onView={onView} onEdit={onEdit} onDelete={onDelete} />
+        <div className="grid grid-cols-3 divide-x divide-base-content/10 border-t border-base-content/10 bg-base-content/[0.015]">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
+            onClick={onView}
+            aria-label={`View ${nameDisplay}`}
+            title="View"
+          >
+            <Eye className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
+            onClick={onEdit}
+            aria-label={`Edit ${nameDisplay}`}
+            title="Edit"
+          >
+            <Pencil className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-9 w-full rounded-none border-0 text-base-content/55 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:text-destructive"
+            onClick={onDelete}
+            aria-label={`Delete ${nameDisplay}`}
+            title="Delete"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </Card>
       );
     },

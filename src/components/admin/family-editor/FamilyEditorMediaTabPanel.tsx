@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { MediaPicker } from "@/components/admin/media-picker";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FamilyEditMediaJoin } from "@/components/admin/family-editor/family-editor-types";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 
 export type FamilyEditorMediaTabPanelProps = {
-  hidden: boolean;
+  noCardShell?: boolean;
   mode: "create" | "edit";
   familyId: string;
   familyNewEventLabel: string;
@@ -19,7 +20,7 @@ export type FamilyEditorMediaTabPanelProps = {
 };
 
 export function FamilyEditorMediaTabPanel({
-  hidden,
+  noCardShell = true,
   mode,
   familyId,
   familyNewEventLabel,
@@ -32,52 +33,75 @@ export function FamilyEditorMediaTabPanel({
       ? `/admin/families/create?id=${encodeURIComponent(familyId)}`
       : `/admin/families/${familyId}/edit`;
 
-  return (
-    <div
-      id="family-editor-panel-media"
-      role="tabpanel"
-      aria-labelledby="family-editor-tab-media"
-      hidden={hidden}
-      className="space-y-8 pt-2"
-    >
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg">Media</CardTitle>
-            <p className="text-sm text-muted-foreground">OBJE records linked to this family.</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <MediaPicker
-              targetType="family"
-              targetId={familyId}
-              mode="multiple"
-              triggerLabel="Choose from archive"
-              excludeMediaIds={linkedFamilyMediaIds}
-              onAttach={() => {
-                onMediaAttached();
-              }}
-            />
-            <Link
-              href={`/admin/media/new?familyId=${encodeURIComponent(familyId)}&familyLabel=${encodeURIComponent(familyNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
-            >
-              Add media
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {familyMedia.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No media linked to this family.</p>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
-              </p>
-              <AssociatedMediaThumbnailGrid items={familyMedia} />
-            </>
-          )}
-        </CardContent>
-      </Card>
+  const addMediaHref =
+    mode === "edit" && familyId
+      ? `/admin/media/new?familyId=${encodeURIComponent(familyId)}&familyLabel=${encodeURIComponent(familyNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`
+      : null;
+
+  const listBlock =
+    mode === "create" ? (
+      <p className="text-sm text-muted-foreground">Finish creating the family before attaching media.</p>
+    ) : familyMedia.length === 0 ? (
+      <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">No media added yet.</p>
+      </div>
+    ) : (
+      <>
+        <p className="text-sm text-muted-foreground">
+          Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
+        </p>
+        <AssociatedMediaThumbnailGrid items={familyMedia} />
+      </>
+    );
+
+  const actions =
+    mode === "edit" && familyId ? (
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {addMediaHref ? (
+          <Link
+            href={addMediaHref}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "inline-flex min-h-11 flex-1 items-center justify-center gap-2 border-dashed sm:flex-none",
+            )}
+          >
+            <Plus className="size-4" aria-hidden />
+            Add media
+          </Link>
+        ) : null}
+        <MediaPicker
+          targetType="family"
+          targetId={familyId}
+          mode="multiple"
+          triggerLabel="Choose from archive"
+          excludeMediaIds={linkedFamilyMediaIds}
+          onAttach={() => {
+            onMediaAttached();
+          }}
+        />
+        <ViewAsAlbumLink
+          entityType="family"
+          entityId={familyId}
+          label="View family media"
+          count={familyMedia.length}
+        />
+      </div>
+    ) : null;
+
+  const inner = (
+    <div className="space-y-4">
+      {listBlock}
+      {actions}
     </div>
   );
+
+  if (noCardShell) {
+    return (
+      <div role="region" aria-label="Media" className="space-y-3">
+        {inner}
+      </div>
+    );
+  }
+
+  return <div role="region" aria-label="Media">{inner}</div>;
 }

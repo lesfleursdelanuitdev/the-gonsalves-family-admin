@@ -11,7 +11,6 @@ import type {
   FamilyEditNoteJoin,
   FamilyEditPartner,
   FamilyEditSourceJoin,
-  FamilyEditTab,
   FamilyMemberAddStep,
 } from "@/components/admin/family-editor/family-editor-types";
 import { FAMILY_DETAIL_EVENTS_PAGE_SIZE } from "@/constants/admin";
@@ -29,7 +28,6 @@ import {
 } from "@/lib/forms/individual-editor-form";
 import { ApiError } from "@/lib/infra/api";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { FAMILY_PARTNER_1_LABEL, FAMILY_PARTNER_2_LABEL } from "@/lib/gedcom/family-partner-slots";
 import { editFamilyPageTitle } from "@/lib/gedcom/family-page-title";
 
 function emptyMiniFields(): MiniIndividualFields {
@@ -265,7 +263,6 @@ function useFamilyMemberPanelsState(familyId: string) {
   const [miniChild, setMiniChild] = useState<MiniIndividualFields>(() => emptyMiniFields());
   const [childRelationshipType, setChildRelationshipType] = useState("biological");
   const [childBirthOrder, setChildBirthOrder] = useState("");
-  const [familyEditTab, setFamilyEditTab] = useState<FamilyEditTab>("events");
   const [parentSlotRulesOpen, setParentSlotRulesOpen] = useState(false);
   const parentSlotRulesPanelId = useId();
 
@@ -289,8 +286,6 @@ function useFamilyMemberPanelsState(familyId: string) {
   }, [resetChildPanel]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFamilyEditTab("events");
     setParentAddStep(null);
     setChildAddStep(null);
     setParentSlotRulesOpen(false);
@@ -324,8 +319,6 @@ function useFamilyMemberPanelsState(familyId: string) {
     setChildRelationshipType,
     childBirthOrder,
     setChildBirthOrder,
-    familyEditTab,
-    setFamilyEditTab,
     parentSlotRulesOpen,
     setParentSlotRulesOpen,
     parentSlotRulesPanelId,
@@ -388,8 +381,6 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     setChildRelationshipType,
     childBirthOrder,
     setChildBirthOrder,
-    familyEditTab,
-    setFamilyEditTab,
     parentSlotRulesOpen,
     setParentSlotRulesOpen,
     parentSlotRulesPanelId,
@@ -447,7 +438,7 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     if (mode === "create") {
       await createIndividual.mutateAsync(body);
       toast.success(`Created ${name}`, {
-        description: 'Use "Add existing person" to link them as a parent.',
+        description: "Use Add partner to search the tree and link them.",
       });
       closeParentAdd();
       return;
@@ -462,8 +453,7 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
 
   const onRemoveParent = useCallback(
     async (slot: "husband" | "wife") => {
-      const label = slot === "husband" ? `${FAMILY_PARTNER_1_LABEL} (HUSB)` : `${FAMILY_PARTNER_2_LABEL} (WIFE)`;
-      if (!window.confirm(`Remove ${label} from this family?`)) return;
+      if (!window.confirm("Remove this partner from the relationship?")) return;
       await membership.mutateAsync({ action: "removeParent", slot });
     },
     [membership],
@@ -491,7 +481,7 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     if (mode === "create") {
       await createIndividual.mutateAsync(body);
       toast.success(`Created ${name}`, {
-        description: 'Use "Add existing person" to link them as a child.',
+        description: "Use Add child to search the tree and link them.",
       });
       closeChildAdd();
       return;
@@ -624,8 +614,6 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     onRemoveChild,
     setMiniBirth,
     setMiniDeath,
-    familyEditTab,
-    setFamilyEditTab,
     parentSlotRulesOpen,
     setParentSlotRulesOpen,
     parentSlotRulesPanelId,

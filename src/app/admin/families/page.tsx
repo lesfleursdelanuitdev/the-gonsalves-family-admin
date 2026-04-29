@@ -1,20 +1,13 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
+import { FamilyCard, type FamilyCardRecord } from "@/components/admin/FamilyCard";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,7 +16,7 @@ import {
   type AdminFamiliesListResponse,
 } from "@/hooks/useAdminFamilies";
 import { useAdminFamiliesPageFilters } from "@/hooks/useAdminFamiliesPageFilters";
-import { initialsFromPersonLabel, stripSlashesFromName } from "@/lib/gedcom/display-name";
+import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import {
   FAMILY_LIST_FILTER_PARTNER_COLUMNS_HELP,
   FAMILY_PARTNER_1_LABEL,
@@ -31,19 +24,7 @@ import {
   FAMILY_PARTNER_SLOT_SUBTITLE,
 } from "@/lib/gedcom/family-partner-slots";
 
-interface FamilyRow {
-  id: string;
-  xref: string;
-  husbandId: string | null;
-  wifeId: string | null;
-  partner1: string;
-  partner2: string;
-  childCount: number;
-  marriageYear: string;
-}
-
-const familyPartnerLinkClass =
-  "font-semibold text-primary underline-offset-2 hover:underline";
+interface FamilyRow extends FamilyCardRecord {}
 
 function mapApiToRows(api: AdminFamiliesListResponse): FamilyRow[] {
   return (api?.families ?? []).map((f) => ({
@@ -74,66 +55,9 @@ function buildFamiliesConfig(
       { accessorKey: "childCount", header: "Children" },
       { accessorKey: "marriageYear", header: "Marriage" },
     ],
-    renderCard: ({ record, onView, onEdit, onDelete }) => {
-      const hInitials = initialsFromPersonLabel(record.partner1);
-      const wInitials = initialsFromPersonLabel(record.partner2);
-      const xrefDisplay = record.xref.trim() || "—";
-
-      const partnerLine = (label: string, individualId: string | null) => {
-        if (individualId && label !== "—") {
-          return (
-            <Link href={`/admin/individuals/${individualId}`} className={familyPartnerLinkClass}>
-              {label}
-            </Link>
-          );
-        }
-        return <span className="font-semibold text-base-content/90">{label}</span>;
-      };
-
-      return (
-      <Card>
-        <CardHeader className="flex flex-col items-center gap-3 pb-2 pt-5 text-center">
-          <p
-            className="font-mono text-[10px] leading-tight tracking-wide text-muted-foreground"
-            title={xrefDisplay}
-          >
-            {xrefDisplay}
-          </p>
-          <div
-            className="flex items-center justify-center pl-3"
-            aria-hidden
-          >
-            <div className="relative z-10 flex size-[2.75rem] shrink-0 items-center justify-center rounded-full border border-base-content/12 bg-white/10 text-sm font-bold text-base-content">
-              {hInitials}
-            </div>
-            <div className="relative z-20 -ml-3 flex size-[2.75rem] shrink-0 items-center justify-center rounded-full border border-base-content/12 bg-white/16 text-sm font-bold text-base-content">
-              {wInitials}
-            </div>
-          </div>
-          <CardTitle className="flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-balance text-xl font-semibold leading-snug">
-            {partnerLine(record.partner1, record.husbandId)}
-            <span className="font-normal text-muted-foreground">·</span>
-            {partnerLine(record.partner2, record.wifeId)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <div className="space-y-1 text-center">
-            <p>Married: {record.marriageYear || "—"}</p>
-            <p>
-              {record.childCount} {record.childCount === 1 ? "child" : "children"}
-            </p>
-          </div>
-          <p
-            className="break-all font-mono text-[11px] leading-snug text-base-content/60"
-            title={record.id}
-          >
-            {record.id}
-          </p>
-        </CardContent>
-        <CardActionFooter onView={onView} onEdit={onEdit} onDelete={onDelete} />
-      </Card>
-      );
-    },
+    renderCard: ({ record, onView, onEdit, onDelete }) => (
+      <FamilyCard record={record} onView={onView} onEdit={onEdit} onDelete={onDelete} />
+    ),
     actions: {
       add: {
         label: "Add family",

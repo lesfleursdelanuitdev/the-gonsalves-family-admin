@@ -74,7 +74,7 @@ export default function AdminIndividualEditPage() {
       className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-2 inline-flex gap-1.5")}
     >
       <ArrowLeft className="size-4" />
-      Back
+      Back to people
     </Link>
   );
 
@@ -110,12 +110,12 @@ export default function AdminIndividualEditPage() {
     <div className="space-y-6">
       <Link
         href={`/admin/individuals/${id}`}
-        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "inline-flex gap-1.5")}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden gap-1.5 lg:inline-flex")}
       >
         <ArrowLeft className="size-4" />
-        Back
+        Back to profile
       </Link>
-      <div>
+      <div className="hidden lg:block">
         <div className="flex items-center gap-3 sm:gap-4">
           <div
             className={cn(
@@ -140,13 +140,19 @@ export default function AdminIndividualEditPage() {
             )}
           </div>
           <h1 className="min-w-0 text-2xl font-semibold tracking-tight">
-            <span className="font-medium text-muted-foreground">Edit:</span>{" "}
+            <span className="font-medium text-muted-foreground">Edit person</span>{" "}
             <span className="text-foreground">{personLabel}</span>
           </h1>
         </div>
-        <p className="mt-2 text-muted-foreground">Update name, vital events, living flag, and family links.</p>
+        <p className="mt-2 text-muted-foreground">Update their story, relationships, and linked records.</p>
       </div>
-      <IndividualEditForm key={id} mode="edit" individualId={id} initialIndividual={ind} />
+      <IndividualEditForm
+        key={id}
+        mode="edit"
+        individualId={id}
+        initialIndividual={ind}
+        personLabel={personLabel}
+      />
     </div>
   );
 }

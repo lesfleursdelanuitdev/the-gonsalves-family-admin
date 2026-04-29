@@ -11,6 +11,8 @@ export interface AdminCrudHooksConfig<TOpts> {
   queryKey: readonly string[];
   /** Build URLSearchParams from list opts */
   buildParams: (opts: TOpts) => URLSearchParams;
+  /** Additional query key prefixes to invalidate after a successful delete (e.g. album lists when deleting media). */
+  extraInvalidateOnDelete?: readonly (readonly string[])[];
 }
 
 /** Optional React Query overrides for {@link createAdminCrudHooks} `useList`. */
@@ -22,7 +24,7 @@ export type AdminCrudListQueryOptions<TListResponse> = Pick<
 export function createAdminCrudHooks<TOpts, TListResponse>(
   config: AdminCrudHooksConfig<TOpts>,
 ) {
-  const { base, queryKey, buildParams } = config;
+  const { base, queryKey, buildParams, extraInvalidateOnDelete } = config;
 
   function useList(opts?: TOpts, queryOpts?: AdminCrudListQueryOptions<TListResponse>) {
     const params = opts ? buildParams(opts) : new URLSearchParams();
@@ -64,7 +66,14 @@ export function createAdminCrudHooks<TOpts, TListResponse>(
     const qc = useQueryClient();
     return useMutation({
       mutationFn: (id: string) => deleteJson(`${base}/${id}`),
-      onSuccess: () => qc.invalidateQueries({ queryKey }),
+      onSuccess: async () => {
+        await qc.invalidateQueries({ queryKey });
+        if (extraInvalidateOnDelete?.length) {
+          for (const k of extraInvalidateOnDelete) {
+            await qc.invalidateQueries({ queryKey: [...k] });
+          }
+        }
+      },
     });
   }
 

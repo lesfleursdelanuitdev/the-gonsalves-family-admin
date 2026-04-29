@@ -177,16 +177,7 @@ export const POST = withAdminAuth(async (req, user, _ctx) => {
   let husbandId: string | null = hRaw || null;
   let wifeId: string | null = wRaw || null;
 
-  if (!husbandId && !wifeId) {
-    if (!firstParentId) {
-      return NextResponse.json(
-        {
-          error:
-            "Provide at least one parent: husbandId, wifeId, or firstParentId (an existing individual in this tree).",
-        },
-        { status: 400 },
-      );
-    }
+  if (!husbandId && !wifeId && firstParentId) {
     const parent = await prisma.gedcomIndividual.findFirst({
       where: { id: firstParentId, fileUuid },
       select: { id: true, sex: true },

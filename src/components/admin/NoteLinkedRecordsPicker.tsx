@@ -90,6 +90,10 @@ export interface NoteLinkedRecordsPickerProps {
   allowedLinkKinds?: NoteLinkKind[];
   /** Replaces the default helper text under the section label. */
   linkingHint?: string;
+  /** Label for the add-row button (default: Add link). */
+  addLinkButtonLabel?: string;
+  /** Shown when no builders are open (default copy mentions Add link). */
+  idleBuildersHint?: string;
 }
 
 function normalizeAllowedLinkKinds(allowed?: NoteLinkKind[]): NoteLinkKind[] {
@@ -103,6 +107,8 @@ export function NoteLinkedRecordsPicker({
   onChange,
   allowedLinkKinds,
   linkingHint,
+  addLinkButtonLabel = "Add link",
+  idleBuildersHint,
 }: NoteLinkedRecordsPickerProps) {
   const normalizedKinds = useMemo(() => normalizeAllowedLinkKinds(allowedLinkKinds), [allowedLinkKinds]);
   const kindOptions = useMemo(
@@ -155,7 +161,7 @@ export function NoteLinkedRecordsPicker({
         </div>
         <Button type="button" variant="outline" size="sm" className="gap-1" onClick={addBuilder}>
           <Plus className="size-4" />
-          Add link
+          {addLinkButtonLabel}
         </Button>
       </div>
 
@@ -182,7 +188,10 @@ export function NoteLinkedRecordsPicker({
       ) : null}
 
       {builders.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No active link search. Click &quot;Add link&quot; to find a record.</p>
+        <p className="text-sm text-muted-foreground">
+          {idleBuildersHint ??
+            `No active link search. Click "${addLinkButtonLabel}" to find a record.`}
+        </p>
       ) : null}
 
       {builders.map((b) => (

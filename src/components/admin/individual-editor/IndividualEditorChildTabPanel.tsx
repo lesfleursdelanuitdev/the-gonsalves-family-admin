@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { Dispatch, SetStateAction } from "react";
-import { Star } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Star } from "lucide-react";
 import { CollapsibleFormSection } from "@/components/admin/individual-editor/CollapsibleFormSection";
 import { ChildParentsFamilySearch } from "@/components/admin/individual-editor/ChildParentsFamilySearch";
 import { ParentSexIcon } from "@/components/admin/individual-editor/ParentSexIcon";
@@ -32,7 +33,6 @@ export type IndividualEditorChildTabPanelProps = {
   hidden: boolean;
   mode: "create" | "edit";
   individualId: string;
-  pending: boolean;
   familiesAsChild: ChildFamilyFormRow[];
   hasPendingNewParentsChild: boolean;
   updateChildRow: (index: number, patch: Partial<ChildFamilyFormRow>) => void;
@@ -47,16 +47,17 @@ export type IndividualEditorChildTabPanelProps = {
     labels: ChildFamilyParentPickLabels,
   ) => Promise<{ mergedLabels: ChildFamilyParentPickLabels; children: ChildInFamilySummary[] | undefined }>;
   addChildNewParentsDraftRow: () => void;
+  addChildSingleNewParentDraftRow: () => void;
   childFamilySearchSlots: ChildFamilySearchSlot[];
   setChildFamilySearchSlots: Dispatch<SetStateAction<ChildFamilySearchSlot[]>>;
   excludedChildSpouseFamilyIds: ReadonlySet<string>;
+  spouseLinkOptionsForNewParent: { familyId: string; parentIndividualId: string; label: string }[];
 };
 
 export function IndividualEditorChildTabPanel({
   hidden,
   mode,
   individualId,
-  pending,
   familiesAsChild,
   hasPendingNewParentsChild,
   updateChildRow,
@@ -64,27 +65,28 @@ export function IndividualEditorChildTabPanel({
   addChildRow,
   enrichChildFamilyPick,
   addChildNewParentsDraftRow,
+  addChildSingleNewParentDraftRow,
   childFamilySearchSlots,
   setChildFamilySearchSlots,
   excludedChildSpouseFamilyIds,
+  spouseLinkOptionsForNewParent,
 }: IndividualEditorChildTabPanelProps) {
+  const [parentsAddOpen, setParentsAddOpen] = useState(false);
+
   return (
-    <div
-      id="individual-editor-panel-child"
-      role="tabpanel"
-      aria-labelledby="individual-editor-tab-child"
-      hidden={hidden}
-      className="space-y-8 pt-2"
-    >
+    <div role="region" aria-label="Parents" hidden={hidden} className="space-y-8 pt-2">
         <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Families as child</CardTitle>
-          <p className="text-sm text-muted-foreground">Link parental families by id or search.</p>
+          <CardTitle className="text-lg">Parents</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Connect this person to their parents. You can search for an existing family or create new parent records.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CollapsibleFormSection title="Info">
+          <CollapsibleFormSection title="Advanced details">
             <p className="text-sm text-muted-foreground">
-              Child-of-family links and parent relationships. {FAMILY_PARTNER_SLOT_SUBTITLE} Use birth order when known.
+              Families store two partner slots (Partner 1 and Partner 2) for compatibility with standard genealogy
+              files. {FAMILY_PARTNER_SLOT_SUBTITLE} Use birth order when known.
             </p>
           </CollapsibleFormSection>
           {familiesAsChild.length > 0 ? (
@@ -104,107 +106,202 @@ export function IndividualEditorChildTabPanel({
                             New parents &amp; family (created when you save)
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Two new individuals and a family are created; you are linked as their child.{" "}
-                            {FAMILY_PARTNER_1_LABEL} / {FAMILY_PARTNER_2_LABEL} (HUSB/WIFE) follow the same sex rules
-                            as elsewhere (e.g. M with F → M in partner 1, F in partner 2). Given names are split on
-                            spaces.
+                            {d.mode === "single" && d.linkAsSpouse ? (
+                              <>
+                                The new parent is created and linked as the spouse of {d.linkAsSpouse.existingParentLabel}
+                                . If that family had an empty partner slot, it is filled; if both partners were already
+                                present, a new couple family is created and you are linked as a child there too.
+                              </>
+                            ) : d.mode === "single" ? (
+                              <>
+                                One new person and a family record are created with a single parent in Partner 1 or
+                                Partner 2 (from sex, same rules as elsewhere). You can add the other parent later from
+                                the family page, or use the optional spouse link below. Given names are split on spaces.
+                              </>
+                            ) : (
+                              <>
+                                Two new people and a family are created; this person is linked as their child. Partner
+                                slots follow the same rules as elsewhere (for example, when one parent is recorded as
+                                male and the other as female, they are placed in Partner 1 and Partner 2 consistently).
+                                Given names are split on spaces.
+                              </>
+                            )}
                           </p>
                         </div>
-                        {(["parent1", "parent2"] as const).map((pk) => {
-                          const p = d[pk];
-                          const label = pk === "parent1" ? "Parent 1" : "Parent 2";
-                          return (
-                            <div
-                              key={pk}
-                              className="space-y-3 rounded-md border border-base-content/10 bg-base-100/80 p-3"
-                            >
-                              <p className="text-xs font-medium text-base-content">{label}</p>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="space-y-2 sm:col-span-2">
-                                  <Label className="text-xs">Given names</Label>
-                                  <Input
-                                    value={p.givenNames}
-                                    onChange={(e) =>
-                                      updateChildRow(i, {
-                                        pendingNewParents: {
-                                          ...d,
-                                          [pk]: { ...p, givenNames: e.target.value },
-                                        },
-                                      })
-                                    }
-                                    placeholder="e.g. Maria Jose"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label className="text-xs">Last name</Label>
-                                  <Input
-                                    value={p.surname}
-                                    onChange={(e) =>
-                                      updateChildRow(i, {
-                                        pendingNewParents: {
-                                          ...d,
-                                          [pk]: { ...p, surname: e.target.value },
-                                        },
-                                      })
-                                    }
-                                    placeholder="e.g. Gonsalves"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label className="text-xs">Sex (for HUSB/WIFE placement)</Label>
-                                  <select
-                                    className={selectClassName}
-                                    value={p.sex}
-                                    onChange={(e) =>
-                                      updateChildRow(i, {
-                                        pendingNewParents: {
-                                          ...d,
-                                          [pk]: { ...p, sex: e.target.value },
-                                        },
-                                      })
-                                    }
-                                  >
-                                    {NEW_PARENT_SEX_OPTIONS.map((o) => (
-                                      <option key={o.value === "" ? "__unset" : o.value} value={o.value}>
-                                        {o.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="space-y-2 sm:col-span-2">
-                                  <Label className="text-xs">Relationship to this parent</Label>
-                                  <select
-                                    className={selectClassName}
-                                    value={p.relationshipType}
-                                    onChange={(e) =>
-                                      updateChildRow(i, {
-                                        pendingNewParents: {
-                                          ...d,
-                                          [pk]: { ...p, relationshipType: e.target.value },
-                                        },
-                                      })
-                                    }
-                                  >
-                                    {RELATIONSHIP_OPTIONS.map((o) => (
-                                      <option key={o.value} value={o.value}>
-                                        {o.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
+                        {(d.mode === "single"
+                          ? ([{ key: "single" as const, label: "New parent", p: d.parent }] as const)
+                          : ([
+                              { key: "parent1" as const, label: "Parent 1", p: d.parent1 },
+                              { key: "parent2" as const, label: "Parent 2", p: d.parent2 },
+                            ] as const)
+                        ).map(({ key, label, p }) => (
+                          <div
+                            key={key}
+                            className="space-y-3 rounded-md border border-base-content/10 bg-base-100/80 p-3"
+                          >
+                            <p className="text-xs font-medium text-base-content">{label}</p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-2 sm:col-span-2">
+                                <Label className="text-xs">Given names</Label>
+                                <Input
+                                  value={p.givenNames}
+                                  onChange={(e) =>
+                                    updateChildRow(i, {
+                                      pendingNewParents:
+                                        d.mode === "single"
+                                          ? { ...d, parent: { ...d.parent, givenNames: e.target.value } }
+                                          : {
+                                              ...d,
+                                              [key]: { ...p, givenNames: e.target.value },
+                                            },
+                                    })
+                                  }
+                                  placeholder="e.g. Maria Jose"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs">Last name</Label>
+                                <Input
+                                  value={p.surname}
+                                  onChange={(e) =>
+                                    updateChildRow(i, {
+                                      pendingNewParents:
+                                        d.mode === "single"
+                                          ? { ...d, parent: { ...d.parent, surname: e.target.value } }
+                                          : {
+                                              ...d,
+                                              [key]: { ...p, surname: e.target.value },
+                                            },
+                                    })
+                                  }
+                                  placeholder="e.g. Gonsalves"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs">Sex (for HUSB/WIFE placement)</Label>
+                                <select
+                                  className={selectClassName}
+                                  value={p.sex}
+                                  onChange={(e) =>
+                                    updateChildRow(i, {
+                                      pendingNewParents:
+                                        d.mode === "single"
+                                          ? { ...d, parent: { ...d.parent, sex: e.target.value } }
+                                          : {
+                                              ...d,
+                                              [key]: { ...p, sex: e.target.value },
+                                            },
+                                    })
+                                  }
+                                >
+                                  {NEW_PARENT_SEX_OPTIONS.map((o) => (
+                                    <option key={o.value === "" ? "__unset" : o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-2 sm:col-span-2">
+                                <Label className="text-xs">Relationship to this parent</Label>
+                                <select
+                                  className={selectClassName}
+                                  value={p.relationshipType}
+                                  onChange={(e) =>
+                                    updateChildRow(i, {
+                                      pendingNewParents:
+                                        d.mode === "single"
+                                          ? { ...d, parent: { ...d.parent, relationshipType: e.target.value } }
+                                          : {
+                                              ...d,
+                                              [key]: { ...p, relationshipType: e.target.value },
+                                            },
+                                    })
+                                  }
+                                >
+                                  {RELATIONSHIP_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-2 sm:col-span-2">
+                                <Label className="text-xs">Pedigree for this parent (optional)</Label>
+                                <Input
+                                  value={p.pedigree}
+                                  onChange={(e) =>
+                                    updateChildRow(i, {
+                                      pendingNewParents:
+                                        d.mode === "single"
+                                          ? { ...d, parent: { ...d.parent, pedigree: e.target.value } }
+                                          : {
+                                              ...d,
+                                              [key]: { ...p, pedigree: e.target.value },
+                                            },
+                                    })
+                                  }
+                                  placeholder="e.g. birth"
+                                />
                               </div>
                             </div>
-                          );
-                        })}
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Pedigree (optional)</Label>
-                            <Input
-                              value={row.pedigree}
-                              onChange={(e) => updateChildRow(i, { pedigree: e.target.value })}
-                              placeholder="e.g. birth"
-                            />
                           </div>
+                        ))}
+                        {d.mode === "single" && spouseLinkOptionsForNewParent.length > 0 ? (
+                          <div className="space-y-2 rounded-md border border-base-content/10 bg-base-100/80 p-3">
+                            <Label className="text-xs">Also add as spouse of an existing parent (optional)</Label>
+                            <select
+                              className={selectClassName}
+                              value={
+                                d.linkAsSpouse
+                                  ? `${d.linkAsSpouse.familyId}::${d.linkAsSpouse.existingParentIndividualId}`
+                                  : ""
+                              }
+                              onChange={(e) => {
+                                const v = e.target.value.trim();
+                                if (!v) {
+                                  updateChildRow(i, {
+                                    pendingNewParents: { ...d, linkAsSpouse: undefined },
+                                  });
+                                  return;
+                                }
+                                const sep = v.indexOf("::");
+                                if (sep < 0) return;
+                                const familyId = v.slice(0, sep);
+                                const existingParentIndividualId = v.slice(sep + 2);
+                                const hit = spouseLinkOptionsForNewParent.find(
+                                  (o) =>
+                                    o.familyId === familyId && o.parentIndividualId === existingParentIndividualId,
+                                );
+                                updateChildRow(i, {
+                                  pendingNewParents: {
+                                    ...d,
+                                    linkAsSpouse: {
+                                      familyId,
+                                      existingParentIndividualId,
+                                      existingParentLabel: hit?.label ?? "",
+                                    },
+                                  },
+                                });
+                              }}
+                            >
+                              <option value="">No — create a new separate family for the new parent</option>
+                              {spouseLinkOptionsForNewParent.map((o) => (
+                                <option
+                                  key={`${o.familyId}-${o.parentIndividualId}`}
+                                  value={`${o.familyId}::${o.parentIndividualId}`}
+                                >
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-muted-foreground">
+                              Single-parent family: new parent fills the empty partner slot. Two-parent family: a new
+                              couple family is created with the chosen parent and the new person (you stay linked as
+                              child in both families when applicable).
+                            </p>
+                          </div>
+                        ) : null}
+                        <div className="grid gap-2 sm:grid-cols-2">
                           <div className="space-y-1">
                             <Label className="text-xs">Birth order (optional)</Label>
                             <Input
@@ -318,11 +415,27 @@ export function IndividualEditorChildTabPanel({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Relationship to parents</Label>
+                        <Label className="text-xs">Birth order</Label>
+                        <Input
+                          value={row.birthOrder}
+                          onChange={(e) => updateChildRow(i, { birthOrder: e.target.value })}
+                          inputMode="numeric"
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label className="text-xs">Relationship — {FAMILY_PARTNER_1_LABEL}</Label>
                         <select
                           className={selectClassName}
-                          value={row.relationshipType}
-                          onChange={(e) => updateChildRow(i, { relationshipType: e.target.value })}
+                          disabled={!husbandId}
+                          value={row.relationshipToHusband}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            updateChildRow(i, {
+                              relationshipToHusband: v,
+                              relationshipType: v,
+                            });
+                          }}
                         >
                           {RELATIONSHIP_OPTIONS.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -331,21 +444,53 @@ export function IndividualEditorChildTabPanel({
                           ))}
                         </select>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Pedigree (optional)</Label>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label className="text-xs">Pedigree — {FAMILY_PARTNER_1_LABEL} (optional)</Label>
                         <Input
-                          value={row.pedigree}
-                          onChange={(e) => updateChildRow(i, { pedigree: e.target.value })}
+                          value={row.pedigreeToHusband}
+                          onChange={(e) =>
+                            updateChildRow(i, {
+                              pedigreeToHusband: e.target.value,
+                              pedigree: e.target.value || row.pedigreeToWife || row.pedigree,
+                            })
+                          }
                           placeholder="e.g. birth"
+                          disabled={!husbandId}
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Birth order</Label>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label className="text-xs">Relationship — {FAMILY_PARTNER_2_LABEL}</Label>
+                        <select
+                          className={selectClassName}
+                          disabled={!wifeId}
+                          value={row.relationshipToWife}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            updateChildRow(i, {
+                              relationshipToWife: v,
+                              relationshipType: husbandId ? row.relationshipType : v,
+                            });
+                          }}
+                        >
+                          {RELATIONSHIP_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label className="text-xs">Pedigree — {FAMILY_PARTNER_2_LABEL} (optional)</Label>
                         <Input
-                          value={row.birthOrder}
-                          onChange={(e) => updateChildRow(i, { birthOrder: e.target.value })}
-                          inputMode="numeric"
-                          placeholder="Optional"
+                          value={row.pedigreeToWife}
+                          onChange={(e) =>
+                            updateChildRow(i, {
+                              pedigreeToWife: e.target.value,
+                              pedigree: row.pedigreeToHusband || e.target.value || row.pedigree,
+                            })
+                          }
+                          placeholder="e.g. birth"
+                          disabled={!wifeId}
                         />
                       </div>
                     </div>
@@ -366,20 +511,65 @@ export function IndividualEditorChildTabPanel({
               </ul>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Not linked as a child.</p>
+            <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-6 text-center">
+              <p className="text-sm text-muted-foreground">No parents added yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Search for their family record, create one new parent with a family, or create two new parents at once.
+              </p>
+            </div>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setChildFamilySearchSlots((s) => [...s, createChildFamilySearchSlot()])}
+              className="flex min-h-11 w-full items-center justify-between gap-2 sm:w-auto sm:min-w-[12rem]"
+              onClick={() => setParentsAddOpen((v) => !v)}
+              aria-expanded={parentsAddOpen}
             >
-              Add as child to an existing family
+              Add parents
+              <ChevronDown
+                className={cn("size-4 shrink-0 transition-transform", parentsAddOpen && "rotate-180")}
+                aria-hidden
+              />
             </Button>
-            <Button type="button" variant="outline" onClick={addChildNewParentsDraftRow}>
-              Add parents — create new people
-            </Button>
+            {parentsAddOpen ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] p-3 sm:flex-row sm:flex-wrap">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 w-full justify-start sm:flex-1"
+                  onClick={() => {
+                    setChildFamilySearchSlots((s) => [...s, createChildFamilySearchSlot()]);
+                    setParentsAddOpen(false);
+                  }}
+                >
+                  Link to existing parents&apos; family
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 w-full justify-start sm:flex-1"
+                  onClick={() => {
+                    addChildSingleNewParentDraftRow();
+                    setParentsAddOpen(false);
+                  }}
+                >
+                  Create one new parent
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 w-full justify-start sm:flex-1"
+                  onClick={() => {
+                    addChildNewParentsDraftRow();
+                    setParentsAddOpen(false);
+                  }}
+                >
+                  Create two new parents
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-3">
@@ -449,19 +639,9 @@ export function IndividualEditorChildTabPanel({
           </div>
 
           {hasPendingNewParentsChild ? (
-            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4 dark:bg-primary/10">
-              <p className="text-sm font-medium text-base-content">Save new parents &amp; family</p>
-              <p className="text-sm text-muted-foreground">
-                New parents and their family are not stored until you save. This runs the same save as the primary
-                button at the bottom of the page.
-              </p>
-              <Button type="submit" disabled={pending}>
-                {pending
-                  ? "Saving…"
-                  : mode === "create"
-                    ? "Save person & new parental family"
-                    : "Save & create new parental family"}
-              </Button>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground dark:bg-primary/10">
+              New parents and their family are stored when you save this person. Use{" "}
+              <span className="font-medium text-foreground">Save person</span> at the bottom of the page.
             </div>
           ) : null}
         </CardContent>

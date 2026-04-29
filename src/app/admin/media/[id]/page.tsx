@@ -32,6 +32,8 @@ import { inferAdminMediaCategory, type AdminMediaCategory as MediaKind } from "@
 import { displayTagName } from "@/lib/admin/display-tag-name";
 import { cn } from "@/lib/utils";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { formatDateSuggestionLabel } from "@/lib/forms/admin-date-suggestions";
+import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions";
 
 const kindIcon: Record<MediaKind, ComponentType<{ className?: string }>> = {
   photo: FileImage,
@@ -76,10 +78,18 @@ export default function AdminMediaDetailPage() {
   const familyMedia = (media?.familyMedia as { family: Record<string, unknown> }[] | undefined) ?? [];
   const sourceMedia = (media?.sourceMedia as { source: Record<string, unknown> }[] | undefined) ?? [];
   const eventMediaRows = (media?.eventMedia as { event: Record<string, unknown> }[] | undefined) ?? [];
+  const placeLinks = (media?.placeLinks as { place: Record<string, unknown> }[] | undefined) ?? [];
+  const dateLinks = (media?.dateLinks as { date: Record<string, unknown> }[] | undefined) ?? [];
   const appTags = (media?.appTags as { id: string; tag: { name: string } }[] | undefined) ?? [];
   const albumLinks = (media?.albumLinks as { id: string; album: { name: string } }[] | undefined) ?? [];
 
-  const hasLinks = individualMedia.length > 0 || familyMedia.length > 0 || sourceMedia.length > 0 || eventMediaRows.length > 0;
+  const hasLinks =
+    individualMedia.length > 0 ||
+    familyMedia.length > 0 ||
+    sourceMedia.length > 0 ||
+    eventMediaRows.length > 0 ||
+    placeLinks.length > 0 ||
+    dateLinks.length > 0;
 
   const refTrim = fileRef.trim();
   const imageSrc = refTrim ? resolveMediaImageSrc(refTrim) : null;
@@ -305,6 +315,58 @@ export default function AdminMediaDetailPage() {
                   <div key={sid} className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3">
                     <p className="font-medium">{stitle}</p>
                     {sx && <p className="font-mono text-xs text-muted-foreground">{sx}</p>}
+                  </div>
+                );
+              })}
+
+              {placeLinks.map((row) => {
+                const p = row.place;
+                const pid = String(p.id ?? "");
+                const label = formatPlaceSuggestionLabel({
+                  id: pid,
+                  original: String(p.original ?? ""),
+                  name: (p.name as string | null) ?? null,
+                  county: (p.county as string | null) ?? null,
+                  state: (p.state as string | null) ?? null,
+                  country: (p.country as string | null) ?? null,
+                  latitude: null,
+                  longitude: null,
+                });
+                return (
+                  <div key={pid} className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3">
+                    <p className="text-xs text-muted-foreground">Place</p>
+                    <p className="font-medium">
+                      <Link href={`/admin/places/${pid}`} className="link link-primary">
+                        {label}
+                      </Link>
+                    </p>
+                  </div>
+                );
+              })}
+
+              {dateLinks.map((row) => {
+                const d = row.date;
+                const did = String(d.id ?? "");
+                const label = formatDateSuggestionLabel({
+                  id: did,
+                  original: (d.original as string | null) ?? null,
+                  dateType: String(d.dateType ?? "EXACT"),
+                  calendar: "GREGORIAN",
+                  year: (d.year as number | null) ?? null,
+                  month: (d.month as number | null) ?? null,
+                  day: (d.day as number | null) ?? null,
+                  endYear: (d.endYear as number | null) ?? null,
+                  endMonth: (d.endMonth as number | null) ?? null,
+                  endDay: (d.endDay as number | null) ?? null,
+                });
+                return (
+                  <div key={did} className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3">
+                    <p className="text-xs text-muted-foreground">Date</p>
+                    <p className="font-medium">
+                      <Link href={`/admin/dates/${did}`} className="link link-primary">
+                        {label}
+                      </Link>
+                    </p>
                   </div>
                 );
               })}

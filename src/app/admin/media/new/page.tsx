@@ -46,7 +46,7 @@ function AdminMediaNewPageInner() {
   }, [qs]);
 
   return (
-    <NoteEditorPageLayout backHref={backHref} backLabel={backLabel} fullWidth>
+    <NoteEditorPageLayout backHref={backHref} backLabel={backLabel} fullWidth hideBackLink>
       <MediaEditorForm
         mode="create"
         hideBackLink

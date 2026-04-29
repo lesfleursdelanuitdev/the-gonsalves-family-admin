@@ -51,7 +51,7 @@ function AdminNewNotePageInner() {
   }, [qs]);
 
   return (
-    <NoteEditorPageLayout backHref={backHref} backLabel={backLabel}>
+    <NoteEditorPageLayout backHref={backHref} backLabel={backLabel} hideBackLink>
       <NoteForm
         hideBackLink
         mode="create"

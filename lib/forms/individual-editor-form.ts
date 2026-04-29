@@ -2,6 +2,7 @@ import type { LivingMode } from "@/lib/admin/admin-individual-living";
 import type {
   AddChildToSpouseFamilyPayload,
   NewChildFamilyFromNewParentsPayload,
+  NewChildFamilyFromNewParentsSinglePayload,
   NewSpouseFamilyPayload,
 } from "@/lib/admin/admin-individual-editor-apply";
 import { formatDisplayNameFromNameForms, type NameFormForDisplay } from "@/lib/gedcom/display-name";
@@ -107,18 +108,41 @@ export type ChildInFamilySummary = {
   birthOrder: number | null;
 };
 
-/** Draft for “add parents — create new people”; omitted from `familiesAsChild` ids in submit body. */
-export type ChildNewParentsDraft = {
-  parent1: { givenNames: string; surname: string; sex: string; relationshipType: string };
-  parent2: { givenNames: string; surname: string; sex: string; relationshipType: string };
+/** One parent’s fields in the “create new parents” draft. */
+export type ChildNewParentsParentFields = {
+  givenNames: string;
+  surname: string;
+  sex: string;
+  relationshipType: string;
+  /** GEDCOM pedigree for this parent–child link (optional). */
+  pedigree: string;
 };
+
+/** Draft for “add parents — create new people”; omitted from `familiesAsChild` ids in submit body. */
+export type ChildNewParentsDraft =
+  | { mode: "pair"; parent1: ChildNewParentsParentFields; parent2: ChildNewParentsParentFields }
+  | {
+      mode: "single";
+      parent: ChildNewParentsParentFields;
+      /** Add the new parent as spouse of this existing parent (see server `linkAsSpouse`). */
+      linkAsSpouse?: {
+        familyId: string;
+        existingParentIndividualId: string;
+        existingParentLabel: string;
+      };
+    };
 
 export type ChildFamilyFormRow = {
   familyId: string;
   relationshipType: string;
+  /** Default when per-partner fields are blank. */
   pedigree: string;
+  relationshipToHusband: string;
+  relationshipToWife: string;
+  pedigreeToHusband: string;
+  pedigreeToWife: string;
   birthOrder: string;
-  /** Pending: create two new parents + FAM, then link this person as child on save. */
+  /** Pending: create one or two new parents + FAM, then link this person as child on save. */
   pendingNewParents?: ChildNewParentsDraft;
   /** From GET individual detail or family picker; omitted in PATCH body. */
   parentHusbandDisplay?: string;
@@ -527,15 +551,27 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
 
   const fcRows = (ind.familyChildAsChild as Record<string, unknown>[] | undefined) ?? [];
   const parentRows =
-    (ind.parentAsChild as { familyId: string; relationshipType?: string | null; pedigree?: string | null }[] | undefined) ??
-    [];
-  const relByFamily = new Map<string, { relationshipType: string; pedigree: string }>();
+    (ind.parentAsChild as
+      | {
+          familyId: string;
+          parentId: string;
+          relationshipType?: string | null;
+          pedigree?: string | null;
+        }[]
+      | undefined) ?? [];
+  const byFamilyParents = new Map<
+    string,
+    { parentId: string; relationshipType: string; pedigree: string }[]
+  >();
   for (const p of parentRows) {
-    if (!p?.familyId || relByFamily.has(p.familyId)) continue;
-    relByFamily.set(p.familyId, {
+    if (!p?.familyId || !p?.parentId) continue;
+    const arr = byFamilyParents.get(p.familyId) ?? [];
+    arr.push({
+      parentId: p.parentId,
       relationshipType: (p.relationshipType ?? "biological").trim() || "biological",
       pedigree: p.pedigree?.trim() ?? "",
     });
+    byFamilyParents.set(p.familyId, arr);
   }
 
   const familiesAsChild: ChildFamilyFormRow[] = fcRows.map((row) => {
@@ -546,7 +582,7 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
         : typeof fam?.id === "string"
           ? fam.id
           : "";
-    const rel = relByFamily.get(fid);
+    const pcList = byFamilyParents.get(fid) ?? [];
     const bo = row.birthOrder;
     const birthOrderStr =
       bo != null && typeof bo === "number" && Number.isFinite(bo) ? String(Math.trunc(bo)) : "";
@@ -558,10 +594,30 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
     const wifeRec = fam?.wife as Record<string, unknown> | undefined;
     const parentHusbandId = typeof husbandRec?.id === "string" ? husbandRec.id : undefined;
     const parentWifeId = typeof wifeRec?.id === "string" ? wifeRec.id : undefined;
+    let relationshipToHusband = "";
+    let relationshipToWife = "";
+    let pedigreeToHusband = "";
+    let pedigreeToWife = "";
+    for (const pc of pcList) {
+      if (parentHusbandId && pc.parentId === parentHusbandId) {
+        relationshipToHusband = pc.relationshipType;
+        pedigreeToHusband = pc.pedigree;
+      }
+      if (parentWifeId && pc.parentId === parentWifeId) {
+        relationshipToWife = pc.relationshipType;
+        pedigreeToWife = pc.pedigree;
+      }
+    }
+    const relationshipType = relationshipToHusband || relationshipToWife || "biological";
+    const pedigree = pedigreeToHusband || pedigreeToWife || "";
     return {
       familyId: fid,
-      relationshipType: rel?.relationshipType ?? "biological",
-      pedigree: rel?.pedigree ?? "",
+      relationshipType,
+      pedigree,
+      relationshipToHusband: relationshipToHusband || relationshipType,
+      relationshipToWife: relationshipToWife || relationshipType,
+      pedigreeToHusband,
+      pedigreeToWife,
       birthOrder: birthOrderStr,
       ...(husbandLabel ? { parentHusbandDisplay: husbandLabel } : {}),
       ...(wifeLabel ? { parentWifeDisplay: wifeLabel } : {}),
@@ -632,10 +688,17 @@ export function buildEditorSubmitBody(seed: IndividualEditorFormSeed): Record<st
         const n = Math.trunc(Number(r.birthOrder));
         if (Number.isFinite(n)) birthOrder = n;
       }
+      const rt = r.relationshipType.trim() || "biological";
+      const relH = (r.relationshipToHusband || rt).trim() || "biological";
+      const relW = (r.relationshipToWife || rt).trim() || "biological";
       return {
         familyId: r.familyId.trim(),
-        relationshipType: r.relationshipType.trim() || "biological",
+        relationshipType: rt,
+        relationshipToHusband: relH,
+        relationshipToWife: relW,
         pedigree: r.pedigree.trim() || null,
+        pedigreeToHusband: r.pedigreeToHusband.trim() || null,
+        pedigreeToWife: r.pedigreeToWife.trim() || null,
         birthOrder,
       };
     });
@@ -644,35 +707,72 @@ export function buildEditorSubmitBody(seed: IndividualEditorFormSeed): Record<st
   for (const r of seed.familiesAsChild) {
     const d = r.pendingNewParents;
     if (!d) continue;
+    const okSex = (s: string) => s === "M" || s === "F" || s === "U" || s === "X";
+    let birthOrder: number | null = null;
+    if (r.birthOrder.trim()) {
+      const n = Math.trunc(Number(r.birthOrder));
+      if (Number.isFinite(n)) birthOrder = n;
+    }
+    const rowPedigree = r.pedigree.trim() || null;
+
+    if (d.mode === "single") {
+      const g = d.parent.givenNames.trim().split(/\s+/).filter(Boolean);
+      const sur = d.parent.surname.trim();
+      const sx = d.parent.sex.trim().toUpperCase();
+      if (g.length > 0 && sur && okSex(sx)) {
+        const rt = d.parent.relationshipType.trim() || "biological";
+        const parentPed = d.parent.pedigree.trim() || null;
+        const single: NewChildFamilyFromNewParentsSinglePayload = {
+          kind: "single",
+          parent: {
+            givenNames: g,
+            surname: sur,
+            sex: sx as "M" | "F" | "U" | "X",
+            relationshipType: rt,
+            pedigree: parentPed,
+          },
+          birthOrder,
+        };
+        if (rowPedigree) single.pedigree = rowPedigree;
+        if (d.linkAsSpouse?.familyId && d.linkAsSpouse.existingParentIndividualId) {
+          single.linkAsSpouse = {
+            familyId: d.linkAsSpouse.familyId,
+            existingParentIndividualId: d.linkAsSpouse.existingParentIndividualId,
+          };
+        }
+        newChildFamiliesFromNewParents.push(single);
+      }
+      continue;
+    }
+
     const g1 = d.parent1.givenNames.trim().split(/\s+/).filter(Boolean);
     const g2 = d.parent2.givenNames.trim().split(/\s+/).filter(Boolean);
     const s1 = d.parent1.surname.trim();
     const s2 = d.parent2.surname.trim();
     const sx1 = d.parent1.sex.trim().toUpperCase();
     const sx2 = d.parent2.sex.trim().toUpperCase();
-    const okSex = (s: string) => s === "M" || s === "F" || s === "U" || s === "X";
     if (g1.length > 0 && s1 && okSex(sx1) && g2.length > 0 && s2 && okSex(sx2)) {
-      let birthOrder: number | null = null;
-      if (r.birthOrder.trim()) {
-        const n = Math.trunc(Number(r.birthOrder));
-        if (Number.isFinite(n)) birthOrder = n;
-      }
       const rt1 = d.parent1.relationshipType.trim() || "biological";
       const rt2 = d.parent2.relationshipType.trim() || "biological";
+      const ped1 = d.parent1.pedigree.trim() || null;
+      const ped2 = d.parent2.pedigree.trim() || null;
       newChildFamiliesFromNewParents.push({
+        kind: "pair",
         parent1: {
           givenNames: g1,
           surname: s1,
           sex: sx1 as "M" | "F" | "U" | "X",
           relationshipType: rt1,
+          pedigree: ped1,
         },
         parent2: {
           givenNames: g2,
           surname: s2,
           sex: sx2 as "M" | "F" | "U" | "X",
           relationshipType: rt2,
+          pedigree: ped2,
         },
-        pedigree: r.pedigree.trim() || null,
+        pedigree: rowPedigree,
         birthOrder,
       });
     }

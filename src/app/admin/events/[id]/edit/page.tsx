@@ -14,25 +14,23 @@ export default function AdminEditEventPage() {
 
   const event = data?.event as Record<string, unknown> | undefined;
 
-  const shell = (body: ReactNode) => (
-    <NoteEditorPageLayout backHref="/admin/events" backLabel="Events" fullWidth>
+  const shell = (body: ReactNode, hideBackLink: boolean) => (
+    <NoteEditorPageLayout backHref="/admin/events" backLabel="Back to events" fullWidth hideBackLink={hideBackLink}>
       {body}
     </NoteEditorPageLayout>
   );
 
   if (!id) {
-    return shell(<p className="text-muted-foreground">Missing event id.</p>);
+    return shell(<p className="text-muted-foreground">Missing event id.</p>, false);
   }
 
   if (isLoading) {
-    return shell(<p className="text-muted-foreground">Loading…</p>);
+    return shell(<p className="text-muted-foreground">Loading…</p>, false);
   }
 
   if (error || !event) {
-    return shell(<p className="text-destructive">Could not load this event.</p>);
+    return shell(<p className="text-destructive">Could not load this event.</p>, false);
   }
 
-  return shell(
-    <EventForm key={id} mode="edit" eventId={id} initialEvent={event} hideBackLink />,
-  );
+  return shell(<EventForm key={id} mode="edit" eventId={id} initialEvent={event} hideBackLink />, true);
 }

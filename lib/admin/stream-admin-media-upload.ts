@@ -10,6 +10,7 @@ import {
   adminMediaGedcomAdminDir,
   adminMediaStoreCategoryFromMime,
 } from "@/lib/admin/media-upload-storage";
+import { postProcessAdminMediaUpload } from "@/lib/admin/optimize-admin-uploaded-media";
 
 export type StreamAdminMediaUploadSuccess = {
   fileRef: string;
@@ -113,14 +114,34 @@ async function saveUploadStreamToDisk(
   }
 
   const relativeDir = path.join("uploads", "gedcom-admin", category);
-  const fileRef = `/${relativeDir.replace(/\\/g, "/")}/${filename}`;
-  const suggestedForm = mimeToForm(mimeType);
+  let fileRef = `/${relativeDir.replace(/\\/g, "/")}/${filename}`;
+  let outMime = info.mimeType?.trim() ? info.mimeType : null;
+  let suggestedForm = mimeToForm(mimeType);
+  let outSize = size;
+
+  if (category === "images" || category === "videos") {
+    const processed = await postProcessAdminMediaUpload({
+      diskPath,
+      filename,
+      mimeType,
+      publicDir,
+      category,
+    });
+    if ("error" in processed) {
+      await unlink(diskPath).catch(() => {});
+      return { status: 500, error: processed.error };
+    }
+    fileRef = processed.fileRef;
+    outSize = processed.size;
+    outMime = processed.mimeType;
+    suggestedForm = processed.suggestedForm ?? suggestedForm;
+  }
 
   return {
     fileRef,
     originalName,
-    size,
-    mimeType: info.mimeType?.trim() ? info.mimeType : null,
+    size: outSize,
+    mimeType: outMime,
     suggestedForm,
   };
 }

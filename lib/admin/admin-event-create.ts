@@ -9,9 +9,24 @@ type Tx = Prisma.TransactionClient;
 
 const GEDCOM_DATE_TYPES = new Set<string>(Object.values(GedcomDateType));
 
+/** GEDCOM-style tags (and older client values) → Prisma `GedcomDateType`. */
+const LEGACY_DATE_TYPE_TO_ENUM: Record<string, GedcomDateType> = {
+  ABT: GedcomDateType.ABOUT,
+  BEF: GedcomDateType.BEFORE,
+  AFT: GedcomDateType.AFTER,
+  BET: GedcomDateType.BETWEEN,
+  CAL: GedcomDateType.CALCULATED,
+  EST: GedcomDateType.ESTIMATED,
+};
+
 export function parseGedcomDateType(raw: unknown): GedcomDateType {
-  if (typeof raw === "string" && GEDCOM_DATE_TYPES.has(raw)) {
-    return raw as GedcomDateType;
+  if (typeof raw !== "string") return GedcomDateType.EXACT;
+  const u = raw.trim().toUpperCase();
+  if (!u) return GedcomDateType.EXACT;
+  const mapped = LEGACY_DATE_TYPE_TO_ENUM[u];
+  if (mapped) return mapped;
+  if (GEDCOM_DATE_TYPES.has(u)) {
+    return u as GedcomDateType;
   }
   return GedcomDateType.EXACT;
 }

@@ -92,6 +92,12 @@ export function resolveGedcomAdminDiskPath(segments: string[]): string | null {
     if (!category || !filename || !isAdminMediaStoreCategory(category)) return null;
     return path.join(adminMediaGedcomAdminDir(), category, filename);
   }
+  if (segments.length === 3) {
+    const [category, originals, filename] = segments;
+    if (originals !== "originals") return null;
+    if (!category || !filename || !isAdminMediaStoreCategory(category)) return null;
+    return path.join(adminMediaGedcomAdminDir(), category, originals, filename);
+  }
   return null;
 }
 

@@ -40,7 +40,7 @@ export function AlbumCoverBanner({
 }: AlbumCoverBannerProps) {
   const thumbSrc = coverThumbSrc(coverFileRef, coverForm);
   const form = coverForm ?? "";
-  const alt = `Cover photo for ${name}`;
+  const alt = `Cover media for ${name}`;
 
   return (
     <div
@@ -66,7 +66,7 @@ export function AlbumCoverBanner({
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-base-200 via-base-300/90 to-base-300 text-muted-foreground">
               <FolderOpen className="size-14 opacity-35" aria-hidden />
               <span className="max-w-md px-4 text-center text-sm font-medium opacity-70">
-                {coverMediaId ? "No image preview for this cover file type." : "No cover photo yet"}
+                {coverMediaId ? "No raster preview for this cover file type." : "No cover media yet"}
               </span>
             </div>
           )}

@@ -41,6 +41,7 @@ import {
   isLikelyRasterImage,
   isLikelyVideoFile,
   isPlayableVideoRef,
+  mediaThumbSrc,
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 
@@ -59,7 +60,7 @@ const kindIcon = {
   audio: Headphones,
 } as const;
 
-function AlbumMediaCard({
+export function AlbumMediaCard({
   media,
   albumId,
   manageable,
@@ -82,7 +83,9 @@ function AlbumMediaCard({
   const Icon = kindIcon[kind];
   const linkId = manageable ? albumLinkIdFor(media, albumId) : undefined;
   const thumbSrc =
-    fileRef && isLikelyRasterImage(fileRef, media.form ?? "", null) ? resolveMediaImageSrc(fileRef) : null;
+    fileRef && isLikelyRasterImage(fileRef, media.form ?? "", null)
+      ? mediaThumbSrc(fileRef, media.form, 480) ?? resolveMediaImageSrc(fileRef)
+      : null;
   const resolvedRef = fileRef ? resolveMediaImageSrc(fileRef) : null;
   const videoSrc =
     fileRef && resolvedRef && !thumbSrc && isLikelyVideoFile(fileRef, media.form) && isPlayableVideoRef(fileRef)
@@ -110,7 +113,7 @@ function AlbumMediaCard({
             src={videoSrc}
             muted
             playsInline
-            preload="metadata"
+            preload="none"
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
             aria-hidden
           />
@@ -159,6 +162,7 @@ function AlbumMediaCard({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     variant="destructive"
+                    nativeButton
                     disabled={!linkId || removing}
                     onClick={() => {
                       if (!linkId || removing) return;

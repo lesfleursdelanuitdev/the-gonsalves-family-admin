@@ -56,6 +56,7 @@ export const ADMIN_INDIVIDUAL_DETAIL_INCLUDE = {
   parentAsChild: {
     select: {
       familyId: true,
+      parentId: true,
       relationshipType: true,
       pedigree: true,
     },

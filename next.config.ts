@@ -29,7 +29,7 @@ if (ligneousUrl) {
 const projectRoot = path.resolve(__dirname);
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@ligneous/prisma"],
+  transpilePackages: ["@ligneous/prisma", "@ligneous/album-view", "@ligneous/album-generated-queries"],
   turbopack: {
     root: projectRoot,
   },

@@ -1,13 +1,3 @@
-export type IndividualEditorTab =
-  | "identity"
-  | "names"
-  | "events"
-  | "spouse"
-  | "child"
-  | "notes"
-  | "media"
-  | "sources";
-
 /** Note junction row on the individual detail payload. */
 export type IndividualEditNoteJoin = { note: Record<string, unknown> };
 

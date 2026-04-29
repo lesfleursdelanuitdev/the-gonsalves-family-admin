@@ -16,6 +16,8 @@ interface DetailPageShellProps {
   children: React.ReactNode;
   /** Match full admin main column (e.g. long edit forms); default is centered max-w-3xl. */
   fullWidth?: boolean;
+  /** When true, omit the default back link (e.g. mobile form supplies its own). */
+  hideBackLink?: boolean;
 }
 
 function BackLink({ href, label }: { href: string; label: string }) {
@@ -41,6 +43,7 @@ export function DetailPageShell({
   notFoundMessage = "Could not load this item.",
   children,
   fullWidth = false,
+  hideBackLink = false,
 }: DetailPageShellProps) {
   const containerClass = cn(
     "mx-auto flex w-full flex-col",
@@ -48,7 +51,12 @@ export function DetailPageShell({
   );
 
   if (isLoading) {
-    return <p className="text-muted-foreground">Loading…</p>;
+    return (
+      <div className={cn(containerClass, "gap-4 pb-20")}>
+        {!hideBackLink ? <BackLink href={backHref} label={backLabel} /> : null}
+        <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
   }
 
   if (error || !data) {
@@ -62,7 +70,7 @@ export function DetailPageShell({
 
   return (
     <div className={cn(containerClass, "gap-6 pb-20 md:pb-24")}>
-      <BackLink href={backHref} label={backLabel} />
+      {!hideBackLink ? <BackLink href={backHref} label={backLabel} /> : null}
       {children}
     </div>
   );

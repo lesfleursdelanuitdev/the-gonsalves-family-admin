@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { FamilyEditNoteJoin } from "@/components/admin/family-editor/family-editor-types";
 
 export type FamilyEditorNotesTabPanelProps = {
-  hidden: boolean;
+  noCardShell?: boolean;
   mode: "create" | "edit";
   familyId: string;
   familyNewEventLabel: string;
@@ -16,7 +16,7 @@ export type FamilyEditorNotesTabPanelProps = {
 };
 
 export function FamilyEditorNotesTabPanel({
-  hidden,
+  noCardShell = true,
   mode,
   familyId,
   familyNewEventLabel,
@@ -27,48 +27,50 @@ export function FamilyEditorNotesTabPanel({
       ? `/admin/families/create?id=${encodeURIComponent(familyId)}`
       : `/admin/families/${familyId}/edit`;
 
-  return (
-    <div
-      id="family-editor-panel-notes"
-      role="tabpanel"
-      aria-labelledby="family-editor-tab-notes"
-      hidden={hidden}
-      className="space-y-8 pt-2"
-    >
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg">Notes</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Notes linked to this family. Manage full text on each note&apos;s admin page.
-            </p>
-          </div>
-          <Link
-            href={`/admin/notes/new?familyId=${encodeURIComponent(familyId)}&familyLabel=${encodeURIComponent(familyNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
-          >
-            Add note
-          </Link>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {familyNotes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No notes linked to this family.</p>
-          ) : (
-            familyNotes.map((jn) => {
-              const n = jn.note;
-              const nid = String(n.id);
-              return (
-                <EmbeddedNoteCard
-                  key={nid}
-                  noteId={nid}
-                  xref={String(n.xref ?? "")}
-                  content={String(n.content ?? "")}
-                />
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
+  const listBlock =
+    mode === "create" ? (
+      <p className="text-sm text-muted-foreground">Finish creating the family before adding notes.</p>
+    ) : familyNotes.length === 0 ? (
+      <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">No notes added yet.</p>
+      </div>
+    ) : (
+      familyNotes.map((jn) => {
+        const n = jn.note;
+        const nid = String(n.id);
+        return (
+          <EmbeddedNoteCard key={nid} noteId={nid} xref={String(n.xref ?? "")} content={String(n.content ?? "")} />
+        );
+      })
+    );
+
+  const addHref =
+    mode === "edit" && familyId
+      ? `/admin/notes/new?familyId=${encodeURIComponent(familyId)}&familyLabel=${encodeURIComponent(familyNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`
+      : null;
+
+  const inner = (
+    <div className="space-y-4">
+      {listBlock}
+      {addHref ? (
+        <Link
+          href={addHref}
+          className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-full items-center justify-center gap-2 border-dashed")}
+        >
+          <Plus className="size-4" aria-hidden />
+          Add note
+        </Link>
+      ) : null}
     </div>
   );
+
+  if (noCardShell) {
+    return (
+      <div role="region" aria-label="Notes" className="space-y-3">
+        {inner}
+      </div>
+    );
+  }
+
+  return <div role="region" aria-label="Notes">{inner}</div>;
 }

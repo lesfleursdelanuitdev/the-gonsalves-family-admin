@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createAdminCrudHooks } from "@/hooks/createAdminCrudHooks";
 import { fetchJson } from "@/lib/infra/api";
 
@@ -24,6 +24,15 @@ export interface AdminMediaListItem {
   }>;
   appTags?: Array<{ id: string; tag: { id: string; name: string; color: string | null } }>;
   albumLinks?: Array<{ id: string; album: { id: string; name: string } }>;
+  /**
+   * Aggregated counts surfaced by the list endpoint. The full `placeLinks` / `dateLinks` arrays
+   * are only available on the detail endpoint; lists return counts to keep payloads small.
+   */
+  linkedCount?: number;
+  placeCount?: number;
+  dateCount?: number;
+  tagCount?: number;
+  albumCount?: number;
 }
 
 export interface AdminMediaListResponse {
@@ -73,6 +82,7 @@ const mediaHooks = createAdminCrudHooks<UseAdminMediaOpts, AdminMediaListRespons
   base: "/api/admin/media",
   queryKey: ["admin", "media"],
   buildParams: buildMediaParams,
+  extraInvalidateOnDelete: [["admin", "albums"]],
 });
 
 export const ADMIN_MEDIA_QUERY_KEY = mediaHooks.QUERY_KEY;
@@ -84,6 +94,7 @@ export function useAdminMedia(opts?: UseAdminMediaOpts, enabled = true) {
     queryKey: [...ADMIN_MEDIA_QUERY_KEY, qs],
     queryFn: () => fetchJson<AdminMediaListResponse>(`/api/admin/media${qs ? `?${qs}` : ""}`),
     enabled,
+    placeholderData: keepPreviousData,
   });
 }
 export const useAdminMediaItem = (id: string) => mediaHooks.useDetail<{ media: unknown }>(id);

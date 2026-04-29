@@ -1,20 +1,16 @@
 "use client";
 
 import { useMemo, useCallback, useLayoutEffect, useRef, Suspense } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Link2 } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
+import {
+  EventCard,
+  EVENT_CARD_MAX_LINKED_INDIVIDUALS,
+  type EventCardRecord,
+} from "@/components/admin/EventCard";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -44,24 +40,22 @@ interface LinkedPersonRef {
   label: string;
 }
 
-interface EventRow {
-  id: string;
-  eventType: string;
-  typeLabel: string;
-  customType: string;
-  date: string;
-  place: string;
+interface EventRow extends EventCardRecord {
   linkedTo: string;
-  linkedType: "individual" | "family" | "none";
-  linkedIndividualId: string | null;
-  linkedFamilyId: string | null;
   linkedFamilyXref: string | null;
-  linkedFamilyHusband: LinkedPersonRef | null;
-  linkedFamilyWife: LinkedPersonRef | null;
 }
 
 type FilterState = AdminEventsUrlFilterState;
 const FILTER_DEFAULTS = ADMIN_EVENTS_FILTER_DEFAULTS;
+
+function formatLinkedIndividualsTableText(people: readonly { label: string }[]): string {
+  const labels = people.map((p) => p.label.trim()).filter((l) => l && l !== "—");
+  if (labels.length === 0) return "—";
+  const head = labels.slice(0, EVENT_CARD_MAX_LINKED_INDIVIDUALS);
+  const extra = labels.length - EVENT_CARD_MAX_LINKED_INDIVIDUALS;
+  if (extra <= 0) return head.join(" · ");
+  return `${head.join(" · ")} +${extra} more`;
+}
 
 function mapApiToRows(api: AdminEventsListResponse): EventRow[] {
   return (api?.events ?? []).map((ev) => {
@@ -75,20 +69,33 @@ function mapApiToRows(api: AdminEventsListResponse): EventRow[] {
     const customType = (ev.customType ?? "").trim();
 
     let linkedTo = "—";
+    let linkedPersonDisplay: string | null = null;
     let linkedType: EventRow["linkedType"] = "none";
     let linkedIndividualId: string | null = null;
     let linkedFamilyId: string | null = null;
     let linkedFamilyXref: string | null = null;
     let linkedFamilyHusband: LinkedPersonRef | null = null;
     let linkedFamilyWife: LinkedPersonRef | null = null;
+    let linkedIndividuals: LinkedPersonRef[] = [];
 
-    if (ev.individualEvents?.[0]) {
-      const ind = ev.individualEvents[0].individual;
-      linkedIndividualId = ind.id;
-      linkedTo =
-        formatDisplayNameFromNameForms(ind.individualNameForms, ind.fullName) ||
-        stripSlashesFromName(ind.fullName) ||
-        "—";
+    if (ev.individualEvents?.length) {
+      const seen = new Set<string>();
+      for (const ie of ev.individualEvents) {
+        const ind = ie?.individual;
+        if (!ind?.id || seen.has(ind.id)) continue;
+        seen.add(ind.id);
+        const label =
+          formatDisplayNameFromNameForms(ind.individualNameForms, ind.fullName) ||
+          stripSlashesFromName(ind.fullName) ||
+          "—";
+        linkedIndividuals.push({ id: ind.id, label });
+      }
+    }
+    if (linkedIndividuals.length > 0) {
+      linkedIndividualId = linkedIndividuals[0].id;
+      linkedTo = formatLinkedIndividualsTableText(linkedIndividuals);
+      const first = linkedIndividuals[0].label;
+      linkedPersonDisplay = first && first !== "—" ? first : null;
       linkedType = "individual";
     } else if (ev.familyEvents?.[0]) {
       const fam = ev.familyEvents[0].family;
@@ -111,9 +118,7 @@ function mapApiToRows(api: AdminEventsListResponse): EventRow[] {
       const hLabel = linkedFamilyHusband?.label;
       const wLabel = linkedFamilyWife?.label;
       const partners = [hLabel, wLabel].filter((x) => x && x !== "—") as string[];
-      const xrefBit = linkedFamilyXref || fam.id;
-      linkedTo =
-        partners.length > 0 ? `${xrefBit}: ${partners.join(" · ")}` : `Family ${xrefBit}`;
+      linkedTo = partners.length > 0 ? partners.join(" · ") : "Family";
       linkedType = "family";
     }
 
@@ -125,79 +130,16 @@ function mapApiToRows(api: AdminEventsListResponse): EventRow[] {
       date: dateStr,
       place: placeStr,
       linkedTo,
+      linkedPersonDisplay,
       linkedType,
       linkedIndividualId,
+      linkedIndividuals,
       linkedFamilyId,
       linkedFamilyXref,
       linkedFamilyHusband,
       linkedFamilyWife,
     };
   });
-}
-
-const eventCardLinkClass =
-  "font-medium text-primary underline-offset-2 hover:underline";
-
-function EventCardLinkedSection({ record }: { record: EventRow }) {
-  if (record.linkedType === "individual" && record.linkedIndividualId) {
-    const name =
-      record.linkedTo !== "—" ? record.linkedTo : "Unnamed individual";
-    return (
-      <div className="text-sm text-muted-foreground">
-        <span className="font-bold text-base-content">Individual</span>{" "}
-        <Link
-          href={`/admin/individuals/${record.linkedIndividualId}`}
-          className={eventCardLinkClass}
-        >
-          {name}
-        </Link>
-      </div>
-    );
-  }
-
-  if (record.linkedType === "family" && record.linkedFamilyId) {
-    const xrefText =
-      record.linkedFamilyXref?.trim() || record.linkedFamilyId;
-    const hasPartners = record.linkedFamilyHusband || record.linkedFamilyWife;
-    return (
-      <div className="space-y-1.5 text-sm text-muted-foreground">
-        <div className="flex flex-wrap items-baseline gap-x-1 gap-y-1">
-          <span className="font-bold text-base-content">Family</span>{" "}
-          <Link
-            href={`/admin/families/${record.linkedFamilyId}`}
-            className={eventCardLinkClass}
-          >
-            {xrefText}
-          </Link>
-        </div>
-        {hasPartners ? (
-          <div className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-1 text-base-content/90">
-            {record.linkedFamilyHusband ? (
-              <Link
-                href={`/admin/individuals/${record.linkedFamilyHusband.id}`}
-                className={eventCardLinkClass}
-              >
-                {record.linkedFamilyHusband.label}
-              </Link>
-            ) : null}
-            {record.linkedFamilyHusband && record.linkedFamilyWife ? (
-              <span className="text-base-content/35">·</span>
-            ) : null}
-            {record.linkedFamilyWife ? (
-              <Link
-                href={`/admin/individuals/${record.linkedFamilyWife.id}`}
-                className={eventCardLinkClass}
-              >
-                {record.linkedFamilyWife.label}
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  return <span className="text-sm text-muted-foreground">—</span>;
 }
 
 function buildEventsConfig(
@@ -272,42 +214,7 @@ function buildEventsConfig(
       },
     ],
     renderCard: ({ record, onView, onEdit, onDelete }) => (
-      <Card>
-        <CardHeader className="flex flex-col items-center gap-3 pb-2 text-center">
-          <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/8"
-            aria-hidden
-          >
-            <GedcomEventTypeIcon
-              eventType={record.eventType}
-              className="size-6 text-base-content/90"
-            />
-          </div>
-          <CardTitle className="text-xl font-semibold leading-tight">
-            <span className="block">{record.typeLabel}</span>
-            {record.customType ? (
-              <span className="mt-1 block text-sm font-normal text-muted-foreground">
-                {record.customType}
-              </span>
-            ) : null}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">{record.date || "—"}</p>
-          {record.place.trim() ? (
-            <p className="max-w-full text-pretty text-sm text-base-content/85">{record.place}</p>
-          ) : null}
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <p className="flex items-center gap-1.5 rounded-md bg-white/8 px-5 py-3.5 text-sm font-bold leading-none text-white app-light:bg-black/[0.07] app-light:text-base-content/90">
-            <Link2 className="size-3.5 shrink-0" aria-hidden />
-            Linked To
-          </p>
-          <EventCardLinkedSection record={record} />
-          <p className="font-mono text-[11px] break-all text-base-content/60" title={record.id}>
-            {record.id}
-          </p>
-        </CardContent>
-        <CardActionFooter onView={onView} onEdit={onEdit} onDelete={onDelete} />
-      </Card>
+      <EventCard record={record} onView={onView} onEdit={onEdit} onDelete={onDelete} />
     ),
     actions: {
       add: { label: "Add event", handler: () => router.push("/admin/events/new") },

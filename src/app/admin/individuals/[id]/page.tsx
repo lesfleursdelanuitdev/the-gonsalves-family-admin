@@ -28,6 +28,7 @@ import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   individual: "Self",
@@ -620,9 +621,14 @@ export default function AdminIndividualViewPage() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Media</CardTitle>
-          <p className="text-sm text-muted-foreground">Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.</p>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg">Media</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Thumbnails for images; other files show a placeholder. Tap a tile to open the media record.
+            </p>
+          </div>
+          <ViewAsAlbumLink entityType="individual" entityId={id} label="View all media" count={media.length} />
         </CardHeader>
         <CardContent>
           {media.length === 0 ? (

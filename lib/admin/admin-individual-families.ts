@@ -239,6 +239,10 @@ export async function syncIndividualChildFamilies(
     relationshipType: string;
     pedigree?: string | null;
     birthOrder?: number | null;
+    /** When set, overrides `pedigree` for the child–husband parent link only. */
+    pedigreeToHusband?: string | null;
+    /** When set, overrides `pedigree` for the child–wife parent link only. */
+    pedigreeToWife?: string | null;
     /** When set, overrides `relationshipType` for the child–husband parent link only. */
     relationshipToHusband?: string | null;
     /** When set, overrides `relationshipType` for the child–wife parent link only. */
@@ -279,7 +283,15 @@ export async function syncIndividualChildFamilies(
         ? String(row.relationshipToWife)
         : row.relationshipType,
     );
-    const pedigree = row.pedigree?.trim() ? row.pedigree.trim() : null;
+    const defaultPed = row.pedigree?.trim() ? row.pedigree.trim() : null;
+    const pedHusband =
+      row.pedigreeToHusband != null && String(row.pedigreeToHusband).trim() !== ""
+        ? String(row.pedigreeToHusband).trim()
+        : defaultPed;
+    const pedWife =
+      row.pedigreeToWife != null && String(row.pedigreeToWife).trim() !== ""
+        ? String(row.pedigreeToWife).trim()
+        : defaultPed;
     const birthOrder = row.birthOrder != null && Number.isFinite(row.birthOrder) ? Math.trunc(row.birthOrder) : null;
 
     await tx.gedcomFamilyChild.upsert({
@@ -299,6 +311,8 @@ export async function syncIndividualChildFamilies(
     for (const parentId of parents) {
       const rel =
         parentId === fam.husbandId ? relHusband : parentId === fam.wifeId ? relWife : defaultRel;
+      const pedigree =
+        parentId === fam.husbandId ? pedHusband : parentId === fam.wifeId ? pedWife : defaultPed;
       await tx.gedcomParentChild.upsert({
         where: {
           fileUuid_parentId_childId: { fileUuid, parentId, childId: individualId },

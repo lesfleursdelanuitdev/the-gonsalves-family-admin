@@ -6,6 +6,7 @@ import {
   parsePlaceInput,
 } from "@/lib/admin/admin-event-create";
 import type { ChangeCtx } from "@/lib/admin/changelog";
+import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
 
 type Tx = Prisma.TransactionClient;
 
@@ -13,9 +14,17 @@ async function formatDateDisplay(tx: Tx, dateId: string | null): Promise<string 
   if (!dateId) return null;
   const d = await tx.gedcomDate.findUnique({ where: { id: dateId } });
   if (!d) return null;
-  if (d.original?.trim()) return d.original.trim();
-  const parts = [d.year, d.month, d.day].filter((x) => x != null).join("-");
-  return parts || null;
+  const label = formatGedcomDateDisplayLabel({
+    original: d.original,
+    dateType: d.dateType,
+    year: d.year,
+    month: d.month,
+    day: d.day,
+    endYear: d.endYear,
+    endMonth: d.endMonth,
+    endDay: d.endDay,
+  });
+  return label.trim() ? label : null;
 }
 
 async function formatPlaceDisplay(tx: Tx, placeId: string | null): Promise<string | null> {

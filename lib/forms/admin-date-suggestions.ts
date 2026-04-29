@@ -1,4 +1,5 @@
 import type { GedcomDateFormSlice } from "@/lib/forms/individual-editor-form";
+import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
 
 /** Row shape returned by GET `/api/admin/dates` (fields used to fill the date form). */
 export type AdminDateSuggestionRow = {
@@ -86,17 +87,14 @@ export function buildDateSuggestionSearchText(slice: GedcomDateFormSlice): strin
 
 /** One-line label for a suggestion row. */
 export function formatDateSuggestionLabel(row: AdminDateSuggestionRow): string {
-  const orig = row.original?.trim();
-  if (orig) return orig;
-  const ymd = [row.year, row.month, row.day]
-    .map((x) => (x == null ? "" : String(x)))
-    .filter(Boolean)
-    .join("-");
-  const tail = [row.endYear, row.endMonth, row.endDay]
-    .map((x) => (x == null ? "" : String(x)))
-    .filter(Boolean)
-    .join("-");
-  const base = ymd || "(no structured date)";
-  if (tail) return `${row.dateType}: ${base} … ${tail}`;
-  return `${row.dateType}: ${base}`;
+  return formatGedcomDateDisplayLabel({
+    original: row.original,
+    dateType: row.dateType,
+    year: row.year,
+    month: row.month,
+    day: row.day,
+    endYear: row.endYear,
+    endMonth: row.endMonth,
+    endDay: row.endDay,
+  });
 }

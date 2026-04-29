@@ -2,6 +2,7 @@ import type {
   AddChildToSpouseFamilyPayload,
   IndividualEditorPayload,
   NewChildFamilyFromNewParentsPayload,
+  NewChildFamilyLinkAsSpousePayload,
   NewChildFamilyParentPayload,
   NewSpouseFamilyPayload,
 } from "@/lib/admin/admin-individual-editor-apply";
@@ -67,7 +68,9 @@ function parseNewChildFamilyParentField(raw: unknown): NewChildFamilyParentPaylo
     typeof x.relationshipType === "string" && x.relationshipType.trim()
       ? x.relationshipType.trim()
       : "biological";
-  return { givenNames, surname, sex, relationshipType };
+  const pedigreeRaw = typeof x.pedigree === "string" ? x.pedigree.trim() : "";
+  const pedigree = pedigreeRaw ? pedigreeRaw : null;
+  return { givenNames, surname, sex, relationshipType, pedigree };
 }
 
 export function parseIndividualEditorPayload(body: Record<string, unknown>): IndividualEditorPayload {
@@ -155,6 +158,17 @@ export function parseIndividualEditorPayload(body: Record<string, unknown>): Ind
         relationshipType: typeof x.relationshipType === "string" ? x.relationshipType : "biological",
         pedigree: typeof x.pedigree === "string" ? x.pedigree : null,
         birthOrder: typeof x.birthOrder === "number" ? x.birthOrder : null,
+        ...(Object.prototype.hasOwnProperty.call(x, "pedigreeToHusband")
+          ? {
+              pedigreeToHusband:
+                typeof x.pedigreeToHusband === "string" ? x.pedigreeToHusband.trim() || null : null,
+            }
+          : {}),
+        ...(Object.prototype.hasOwnProperty.call(x, "pedigreeToWife")
+          ? {
+              pedigreeToWife: typeof x.pedigreeToWife === "string" ? x.pedigreeToWife.trim() || null : null,
+            }
+          : {}),
         ...(typeof x.relationshipToHusband === "string" && x.relationshipToHusband.trim()
           ? { relationshipToHusband: x.relationshipToHusband.trim() }
           : {}),
@@ -170,13 +184,31 @@ export function parseIndividualEditorPayload(body: Record<string, unknown>): Ind
     for (const x of body.newChildFamiliesFromNewParents) {
       if (x === null || typeof x !== "object") continue;
       const o = x as Record<string, unknown>;
-      const p1 = parseNewChildFamilyParentField(o.parent1);
-      const p2 = parseNewChildFamilyParentField(o.parent2);
-      if (!p1 || !p2) continue;
       const pedigreeRaw = typeof o.pedigree === "string" ? o.pedigree.trim() : "";
       const pedigree = pedigreeRaw ? pedigreeRaw : null;
       const birthOrder = typeof o.birthOrder === "number" ? o.birthOrder : null;
-      ncOut.push({ parent1: p1, parent2: p2, pedigree, birthOrder });
+      const kind = o.kind === "single" ? "single" : "pair";
+      if (kind === "single") {
+        const parent = parseNewChildFamilyParentField(o.parent);
+        if (!parent) continue;
+        let linkAsSpouse: NewChildFamilyLinkAsSpousePayload | undefined;
+        const linkRaw = o.linkAsSpouse;
+        if (linkRaw !== null && typeof linkRaw === "object") {
+          const lo = linkRaw as Record<string, unknown>;
+          const familyId = typeof lo.familyId === "string" ? lo.familyId.trim() : "";
+          const existingParentIndividualId =
+            typeof lo.existingParentIndividualId === "string" ? lo.existingParentIndividualId.trim() : "";
+          if (familyId && existingParentIndividualId) {
+            linkAsSpouse = { familyId, existingParentIndividualId };
+          }
+        }
+        ncOut.push({ kind: "single", parent, pedigree, birthOrder, ...(linkAsSpouse ? { linkAsSpouse } : {}) });
+        continue;
+      }
+      const p1 = parseNewChildFamilyParentField(o.parent1);
+      const p2 = parseNewChildFamilyParentField(o.parent2);
+      if (!p1 || !p2) continue;
+      ncOut.push({ kind: "pair", parent1: p1, parent2: p2, pedigree, birthOrder });
     }
     if (ncOut.length > 0) payload.newChildFamiliesFromNewParents = ncOut;
   }

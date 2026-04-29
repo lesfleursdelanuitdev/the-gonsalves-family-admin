@@ -9,7 +9,9 @@ import { guessContentType, resolveGedcomAdminDiskPath } from "@/lib/admin/media-
  * If files are under `public/uploads/gedcom-admin/`, Next's static handler usually serves them first;
  * this route handles the external-root case and any request that reaches the app.
  *
- * Paths: legacy `/uploads/gedcom-admin/<file>` or new `/uploads/gedcom-admin/<images|documents|audio|videos>/<file>`.
+ * Paths: legacy `/uploads/gedcom-admin/<file>`,
+ * `/uploads/gedcom-admin/<images|documents|audio|videos>/<file>`,
+ * or originals: `/uploads/gedcom-admin/<images|videos>/originals/<file>`.
  */
 function normalizePathSegments(pathParam: string | string[] | undefined): string[] {
   if (pathParam == null) return [];

@@ -4,6 +4,10 @@ import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
+  allocateNewSourceXref,
+  registerXrefInFileObjects,
+} from "@/lib/admin/admin-individual-editor-apply";
+import {
   logCreate,
   newBatchId,
   setBatchSummary,
@@ -73,43 +77,43 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
   });
 });
 
+function optBodyString(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s.length ? s : null;
+}
+
 export const POST = withAdminAuth(async (req, user, _ctx) => {
   const fileUuid = await getAdminFileUuid();
   const body = await req.json();
-  const {
-    xref,
-    title,
-    author,
-    abbreviation,
-    publication,
-    text,
-    repositoryXref,
-    callNumber,
-  } = body as Record<string, unknown>;
+  const { title, author, abbreviation, publication, text, repositoryXref, callNumber } = body as Record<string, unknown>;
 
-  if (!xref || typeof xref !== "string") {
-    return NextResponse.json({ error: "xref is required" }, { status: 400 });
+  const titleStr = typeof title === "string" ? title.trim() : "";
+  if (!titleStr) {
+    return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
 
-  const source = await prisma.gedcomSource.create({
-    data: {
-      fileUuid,
-      xref,
-      title: title != null ? String(title) : null,
-      author: author != null ? String(author) : null,
-      abbreviation: abbreviation != null ? String(abbreviation) : null,
-      publication: publication != null ? String(publication) : null,
-      text: text != null ? String(text) : null,
-      repositoryXref: repositoryXref != null ? String(repositoryXref) : null,
-      callNumber: callNumber != null ? String(callNumber) : null,
-    },
-  });
-
   const batchId = newBatchId();
-  await prisma.$transaction(async (tx) => {
+  const source = await prisma.$transaction(async (tx) => {
+    const xref = await allocateNewSourceXref(tx, fileUuid);
+    const s = await tx.gedcomSource.create({
+      data: {
+        fileUuid,
+        xref,
+        title: titleStr,
+        author: optBodyString(author),
+        abbreviation: optBodyString(abbreviation),
+        publication: optBodyString(publication),
+        text: optBodyString(text),
+        repositoryXref: optBodyString(repositoryXref),
+        callNumber: optBodyString(callNumber),
+      },
+    });
+    await registerXrefInFileObjects(tx, fileUuid, xref, "SOUR", s.id);
     const ctx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId };
-    await logCreate(ctx, "source", source.id, source.xref, { ...source });
-    await setBatchSummary(ctx, `Created source ${source.xref}`);
+    await logCreate(ctx, "source", s.id, s.xref, { ...s });
+    await setBatchSummary(ctx, `Created source ${s.xref}`);
+    return s;
   });
 
   return NextResponse.json({ source }, { status: 201 });

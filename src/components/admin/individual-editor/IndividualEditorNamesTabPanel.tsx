@@ -48,17 +48,16 @@ export function IndividualEditorNamesTabPanel({
 }: IndividualEditorNamesTabPanelProps) {
   return (
     <div
-      id="individual-editor-panel-names"
-      role="tabpanel"
-      aria-labelledby="individual-editor-tab-names"
+      role="region"
+      aria-label="Names"
       hidden={hidden}
       className="space-y-8 pt-2"
     >
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Name(s)</CardTitle>
+          <CardTitle className="text-lg">Names</CardTitle>
           <p className="text-sm text-muted-foreground">
-            One primary name for labels and export; add more rows as aliases if needed.
+            Primary name for headings; add rows for nicknames, married names, or spelling variants.
           </p>
           <div className="mt-3 space-y-1 text-center">
             <p className="text-sm text-muted-foreground">Effective label (primary)</p>
@@ -66,12 +65,11 @@ export function IndividualEditorNamesTabPanel({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <CollapsibleFormSection title="Info">
+          <CollapsibleFormSection title="Advanced name details (GEDCOM & export)">
             <p className="text-sm text-muted-foreground">
-              Mark exactly one name as <span className="font-medium text-base-content">Primary</span> (used for the
-              person&apos;s main label and GEDCOM birth-name slot). Add additional names as{" "}
-              <span className="font-medium text-base-content">Alias</span> (also known as). Given-name order matters for
-              display and export—use the arrows in each block to reorder. Each surname can have a type (maiden, married,
+              Mark exactly one name as <span className="font-medium text-base-content">Primary</span> (used for labels
+              and exports). Add more rows as <span className="font-medium text-base-content">Alias</span> (also known
+              as). Given-name order matters—use the arrows to reorder. Each surname can have a type (maiden, married,
               etc.).
             </p>
           </CollapsibleFormSection>

@@ -5,6 +5,7 @@ import { MapPin } from "lucide-react";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminPlace, type AdminPlaceDetail } from "@/hooks/useAdminGedcomCatalogs";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 
 function fmtCoord(v: unknown): string {
   if (v == null || v === "") return "—";
@@ -86,6 +87,18 @@ export default function AdminPlaceDetailPage() {
             <li>Family divorce places: {c?.familyDivorcePlaces ?? 0}</li>
           </ul>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg">Media</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Browse all archive media linked to events and facts that use this place, in album layout.
+            </p>
+          </div>
+          <ViewAsAlbumLink entityType="place" entityId={id} label="View media from this place" includeCount />
+        </CardHeader>
       </Card>
     </DetailPageShell>
   );

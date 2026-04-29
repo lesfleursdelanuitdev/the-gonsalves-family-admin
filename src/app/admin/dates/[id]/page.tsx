@@ -5,6 +5,7 @@ import { CalendarRange } from "lucide-react";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminDate, type AdminDateDetail } from "@/hooks/useAdminGedcomCatalogs";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 
 function ymdParts(y: number | null, m: number | null, d: number | null): string {
   if (y == null && m == null && d == null) return "—";
@@ -72,6 +73,18 @@ export default function AdminDateDetailPage() {
             <li>Family divorce dates: {c?.familyDivorceDates ?? 0}</li>
           </ul>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg">Media</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Browse all archive media linked to events and facts that use this date, in album layout.
+            </p>
+          </div>
+          <ViewAsAlbumLink entityType="date" entityId={id} label="View media from this date" includeCount />
+        </CardHeader>
       </Card>
     </DetailPageShell>
   );

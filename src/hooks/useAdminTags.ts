@@ -28,7 +28,10 @@ const tagsHooks = createAdminCrudHooks<{ q?: string; limit?: number; offset?: nu
   base: "/api/admin/tags",
   queryKey: ["admin", "tags"],
   buildParams: buildTagsParams,
+  /** Media list/filter UIs reference tags. */
+  extraInvalidateOnDelete: [["admin", "media"]],
 });
 
 export const useAdminTags = tagsHooks.useList;
 export const useCreateTag = tagsHooks.useCreate;
+export const useDeleteTag = tagsHooks.useDelete;

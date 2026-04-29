@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { Dispatch, SetStateAction } from "react";
-import { Star } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Star } from "lucide-react";
 import { CollapsibleFormSection } from "@/components/admin/individual-editor/CollapsibleFormSection";
 import { NewSpousePartnerIndividualSearch } from "@/components/admin/individual-editor/NewSpousePartnerIndividualSearch";
 import { SpouseSlotFamilySearch } from "@/components/admin/individual-editor/SpouseSlotFamilySearch";
@@ -36,7 +37,6 @@ export type IndividualEditorSpouseTabPanelProps = {
   hidden: boolean;
   mode: "create" | "edit";
   individualId: string;
-  pending: boolean;
   familiesAsSpouse: SpouseFamilyFormRow[];
   spouseSlotHelp: string | null;
   spouseFamiliesNeedSex: boolean;
@@ -64,7 +64,6 @@ export function IndividualEditorSpouseTabPanel({
   hidden,
   mode,
   individualId,
-  pending,
   familiesAsSpouse,
   spouseSlotHelp,
   spouseFamiliesNeedSex,
@@ -85,25 +84,22 @@ export function IndividualEditorSpouseTabPanel({
   excludedChildSpouseFamilyIds,
   excludedSpousePartnerIndividualIds,
 }: IndividualEditorSpouseTabPanelProps) {
+  const [partnerAddOpen, setPartnerAddOpen] = useState(false);
+
   return (
-    <div
-      id="individual-editor-panel-spouse"
-      role="tabpanel"
-      aria-labelledby="individual-editor-tab-spouse"
-      hidden={hidden}
-      className="space-y-8 pt-2"
-    >
+    <div role="region" aria-label="Partners and children" hidden={hidden} className="space-y-8 pt-2">
         <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Families as spouse</CardTitle>
-          <p className="text-sm text-muted-foreground">Link partner families by id or search.</p>
+          <CardTitle className="text-lg">Partners / spouses</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Couples this person was part of—used for spouses and shared children.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CollapsibleFormSection title="Info">
+          <CollapsibleFormSection title="Advanced details">
             <p className="text-sm text-muted-foreground">
-              {FAMILY_PARTNER_SLOT_SUBTITLE} Slot assignment when linking parents uses the rules below. Set sex in
-              Identity before saving spouse links (current API requires M or F for automatic placement). Empty list
-              removes spouse links.
+              {FAMILY_PARTNER_SLOT_SUBTITLE} Set sex in Basic info before saving partner links when the tree needs a
+              clear male/female pair for automatic placement. Empty list removes partner links.
             </p>
             <ul className="list-inside list-disc space-y-1 text-xs text-muted-foreground">
               {FAMILY_PARTNER_ASSIGNMENT_RULES.map((rule, i) => (
@@ -615,29 +611,63 @@ export function IndividualEditorSpouseTabPanel({
               </ul>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No spouse families yet.</p>
+            <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-6 text-center">
+              <p className="text-sm text-muted-foreground">No partners added yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Add someone you share a family record with.</p>
+            </div>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setSpouseFamilySearchSlots((s) => [...s, createSpouseFamilySearchSlot()])}
+              className="flex min-h-11 w-full items-center justify-between gap-2 sm:w-auto sm:min-w-[12rem]"
+              onClick={() => setPartnerAddOpen((v) => !v)}
+              aria-expanded={partnerAddOpen}
             >
-              Add as spouse to an existing family
+              Add partner
+              <ChevronDown
+                className={cn("size-4 shrink-0 transition-transform", partnerAddOpen && "rotate-180")}
+                aria-hidden
+              />
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setSpouseNewFamilyExistingSearchSlots((s) => [...s, createSpouseNewFamilyExistingSearchSlot()])
-              }
-            >
-              New family with existing person
-            </Button>
-            <Button type="button" variant="outline" onClick={addSpouseNewFamilyNewPersonRow}>
-              New family with new person
-            </Button>
+            {partnerAddOpen ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] p-3 sm:flex-row sm:flex-wrap">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 w-full justify-start sm:flex-1"
+                  onClick={() => {
+                    setSpouseFamilySearchSlots((s) => [...s, createSpouseFamilySearchSlot()]);
+                    setPartnerAddOpen(false);
+                  }}
+                >
+                  Link to existing family (one open slot)
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 w-full justify-start sm:flex-1"
+                  onClick={() => {
+                    setSpouseNewFamilyExistingSearchSlots((s) => [...s, createSpouseNewFamilyExistingSearchSlot()]);
+                    setPartnerAddOpen(false);
+                  }}
+                >
+                  New family — partner already in the tree
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 w-full justify-start sm:flex-1"
+                  onClick={() => {
+                    addSpouseNewFamilyNewPersonRow();
+                    setPartnerAddOpen(false);
+                  }}
+                >
+                  New family — create new partner
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-3">
@@ -746,24 +776,10 @@ export function IndividualEditorSpouseTabPanel({
           </div>
 
           {hasPendingNewSpouseFamily || hasPendingSpouseFamilyChildAdds ? (
-            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4 dark:bg-primary/10">
-              <p className="text-sm font-medium text-base-content">Save spouse-family changes</p>
-              <p className="text-sm text-muted-foreground">
-                {hasPendingNewSpouseFamily
-                  ? "New partners and families are not stored until you save. "
-                  : ""}
-                {hasPendingSpouseFamilyChildAdds
-                  ? "Children you add below are linked when you save. "
-                  : ""}
-                This uses the same primary save button at the bottom of the page.
-              </p>
-              <Button type="submit" disabled={pending || spouseFamiliesNeedSex}>
-                {pending
-                  ? "Saving…"
-                  : mode === "create"
-                    ? "Save person & spouse updates"
-                    : "Save & apply spouse updates"}
-              </Button>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground dark:bg-primary/10">
+              {hasPendingNewSpouseFamily ? "New partners and families apply when you save this person. " : null}
+              {hasPendingSpouseFamilyChildAdds ? "Children you add here apply when you save. " : null}
+              Use <span className="font-medium text-foreground">Save person</span> at the bottom of the page.
             </div>
           ) : null}
         </CardContent>

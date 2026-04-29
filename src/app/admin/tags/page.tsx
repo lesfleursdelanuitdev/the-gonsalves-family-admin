@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Tag as TagIcon } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
@@ -9,10 +10,13 @@ import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAdminTags, type AdminTagsListResponse } from "@/hooks/useAdminTags";
+import { useAdminTags, useDeleteTag, type AdminTagsListResponse } from "@/hooks/useAdminTags";
+import { useCurrentUser } from "@/hooks/useAuth";
+import { ApiError } from "@/lib/infra/api";
 import { adminListQActiveFilterCount, useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { displayTagName } from "@/lib/admin/display-tag-name";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 import { cn } from "@/lib/utils";
 
 interface TagRow {
@@ -20,18 +24,28 @@ interface TagRow {
   name: string;
   color: string | null;
   scopeLabel: string;
+  canDelete: boolean;
 }
 
-function mapApiToRows(api: AdminTagsListResponse): TagRow[] {
+function mapApiToRows(
+  api: AdminTagsListResponse,
+  me: { id: string; isWebsiteOwner: boolean } | null | undefined,
+): TagRow[] {
   return (api?.tags ?? []).map((t) => ({
     id: t.id,
     name: displayTagName(t.name),
     color: t.color,
     scopeLabel: t.isGlobal ? "Global" : "Yours",
+    canDelete: Boolean(
+      me && ((!t.isGlobal && t.userId === me.id) || (t.isGlobal && me.isWebsiteOwner)),
+    ),
   }));
 }
 
-function buildTagsConfig(router: ReturnType<typeof useRouter>): DataViewerConfig<TagRow> {
+function buildTagsConfig(
+  router: ReturnType<typeof useRouter>,
+  onDelete: (row: TagRow) => void,
+): DataViewerConfig<TagRow> {
   return {
     id: "tags",
     labels: { singular: "Tag", plural: "Tags" },
@@ -70,7 +84,7 @@ function buildTagsConfig(router: ReturnType<typeof useRouter>): DataViewerConfig
           </div>
           <p className="text-xs text-muted-foreground">{record.scopeLabel}</p>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           {record.color ? (
             <span className="inline-flex items-center gap-2">
               <span
@@ -83,25 +97,64 @@ function buildTagsConfig(router: ReturnType<typeof useRouter>): DataViewerConfig
           ) : (
             "No color"
           )}
+          <ViewAsAlbumLink
+            entityType="tag"
+            entityId={record.id}
+            className="w-full sm:w-auto"
+            label="View tagged media"
+            includeCount
+          />
         </CardContent>
-        <CardActionFooter />
+        <CardActionFooter onDelete={record.canDelete ? () => onDelete(record) : undefined} />
       </Card>
     ),
     actions: {
       add: { label: "New tag", handler: () => router.push("/admin/tags/new") },
+      delete: { label: "Delete", handler: onDelete },
     },
   };
 }
 
 export default function AdminTagsPage() {
   const router = useRouter();
+  const { data: currentUser } = useCurrentUser();
+  const deleteTag = useDeleteTag();
   const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminListQFilters();
 
   const { data, isLoading } = useAdminTags(queryOpts);
 
-  const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildTagsConfig(router), [router]);
+  const me = currentUser ? { id: currentUser.id, isWebsiteOwner: currentUser.isWebsiteOwner } : null;
+  const rows = useMemo(() => (data ? mapApiToRows(data, me) : []), [data, me]);
+
+  const handleDelete = useCallback(
+    async (r: TagRow) => {
+      if (!r.canDelete) {
+        toast.error(
+          r.scopeLabel === "Global"
+            ? "Only a site owner can delete global tags."
+            : "You can only delete tags you own.",
+        );
+        return;
+      }
+      if (
+        !window.confirm(
+          `Delete tag “${r.name}”? This removes the tag and all links to media (and other tagged items). This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+      try {
+        await deleteTag.mutateAsync(r.id);
+        toast.success(`Deleted “${r.name}”.`);
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : "Could not delete tag.");
+      }
+    },
+    [deleteTag],
+  );
+
+  const config = useMemo(() => buildTagsConfig(router, handleDelete), [router, handleDelete]);
 
   return (
     <AdminListPageShell

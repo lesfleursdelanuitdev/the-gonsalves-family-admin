@@ -17,6 +17,7 @@ export function MediaRasterImage({
   className,
   sizes,
   priority,
+  onLoad,
 }: {
   fileRef: string;
   form: string;
@@ -27,6 +28,8 @@ export function MediaRasterImage({
   sizes?: string;
   /** Hero / LCP: eager load + high fetch priority for native img; `priority` on next/image when used. */
   priority?: boolean;
+  /** Fired when the underlying image finishes decoding/loading. */
+  onLoad?: () => void;
 }) {
   const imgLoadProps = priority
     ? ({ fetchPriority: "high" as const, loading: "eager" as const } as const)
@@ -40,11 +43,12 @@ export function MediaRasterImage({
           alt={alt}
           sizes={sizes}
           className={cn("absolute inset-0 h-full w-full", className)}
+          onLoad={onLoad}
           {...imgLoadProps}
         />
       );
     }
-    return <img src={src} alt={alt} className={className} {...imgLoadProps} />;
+    return <img src={src} alt={alt} className={className} onLoad={onLoad} {...imgLoadProps} />;
   }
   if (fill) {
     return (
@@ -56,8 +60,9 @@ export function MediaRasterImage({
         sizes={sizes ?? "(max-width: 768px) 100vw, 40vw"}
         className={className}
         unoptimized={mediaImageUnoptimized(src)}
+        onLoad={onLoad}
       />
     );
   }
-  return <img src={src} alt={alt} className={className} {...imgLoadProps} />;
+  return <img src={src} alt={alt} className={className} onLoad={onLoad} {...imgLoadProps} />;
 }

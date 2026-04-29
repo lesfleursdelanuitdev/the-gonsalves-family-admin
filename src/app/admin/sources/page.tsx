@@ -1,30 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
-import { BookOpen } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
+import { SourceCard, type SourceCardRecord } from "@/components/admin/SourceCard";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { useAdminSources, type AdminSourcesListResponse } from "@/hooks/useAdminSources";
+import { useAdminSources, useDeleteSource, type AdminSourcesListResponse } from "@/hooks/useAdminSources";
 import { adminListQActiveFilterCount, useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 
-interface SourceRow {
-  id: string;
-  xref: string;
-  title: string;
-  author: string;
-  linkedTo: string;
-}
+interface SourceRow extends SourceCardRecord {}
 
 function mapApiToRows(api: AdminSourcesListResponse): SourceRow[] {
   return (api?.sources ?? []).map((s) => {
@@ -53,48 +42,67 @@ function mapApiToRows(api: AdminSourcesListResponse): SourceRow[] {
   });
 }
 
-const config: DataViewerConfig<SourceRow> = {
-  id: "sources",
-  labels: { singular: "Source", plural: "Sources" },
-  getRowId: (row) => row.id,
-  enableRowSelection: true,
-  columns: [
-    { accessorKey: "xref", header: "XREF", enableSorting: true },
-    { accessorKey: "title", header: "Title", enableSorting: true },
-    { accessorKey: "author", header: "Author", enableSorting: true },
-    { accessorKey: "linkedTo", header: "Linked to", enableSorting: true },
-  ],
-  renderCard: ({ record, onView, onEdit, onDelete }) => (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-          <BookOpen className="size-5 text-muted-foreground" />
-          <CardTitle className="text-base font-mono text-sm">{record.xref}</CardTitle>
-        </div>
-        <p className="text-sm font-medium">{record.title}</p>
-        <p className="text-xs text-muted-foreground">{record.author}</p>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        <p>{record.linkedTo}</p>
-      </CardContent>
-      <CardActionFooter onView={onView} onEdit={onEdit} onDelete={onDelete} />
-    </Card>
-  ),
-  actions: {
-    add: { label: "Add source", handler: () => alert("TODO: add source") },
-    view: { label: "View", handler: (r) => alert(`View: ${r.title}`) },
-    edit: { label: "Edit", handler: (r) => alert(`Edit: ${r.xref}`) },
-    delete: { label: "Delete", handler: (r) => alert(`Delete: ${r.xref}`) },
-  },
-};
+function buildSourcesConfig(
+  router: ReturnType<typeof useRouter>,
+  onDelete: (r: SourceRow) => void,
+): DataViewerConfig<SourceRow> {
+  return {
+    id: "sources",
+    labels: { singular: "Source", plural: "Sources" },
+    getRowId: (row) => row.id,
+    enableRowSelection: true,
+    columns: [
+      { accessorKey: "xref", header: "XREF", enableSorting: true },
+      { accessorKey: "title", header: "Title", enableSorting: true },
+      { accessorKey: "author", header: "Author", enableSorting: true },
+      { accessorKey: "linkedTo", header: "Linked to", enableSorting: true },
+    ],
+    renderCard: ({ record, onView, onEdit, onDelete }) => (
+      <SourceCard record={record} onView={onView} onEdit={onEdit} onDelete={onDelete} />
+    ),
+    actions: {
+      add: { label: "Add source", handler: () => router.push("/admin/sources/new") },
+      view: {
+        label: "View",
+        handler: (r) => router.push(`/admin/sources/${r.id}/edit`),
+      },
+      edit: { label: "Edit", handler: (r) => router.push(`/admin/sources/${r.id}/edit`) },
+      delete: { label: "Delete", handler: onDelete },
+    },
+  };
+}
 
 export default function AdminSourcesPage() {
+  const router = useRouter();
+  const deleteSource = useDeleteSource();
   const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminListQFilters();
 
   const { data, isLoading } = useAdminSources(queryOpts);
 
+  const handleDelete = useCallback(
+    (r: SourceRow) => {
+      const label = r.title !== "—" ? r.title : r.xref || r.id;
+      if (
+        !window.confirm(
+          `Delete source “${label}”?\n\nThis removes the source record and all citation links (individual, family, event, notes, media). This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+      deleteSource.mutate(r.id, {
+        onSuccess: () => toast.success(`Deleted source: ${label}.`),
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          toast.error(`Failed to delete source: ${msg}`);
+        },
+      });
+    },
+    [deleteSource],
+  );
+
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
+  const config = useMemo(() => buildSourcesConfig(router, handleDelete), [router, handleDelete]);
 
   return (
     <AdminListPageShell

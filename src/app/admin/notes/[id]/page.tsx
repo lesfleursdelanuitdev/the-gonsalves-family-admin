@@ -12,6 +12,7 @@ import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { LinkedIndividualLink } from "@/components/admin/LinkedIndividualLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NoteContentMarkdown } from "@/components/admin/NoteContentMarkdown";
+import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 
 export default function AdminNoteDetailPage() {
   const params = useParams();
@@ -56,13 +57,16 @@ export default function AdminNoteDetailPage() {
               {xref ? <span className="font-mono text-[0.95em]">{xref}</span> : "Note"}
             </span>
           </h1>
-          <Link
-            href={`/admin/notes/${id}/edit`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "inline-flex gap-1.5")}
-          >
-            <Pencil className="size-3.5" aria-hidden />
-            Edit
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <ViewAsAlbumLink entityType="note" entityId={id} label="View media from this story" includeCount />
+            <Link
+              href={`/admin/notes/${id}/edit`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "inline-flex gap-1.5")}
+            >
+              <Pencil className="size-3.5" aria-hidden />
+              Edit
+            </Link>
+          </div>
         </div>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>

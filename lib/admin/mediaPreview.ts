@@ -102,5 +102,31 @@ export function mediaImageUnoptimized(src: string): boolean {
   // User uploads under /uploads/ — bypass the image optimizer so previews work behind nginx/PM2
   // (the optimizer’s internal fetch often misbehaves for same-origin files in production).
   if (src.startsWith("/uploads/")) return true;
+  // Thumbs we serve ourselves are already correctly sized — don't pass through next/image again.
+  if (src.startsWith("/api/admin/media/thumb/")) return true;
   return false;
+}
+
+const ADMIN_MEDIA_URL_PREFIX = "/uploads/gedcom-admin/";
+const ADMIN_MEDIA_THUMB_API_PREFIX = "/api/admin/media/thumb/";
+
+/**
+ * Returns a thumbnail URL for an admin media `fileRef` if it's a raster image stored under
+ * `/uploads/gedcom-admin/`. The thumb endpoint serves resized JPEGs cached on disk, so the
+ * card grid can render small bytes instead of the (already-optimized but still ~2560px-wide)
+ * original. Returns `null` for non-raster, external, or non-uploads refs — callers should
+ * fall back to {@link resolveMediaImageSrc}.
+ */
+export function mediaThumbSrc(
+  fileRef: string,
+  formStr: string | null | undefined,
+  width: number,
+): string | null {
+  const t = normalizeSiteMediaPath(fileRef.trim());
+  if (!t) return null;
+  if (!t.startsWith(ADMIN_MEDIA_URL_PREFIX)) return null;
+  if (!isLikelyRasterImage(t, formStr ?? "", null)) return null;
+  const remainder = t.slice(ADMIN_MEDIA_URL_PREFIX.length);
+  if (!remainder || remainder.includes("..")) return null;
+  return `${ADMIN_MEDIA_THUMB_API_PREFIX}${remainder}?w=${Math.max(1, Math.floor(width))}`;
 }
