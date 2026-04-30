@@ -2,7 +2,6 @@
 
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AdminEditorMobileFormHeader } from "@/components/admin/editor-shell/AdminEditorMobileFormHeader";
@@ -11,13 +10,12 @@ import { AdminEditorResponsiveSection } from "@/components/admin/editor-shell/Ad
 import { AdminEditorSidebarNav } from "@/components/admin/editor-shell/AdminEditorSidebarNav";
 import { AdminEditorStickySaveBar } from "@/components/admin/editor-shell/AdminEditorStickySaveBar";
 import { PersonEditorLayout } from "@/components/admin/individual-editor/PersonEditorLayout";
+import { SourceCitationsPanel } from "@/components/admin/source-editor/SourceCitationsPanel";
 import { SOURCE_EDITOR_NAV, type SourceEditorSectionId } from "@/components/admin/source-editor/source-editor-nav";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { useCreateSource, useUpdateSource } from "@/hooks/useAdminSources";
-import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 
 const FORM_ID = "source-edit-form";
 
@@ -61,7 +59,9 @@ function citationCount(source: Record<string, unknown>): number {
   const ind = Array.isArray(source.individualSources) ? source.individualSources.length : 0;
   const fam = Array.isArray(source.familySources) ? source.familySources.length : 0;
   const ev = Array.isArray(source.eventSources) ? source.eventSources.length : 0;
-  return ind + fam + ev;
+  const notes = Array.isArray(source.sourceNotes) ? source.sourceNotes.length : 0;
+  const media = Array.isArray(source.sourceMedia) ? source.sourceMedia.length : 0;
+  return ind + fam + ev + notes + media;
 }
 
 function citationsSummary(source: Record<string, unknown>): string {
@@ -214,12 +214,6 @@ export function SourceEditForm(props: SourceEditFormProps) {
     }
   };
 
-  const individualSources = Array.isArray(initialSource.individualSources) ? initialSource.individualSources : [];
-  const familySources = Array.isArray(initialSource.familySources) ? initialSource.familySources : [];
-  const eventSources = Array.isArray(initialSource.eventSources) ? initialSource.eventSources : [];
-  const sourceNotes = Array.isArray(initialSource.sourceNotes) ? initialSource.sourceNotes : [];
-  const sourceMedia = Array.isArray(initialSource.sourceMedia) ? initialSource.sourceMedia : [];
-
   const mainBody = (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -277,142 +271,8 @@ export function SourceEditForm(props: SourceEditFormProps) {
     </div>
   );
 
-  const emptyCitations = citationCount(initialSource) === 0 && sourceNotes.length === 0 && sourceMedia.length === 0;
-
-  const citationsBody = emptyCitations ? (
-    <p className="text-sm text-muted-foreground">
-      No individuals, families, events, notes, or media link to this source yet. Citations usually appear when you attach a source from a person, family, or
-      event screen.
-    </p>
-  ) : (
-    <div className="space-y-6">
-      {individualSources.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Individuals</p>
-          <ul className="mt-2 space-y-2 text-sm">
-            {individualSources.map((row: Record<string, unknown>) => {
-              const ind = row.individual as Record<string, unknown> | undefined;
-              const id = typeof ind?.id === "string" ? ind.id : "";
-              const name = stripSlashesFromName(typeof ind?.fullName === "string" ? ind.fullName : null) || "—";
-              const page = typeof row.page === "string" ? row.page.trim() : "";
-              const cite = typeof row.citationText === "string" ? row.citationText.trim() : "";
-              return (
-                <li key={String(row.id ?? `${id}-ind`)} className="rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2">
-                  {id ? (
-                    <Link href={`/admin/individuals/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                      {name}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">{name}</span>
-                  )}
-                  {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
-                  {cite ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{cite}</p> : null}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-      {familySources.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Families</p>
-          <ul className="mt-2 space-y-2 text-sm">
-            {familySources.map((row: Record<string, unknown>) => {
-              const fam = row.family as Record<string, unknown> | undefined;
-              const id = typeof fam?.id === "string" ? fam.id : "";
-              const h = stripSlashesFromName((fam?.husband as Record<string, unknown> | undefined)?.fullName as string | undefined);
-              const w = stripSlashesFromName((fam?.wife as Record<string, unknown> | undefined)?.fullName as string | undefined);
-              const label = [h, w].filter(Boolean).join(" · ") || "Family";
-              const page = typeof row.page === "string" ? row.page.trim() : "";
-              return (
-                <li key={String(row.id ?? `${id}-fam`)} className="rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2">
-                  {id ? (
-                    <Link href={`/admin/families/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                      {label}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">{label}</span>
-                  )}
-                  {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-      {eventSources.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events</p>
-          <ul className="mt-2 space-y-2 text-sm">
-            {eventSources.map((row: Record<string, unknown>) => {
-              const ev = row.event as Record<string, unknown> | undefined;
-              const id = typeof ev?.id === "string" ? ev.id : "";
-              const et = typeof ev?.eventType === "string" ? ev.eventType : "";
-              const eventLabel = labelGedcomEventType(et) || et || "Event";
-              const page = typeof row.page === "string" ? row.page.trim() : "";
-              return (
-                <li key={String(row.id ?? `${id}-ev`)} className="rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2">
-                  {id ? (
-                    <Link href={`/admin/events/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                      {eventLabel}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">{eventLabel}</span>
-                  )}
-                  {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-      {sourceNotes.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
-          <ul className="mt-2 space-y-2 text-sm">
-            {sourceNotes.map((row: Record<string, unknown>) => {
-              const note = row.note as Record<string, unknown> | undefined;
-              const id = typeof note?.id === "string" ? note.id : "";
-              const nx = typeof note?.xref === "string" ? note.xref.trim() : "";
-              return (
-                <li key={String(row.id ?? id)} className="rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2">
-                  {id ? (
-                    <Link href={`/admin/notes/${id}/edit`} className="font-medium text-primary underline-offset-2 hover:underline">
-                      {nx || "Note"}
-                    </Link>
-                  ) : (
-                    <span>{nx || "Note"}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-      {sourceMedia.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Media</p>
-          <ul className="mt-2 space-y-2 text-sm">
-            {sourceMedia.map((row: Record<string, unknown>) => {
-              const media = row.media as Record<string, unknown> | undefined;
-              const id = typeof media?.id === "string" ? media.id : "";
-              const mt = typeof media?.title === "string" && media.title.trim() ? media.title.trim() : "Media";
-              return (
-                <li key={String(row.id ?? id)} className="rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2">
-                  {id ? (
-                    <Link href={`/admin/media/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                      {mt}
-                    </Link>
-                  ) : (
-                    <span>{mt}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-    </div>
+  const citationsBody = (
+    <SourceCitationsPanel isCreate={isCreate} sourceId={sourceId} source={initialSource} />
   );
 
   const recordBody = isCreate ? (
@@ -421,7 +281,9 @@ export function SourceEditForm(props: SourceEditFormProps) {
         When you create this source, the server assigns the next GEDCOM 5.5 source xref for this tree (for example <span className="font-mono text-foreground">@S12@</span>
         ). You do not enter the xref yourself.
       </p>
-      <p className="text-muted-foreground">After saving, you can keep editing publication details and attach citations from person, family, or event screens.</p>
+      <p className="text-muted-foreground">
+        After saving, use Linked citations on this page to attach people, families, events, and media—or attach from those records’ screens.
+      </p>
     </div>
   ) : (
     <div className="space-y-3 text-sm">
