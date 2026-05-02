@@ -8,6 +8,8 @@ import busboy from "busboy";
 
 import {
   adminMediaGedcomAdminDir,
+  adminMediaSiteAssetsRootDir,
+  adminMediaUserUploadsRootDir,
   adminMediaStoreCategoryFromMime,
 } from "@/lib/admin/media-upload-storage";
 import { postProcessAdminMediaUpload } from "@/lib/admin/optimize-admin-uploaded-media";
@@ -23,6 +25,15 @@ export type StreamAdminMediaUploadSuccess = {
 export type StreamAdminMediaUploadError = {
   status: number;
   error: string;
+};
+
+/** Where to write bytes under {@link adminMediaUploadsParentDir}. */
+export type AdminMediaUploadTarget = "gedcom" | "site" | "user";
+
+export type StreamAdminMediaUploadOptions = {
+  target?: AdminMediaUploadTarget;
+  /** Required when `target` is `user` (path segment under `user-media/`). */
+  userId?: string;
 };
 
 function sanitizeBasename(name: string): string {
@@ -59,6 +70,8 @@ async function saveUploadStreamToDisk(
   fileStream: NodeReadable & { truncated?: boolean },
   info: { filename?: string; mimeType?: string },
   maxBytes: number,
+  target: AdminMediaUploadTarget,
+  userIdForPath: string | undefined,
 ): Promise<StreamAdminMediaUploadSuccess | StreamAdminMediaUploadError> {
   const mimeType = (info.mimeType || "application/octet-stream").trim() || "application/octet-stream";
   const originalName = info.filename?.trim() || "upload.bin";
@@ -72,8 +85,27 @@ async function saveUploadStreamToDisk(
   const id = randomUUID();
   const category = adminMediaStoreCategoryFromMime(mimeType);
   const filename = `${id}_${safe}`;
-  const gedcomDir = adminMediaGedcomAdminDir();
-  const publicDir = path.join(gedcomDir, category);
+  let publicDir: string;
+  let relativeDirParts: string[];
+  try {
+    if (target === "gedcom") {
+      publicDir = path.join(adminMediaGedcomAdminDir(), category);
+      relativeDirParts = ["uploads", "gedcom-admin", category];
+    } else if (target === "site") {
+      publicDir = path.join(adminMediaSiteAssetsRootDir(), category);
+      relativeDirParts = ["uploads", "site-media", category];
+    } else {
+      const uid = userIdForPath?.trim();
+      if (!uid) {
+        return { status: 400, error: "userId is required for user-media uploads" };
+      }
+      publicDir = path.join(adminMediaUserUploadsRootDir(uid), category);
+      relativeDirParts = ["uploads", "user-media", uid, category];
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: 400, error: msg };
+  }
   await mkdir(publicDir, { recursive: true });
   const diskPath = path.join(publicDir, filename);
   const writeStream = createWriteStream(diskPath);
@@ -113,13 +145,13 @@ async function saveUploadStreamToDisk(
     return { status: 400, error: "Empty file" };
   }
 
-  const relativeDir = path.join("uploads", "gedcom-admin", category);
+  const relativeDir = path.join(...relativeDirParts);
   let fileRef = `/${relativeDir.replace(/\\/g, "/")}/${filename}`;
   let outMime = info.mimeType?.trim() ? info.mimeType : null;
   let suggestedForm = mimeToForm(mimeType);
   let outSize = size;
 
-  if (category === "images" || category === "videos") {
+  if ((target === "gedcom" || target === "site" || target === "user") && (category === "images" || category === "videos")) {
     const processed = await postProcessAdminMediaUpload({
       diskPath,
       filename,
@@ -152,7 +184,10 @@ async function saveUploadStreamToDisk(
 export function streamAdminMediaUpload(
   request: Request,
   maxBytes: number,
+  options?: StreamAdminMediaUploadOptions,
 ): Promise<StreamAdminMediaUploadSuccess | StreamAdminMediaUploadError> {
+  const target = options?.target ?? "gedcom";
+  const userIdForPath = options?.userId;
   return new Promise((resolve) => {
     let settled = false;
     const resolveOnce = (r: StreamAdminMediaUploadSuccess | StreamAdminMediaUploadError) => {
@@ -195,7 +230,7 @@ export function streamAdminMediaUpload(
         stream.resume();
         return;
       }
-      fileWork = saveUploadStreamToDisk(stream, info, maxBytes);
+      fileWork = saveUploadStreamToDisk(stream, info, maxBytes, target, userIdForPath);
     });
 
     bb.on("error", (err) => {

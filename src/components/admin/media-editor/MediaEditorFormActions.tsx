@@ -10,9 +10,18 @@ export type MediaEditorFormActionsProps = {
   mediaId: string;
   backHref: string;
   submitting: boolean;
+  saveDisabled?: boolean;
+  pendingHint?: string;
 };
 
-export function MediaEditorFormActions({ mode, mediaId, backHref, submitting }: MediaEditorFormActionsProps) {
+export function MediaEditorFormActions({
+  mode,
+  mediaId,
+  backHref,
+  submitting,
+  saveDisabled = false,
+  pendingHint,
+}: MediaEditorFormActionsProps) {
   return (
     <div
       className={cn(
@@ -22,7 +31,7 @@ export function MediaEditorFormActions({ mode, mediaId, backHref, submitting }: 
     >
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <p className="order-3 w-full text-center text-xs text-muted-foreground sm:order-none sm:w-auto sm:text-left">
-          {submitting ? "Saving your changes…" : "Changes apply when you save."}
+          {pendingHint ?? (submitting ? "Saving your changes…" : "Changes apply when you save.")}
         </p>
         <div className="flex w-full flex-1 justify-end gap-2 sm:w-auto">
           <Link
@@ -31,7 +40,7 @@ export function MediaEditorFormActions({ mode, mediaId, backHref, submitting }: 
           >
             Cancel
           </Link>
-          <button type="submit" className={cn(buttonVariants(), "min-h-11 min-w-[8rem]")} disabled={submitting}>
+          <button type="submit" className={cn(buttonVariants(), "min-h-11 min-w-[8rem]")} disabled={submitting || saveDisabled}>
             {submitting ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

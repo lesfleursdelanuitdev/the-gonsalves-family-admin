@@ -51,6 +51,12 @@ export interface MediaEditorInitial {
       endDay: number | null;
     };
   }>;
+  /** Site media (detail API). */
+  isPublic?: boolean;
+  exportable?: boolean;
+  /** User media (detail API). */
+  visibility?: "private" | "shared" | "public";
+  reusePolicy?: "private" | "reusable_in_tree" | "reusable_public";
 }
 
 export type MediaEditorTab =

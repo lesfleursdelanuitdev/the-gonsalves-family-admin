@@ -23,7 +23,12 @@ export async function cleanupNonFkReferencesToGedcomMedia(
 
   await tx.story.updateMany({
     where: { coverMediaId: mediaId },
-    data: { coverMediaId: null },
+    data: { coverMediaId: null, coverMediaKind: null },
+  });
+
+  await tx.story.updateMany({
+    where: { profileMediaId: mediaId },
+    data: { profileMediaId: null, profileMediaKind: null },
   });
 
   await tx.albumMedia.deleteMany({

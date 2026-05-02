@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, CalendarDays, CaseSensitive, Cog, Image, Lightbulb, StickyNote, User, Users } from "lucide-react";
 import { IndividualEditorNotesTabPanel } from "@/components/admin/individual-editor/IndividualEditorNotesTabPanel";
+import type { ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import { IndividualEditorMediaTabPanel } from "@/components/admin/individual-editor/IndividualEditorMediaTabPanel";
 import { IndividualEditorSourcesTabPanel } from "@/components/admin/individual-editor/IndividualEditorSourcesTabPanel";
 import { IndividualEditorNamesTabPanel } from "@/components/admin/individual-editor/IndividualEditorNamesTabPanel";
@@ -313,6 +314,9 @@ export function IndividualEditForm(props: Props) {
     />
   );
 
+  const profileMediaSelection =
+    (initialIndividual as Record<string, unknown> | undefined)?.profileMediaSelection ?? null;
+
   const mediaBody = (
     <IndividualEditorMediaTabPanel
       hidden={false}
@@ -322,6 +326,7 @@ export function IndividualEditForm(props: Props) {
       individualNewEventLabel={editor.individualNewEventLabel}
       linkedMediaIds={linkedMediaIds}
       individualMedia={individualMedia}
+      profileMediaSelection={profileMediaSelection as ProfileMediaSelectionShape}
       onMediaAttached={() => {
         router.refresh();
       }}

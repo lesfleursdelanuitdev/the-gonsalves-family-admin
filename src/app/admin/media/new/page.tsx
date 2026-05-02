@@ -23,7 +23,7 @@ function AdminMediaNewPageInner() {
   const searchParams = useSearchParams();
   const qs = searchParams.toString();
 
-  const { prefillIndividuals, prefillFamilies, contextReturnHref, backHref, backLabel } = useMemo(() => {
+  const { prefillIndividuals, prefillFamilies, contextReturnHref, backHref, backLabel, initialCreateScope } = useMemo(() => {
     const sp = new URLSearchParams(qs);
     const returnTo = sanitizeReturnTo(sp.get("returnTo"));
     const indId = sp.get("individualId")?.trim();
@@ -36,12 +36,18 @@ function AdminMediaNewPageInner() {
     const famLabel = sp.get("familyLabel")?.trim() || "Family";
     const prefillFam =
       famId != null && famId !== "" ? [{ familyId: famId, label: famLabel }] : undefined;
+    const scopeRaw = sp.get("scope")?.trim();
+    let initialCreateScope: "family-tree" | "site-assets" | "my-media" = "family-tree";
+    if (scopeRaw === "site-assets" || scopeRaw === "my-media" || scopeRaw === "family-tree") {
+      initialCreateScope = scopeRaw;
+    }
     return {
       prefillIndividuals: prefillInd,
       prefillFamilies: prefillFam,
       contextReturnHref: returnTo,
       backHref: returnTo ?? "/admin/media",
       backLabel: returnTo ? "Back to editor" : "Media",
+      initialCreateScope,
     };
   }, [qs]);
 
@@ -51,6 +57,7 @@ function AdminMediaNewPageInner() {
         mode="create"
         hideBackLink
         contextReturnHref={contextReturnHref}
+        initialCreateScope={initialCreateScope}
         prefillIndividuals={prefillIndividuals}
         prefillFamilies={prefillFamilies}
       />

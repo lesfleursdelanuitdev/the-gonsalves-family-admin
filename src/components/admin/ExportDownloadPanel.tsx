@@ -138,22 +138,26 @@ export function ExportDownloadPanel() {
         </a>
         {!includeBundle ? (
           <>
-            <a
-              href={exportHref("json", basename)}
-              className={cn(buttonVariants({ variant: "ghost" }), "inline-flex items-center gap-2")}
-              onClick={() => onDownloadStart("json")}
-            >
-              <FileJson className="size-4" />
-              Download JSON
-            </a>
-            <a
-              href={exportHref("csv", basename)}
-              className={cn(buttonVariants({ variant: "ghost" }), "inline-flex items-center gap-2")}
-              onClick={() => onDownloadStart("csv")}
-            >
-              <FileSpreadsheet className="size-4" />
-              Download CSV
-            </a>
+            {selectedFormat !== "json" ? (
+              <a
+                href={exportHref("json", basename)}
+                className={cn(buttonVariants({ variant: "ghost" }), "inline-flex items-center gap-2")}
+                onClick={() => onDownloadStart("json")}
+              >
+                <FileJson className="size-4" />
+                Download JSON
+              </a>
+            ) : null}
+            {selectedFormat !== "csv" ? (
+              <a
+                href={exportHref("csv", basename)}
+                className={cn(buttonVariants({ variant: "ghost" }), "inline-flex items-center gap-2")}
+                onClick={() => onDownloadStart("csv")}
+              >
+                <FileSpreadsheet className="size-4" />
+                Download CSV
+              </a>
+            ) : null}
           </>
         ) : null}
         {activeDownload ? (

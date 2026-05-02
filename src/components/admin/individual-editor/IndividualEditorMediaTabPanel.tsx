@@ -8,6 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { IndividualEditMediaJoin } from "@/components/admin/individual-editor/individual-editor-types";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import {
+  EntityGedcomProfileMediaSection,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
+import { ADMIN_INDIVIDUALS_QUERY_KEY } from "@/hooks/useAdminIndividuals";
 
 export type IndividualEditorMediaTabPanelProps = {
   hidden: boolean;
@@ -17,6 +22,7 @@ export type IndividualEditorMediaTabPanelProps = {
   individualNewEventLabel: string;
   linkedMediaIds: ReadonlySet<string>;
   individualMedia: IndividualEditMediaJoin[];
+  profileMediaSelection: ProfileMediaSelectionShape;
   onMediaAttached: () => void;
 };
 
@@ -28,6 +34,7 @@ export function IndividualEditorMediaTabPanel({
   individualNewEventLabel,
   linkedMediaIds,
   individualMedia,
+  profileMediaSelection,
   onMediaAttached,
 }: IndividualEditorMediaTabPanelProps) {
   const returnTo = `/admin/individuals/${individualId}/edit`;
@@ -75,8 +82,21 @@ export function IndividualEditorMediaTabPanel({
       </>
     );
 
+  const profileBlock =
+    mode === "edit" && individualId ? (
+      <EntityGedcomProfileMediaSection
+        entity="individual"
+        entityId={individualId}
+        heading="Profile picture"
+        profileMediaSelection={profileMediaSelection}
+        invalidateQueryKeys={[[...ADMIN_INDIVIDUALS_QUERY_KEY, "detail", individualId]]}
+        onAfterMutation={onMediaAttached}
+      />
+    ) : null;
+
   const body = noCardShell ? (
     <>
+      {profileBlock ? <div className="mb-4">{profileBlock}</div> : null}
       <div className="mb-4">{actions}</div>
       <div className="space-y-3">{listBlock}</div>
     </>
@@ -89,7 +109,10 @@ export function IndividualEditorMediaTabPanel({
         </div>
         {actions}
       </CardHeader>
-      <CardContent className="space-y-3">{listBlock}</CardContent>
+      <CardContent className="space-y-3">
+        {profileBlock}
+        {listBlock}
+      </CardContent>
     </Card>
   );
 

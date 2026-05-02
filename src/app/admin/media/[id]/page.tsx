@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { FileImage, FileText, Film, Headphones } from "lucide-react";
 import { useAdminMediaItem } from "@/hooks/useAdminMedia";
 import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
@@ -55,10 +55,14 @@ function isHttpUrl(s: string): boolean {
 
 export default function AdminMediaDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const scopeParam = searchParams.get("scope");
+  const scope =
+    scopeParam === "site-assets" || scopeParam === "my-media" ? scopeParam : "family-tree";
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const { data, isLoading, error } = useAdminMediaItem(id);
+  const { data, isLoading, error } = useAdminMediaItem(id, scope);
   const media = data?.media as Record<string, unknown> | undefined;
 
   const xref = (media?.xref as string | null) ?? "";
@@ -130,7 +134,7 @@ export default function AdminMediaDetailPage() {
           </div>
         </div>
         <Link
-          href={`/admin/media/${id}/edit`}
+          href={`/admin/media/${id}/edit${scope === "family-tree" ? "" : `?scope=${scope}`}`}
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
         >
           Edit

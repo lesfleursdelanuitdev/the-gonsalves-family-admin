@@ -13,57 +13,7 @@ import {
 import { refreshIndividualKeyFactsDenorm } from "@/lib/admin/admin-individual-key-events";
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { refreshFamilyDivorceDenorm, refreshFamilyMarriageDenorm } from "@/lib/admin/admin-family-marriage";
-import { gedcomMediaWithAppTagsInclude } from "@/lib/admin/gedcom-media-with-tags-include";
-
-const primaryNameFormSelect = {
-  where: { isPrimary: true },
-  take: 1,
-  select: {
-    givenNames: {
-      orderBy: { position: "asc" as const },
-      select: { givenName: { select: { givenName: true } } },
-    },
-    surnames: {
-      orderBy: { position: "asc" as const },
-      select: { surname: { select: { surname: true } } },
-    },
-  },
-} as const;
-
-const individualForEventLink = {
-  select: {
-    id: true,
-    fullName: true,
-    xref: true,
-    sex: true,
-    individualNameForms: primaryNameFormSelect,
-  },
-} as const;
-
-const EVENT_DETAIL_INCLUDE = {
-  date: true,
-  place: true,
-  eventNotes: { include: { note: true } },
-  eventSources: { include: { source: true } },
-  eventMedia: { include: { media: gedcomMediaWithAppTagsInclude } },
-  individualEvents: {
-    include: {
-      individual: individualForEventLink,
-    },
-  },
-  familyEvents: {
-    include: {
-      family: {
-        select: {
-          id: true,
-          xref: true,
-          husband: individualForEventLink,
-          wife: individualForEventLink,
-        },
-      },
-    },
-  },
-} as const;
+import { ADMIN_EVENT_DETAIL_INCLUDE } from "@/app/api/admin/events/event-admin-detail-include";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
   const { id } = await ctx.params;
@@ -71,7 +21,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 
   const event = await prisma.gedcomEvent.findFirst({
     where: { id, fileUuid },
-    include: EVENT_DETAIL_INCLUDE,
+    include: ADMIN_EVENT_DETAIL_INCLUDE,
   });
 
   if (!event) {
@@ -267,7 +217,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 
     const event = await prisma.gedcomEvent.findFirst({
       where: { id, fileUuid },
-      include: EVENT_DETAIL_INCLUDE,
+      include: ADMIN_EVENT_DETAIL_INCLUDE,
     });
 
     return NextResponse.json({ event });

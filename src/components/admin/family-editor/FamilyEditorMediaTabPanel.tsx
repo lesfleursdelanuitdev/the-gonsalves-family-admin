@@ -8,6 +8,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { FamilyEditMediaJoin } from "@/components/admin/family-editor/family-editor-types";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import {
+  EntityGedcomProfileMediaSection,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
+import { ADMIN_FAMILIES_QUERY_KEY } from "@/hooks/admin-families-shared";
 
 export type FamilyEditorMediaTabPanelProps = {
   noCardShell?: boolean;
@@ -16,6 +21,7 @@ export type FamilyEditorMediaTabPanelProps = {
   familyNewEventLabel: string;
   linkedFamilyMediaIds: ReadonlySet<string>;
   familyMedia: FamilyEditMediaJoin[];
+  profileMediaSelection: ProfileMediaSelectionShape;
   onMediaAttached: () => void;
 };
 
@@ -26,6 +32,7 @@ export function FamilyEditorMediaTabPanel({
   familyNewEventLabel,
   linkedFamilyMediaIds,
   familyMedia,
+  profileMediaSelection,
   onMediaAttached,
 }: FamilyEditorMediaTabPanelProps) {
   const returnTo =
@@ -88,8 +95,23 @@ export function FamilyEditorMediaTabPanel({
       </div>
     ) : null;
 
+  const profileBlock =
+    mode === "edit" && familyId ? (
+      <EntityGedcomProfileMediaSection
+        entity="family"
+        entityId={familyId}
+        heading="Family cover image"
+        profileMediaSelection={profileMediaSelection}
+        invalidateQueryKeys={[[...ADMIN_FAMILIES_QUERY_KEY, "detail", familyId]]}
+        emptyHint="No family cover image set."
+        chooseTriggerLabel="Choose family cover image"
+        onAfterMutation={onMediaAttached}
+      />
+    ) : null;
+
   const inner = (
     <div className="space-y-4">
+      {profileBlock}
       {listBlock}
       {actions}
     </div>

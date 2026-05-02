@@ -85,3 +85,25 @@ export async function getAdminFileUuid(): Promise<string> {
   cachedFileUuid = r.fileUuid;
   return cachedFileUuid;
 }
+
+/**
+ * `Story.treeId` / admin scoping: prefers `ADMIN_TREE_ID`, otherwise resolves the tree row
+ * linked to the admin GEDCOM file (`getAdminFileUuid()` → `trees.gedcom_file_id`).
+ */
+export async function getAdminTreeId(): Promise<string> {
+  const envTree = process.env.ADMIN_TREE_ID?.trim();
+  if (envTree) {
+    const row = await prisma.tree.findUnique({ where: { id: envTree }, select: { id: true } });
+    if (row) return row.id;
+    throw new AdminTreeResolutionError(`No tree found for ADMIN_TREE_ID=${envTree}.`);
+  }
+  const fileUuid = await getAdminFileUuid();
+  const row = await prisma.tree.findFirst({
+    where: { gedcomFileId: fileUuid },
+    select: { id: true },
+  });
+  if (row) return row.id;
+  throw new AdminTreeResolutionError(
+    "Could not resolve Tree.id for this admin GEDCOM file. Set ADMIN_TREE_ID to your trees.id UUID.",
+  );
+}

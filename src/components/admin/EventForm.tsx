@@ -31,6 +31,10 @@ import { GedcomDateInput } from "@/components/admin/GedcomDateInput";
 import { GedcomPlaceInput } from "@/components/admin/GedcomPlaceInput";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import {
+  EntityGedcomProfileMediaSection,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
 import { MediaPicker } from "@/components/admin/media-picker";
 import { NoteLinkedRecordsPicker } from "@/components/admin/NoteLinkedRecordsPicker";
 import { ADMIN_EVENTS_QUERY_KEY, useCreateEvent, useUpdateEvent } from "@/hooks/useAdminEvents";
@@ -647,8 +651,24 @@ export function EventForm({
     </div>
   );
 
+  const profileMediaSelection = (initialEvent?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
+
   const mediaBody = (
     <div className="space-y-4">
+      {mode === "edit" && eventId ? (
+        <EntityGedcomProfileMediaSection
+          entity="event"
+          entityId={eventId}
+          heading="Event cover image"
+          profileMediaSelection={profileMediaSelection}
+          invalidateQueryKeys={[[...ADMIN_EVENTS_QUERY_KEY, "detail", eventId]]}
+          emptyHint="No event cover image set."
+          chooseTriggerLabel="Choose event cover image"
+          onAfterMutation={() => {
+            router.refresh();
+          }}
+        />
+      ) : null}
       {mode === "edit" && eventId ? (
         <>
           {eventMediaItems.length === 0 ? (

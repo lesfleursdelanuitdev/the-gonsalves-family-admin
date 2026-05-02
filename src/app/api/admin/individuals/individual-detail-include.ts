@@ -50,6 +50,9 @@ export const ADMIN_INDIVIDUAL_DETAIL_INCLUDE = {
   individualMedia: {
     include: { media: gedcomMediaWithAppTagsInclude },
   },
+  profileMediaSelection: {
+    include: { media: gedcomMediaWithAppTagsInclude },
+  },
   individualSources: {
     include: { source: true },
   },

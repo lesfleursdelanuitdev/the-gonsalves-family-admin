@@ -7,7 +7,7 @@ export function isMediaPickerTargetLinkable(targetType: MediaPickerTargetType): 
 
 /**
  * Links an existing GEDCOM media row to the given entity via the appropriate junction API.
- * Story/document targets are app-level and are not wired in the admin API yet — use `onAttach` only.
+ * Story/document targets have no junction route: the picker calls `onAttach` only (client stores e.g. `mediaId`).
  */
 export async function attachMediaToTarget(
   mediaId: string,

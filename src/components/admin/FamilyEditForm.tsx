@@ -7,6 +7,7 @@ import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { FamilyEditorAdvancedFamilyPanel } from "@/components/admin/family-editor/FamilyEditorAdvancedFamilyPanel";
 import { FamilyEditorChildrenTabPanel } from "@/components/admin/family-editor/FamilyEditorChildrenTabPanel";
 import { FamilyEditorEventsTabPanel } from "@/components/admin/family-editor/FamilyEditorEventsTabPanel";
+import type { ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import { FamilyEditorMediaTabPanel } from "@/components/admin/family-editor/FamilyEditorMediaTabPanel";
 import { FamilyEditorMobileSectionSelect } from "@/components/admin/family-editor/FamilyEditorMobileSectionSelect";
 import { FamilyEditorNotesTabPanel } from "@/components/admin/family-editor/FamilyEditorNotesTabPanel";
@@ -230,6 +231,9 @@ export function FamilyEditForm({
     />
   );
 
+  const profileMediaSelection =
+    (e.fam as Record<string, unknown> | undefined)?.profileMediaSelection ?? null;
+
   const mediaBody = (
     <FamilyEditorMediaTabPanel
       mode={e.mode}
@@ -237,6 +241,7 @@ export function FamilyEditForm({
       familyNewEventLabel={e.familyNewEventLabel}
       linkedFamilyMediaIds={e.linkedFamilyMediaIds}
       familyMedia={e.familyMedia}
+      profileMediaSelection={profileMediaSelection as ProfileMediaSelectionShape}
       onMediaAttached={e.onMediaAttached}
     />
   );

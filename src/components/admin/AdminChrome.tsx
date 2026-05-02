@@ -55,7 +55,9 @@ function closeAdminDrawer() {
 
 export function AdminChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
+  const p = pathname.replace(/\/$/, "") || "/";
   const isMessagesRoute = pathname.startsWith("/admin/messages");
+  const isStoryEditorShell = p.startsWith("/admin/stories/") && p !== "/admin/stories";
   const { data: user, isLoading } = useCurrentUser();
   const logout = useLogout();
   const { collapsed, toggleCollapsed } = useSidebarCollapsed();
@@ -78,14 +80,14 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
         <main
           className={cn(
             "min-h-0 flex-1 bg-base-100",
-            isMessagesRoute
+            isMessagesRoute || isStoryEditorShell
               ? "flex flex-col overflow-hidden"
               : "overflow-auto p-4 md:p-6 lg:p-8",
           )}
         >
-          {isMessagesRoute ? (
+          {isMessagesRoute || isStoryEditorShell ? (
             <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6 lg:px-8 lg:pb-8">
-              <AdminTreeSetupBanner />
+              {!isStoryEditorShell ? <AdminTreeSetupBanner /> : null}
               <div className="min-h-0 flex-1">{children}</div>
             </div>
           ) : (

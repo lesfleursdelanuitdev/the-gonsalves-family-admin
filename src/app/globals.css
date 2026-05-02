@@ -1020,3 +1020,42 @@ body {
     border-color: color-mix(in oklch, var(--color-base-content) 26%, var(--color-base-300));
   }
 }
+
+/* Story Creator — TipTap / ProseMirror (theme tokens only) */
+.story-tiptap .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.story-tiptap .ProseMirror th,
+.story-tiptap .ProseMirror td {
+  border: 1px solid color-mix(in oklch, var(--color-base-content) 16%, transparent);
+  padding: 0.35rem 0.55rem;
+  vertical-align: top;
+}
+.story-tiptap .ProseMirror th {
+  background: color-mix(in oklch, var(--color-base-content) 6%, var(--color-base-100));
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.story-tiptap .ProseMirror pre,
+.story-tiptap .ProseMirror pre.story-editor-codeblock {
+  white-space: pre-wrap;
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-box);
+  background: color-mix(in oklch, var(--color-base-content) 5%, var(--color-base-100));
+  border: 1px solid color-mix(in oklch, var(--color-base-content) 10%, transparent);
+}
+.story-tiptap .ProseMirror mark {
+  border-radius: 0.125rem;
+}
+/* Empty rich-text — placeholder reads as intentional copy, not a bug */
+.story-tiptap .ProseMirror p.is-editor-empty:first-child::before {
+  color: color-mix(in oklch, var(--color-base-content) 44%, transparent);
+  font-weight: 400;
+}

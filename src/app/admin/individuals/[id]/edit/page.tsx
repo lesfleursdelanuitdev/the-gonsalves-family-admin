@@ -59,6 +59,11 @@ export default function AdminIndividualEditPage() {
   const personLabel = ind ? individualEditPageLabel(ind) : "—";
   const photoUrl = useMemo(() => {
     if (!ind) return null;
+    const profile = ind.profileMediaSelection as { media?: Record<string, unknown> } | null | undefined;
+    const fromProfile = profile?.media
+      ? firstIndividualPhotoUrl([{ media: profile.media }])
+      : null;
+    if (fromProfile) return fromProfile;
     return firstIndividualPhotoUrl(
       ind.individualMedia as { media: Record<string, unknown> }[] | null | undefined,
     );

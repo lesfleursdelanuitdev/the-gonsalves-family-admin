@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { displayTagName } from "@/lib/admin/display-tag-name";
+import { deleteJson, patchJson, postJson } from "@/lib/infra/api";
 import { cn } from "@/lib/utils";
 import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import { formatBytes } from "@/lib/admin/format-bytes";
@@ -56,10 +57,17 @@ type MediaEditorFormProps =
       mode: "create";
       hideBackLink?: boolean;
       contextReturnHref?: string;
+      initialCreateScope?: "family-tree" | "site-assets" | "my-media";
       prefillIndividuals?: { individualId: string; label: string }[];
       prefillFamilies?: { familyId: string; label: string }[];
     }
-  | { mode: "edit"; mediaId: string; initialMedia: MediaEditorInitial; hideBackLink?: boolean };
+  | {
+      mode: "edit";
+      mediaId: string;
+      initialMedia: MediaEditorInitial;
+      hideBackLink?: boolean;
+      scope?: "family-tree" | "site-assets" | "my-media";
+    };
 
 type MediaMobileSectionKey =
   | "media-preview"
@@ -145,12 +153,38 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
 
   const initial = mode === "edit" ? props.initialMedia : null;
 
+  const [sitePublishIsPublic, setSitePublishIsPublic] = useState(() =>
+    mode === "edit" && initial?.isPublic !== undefined ? Boolean(initial.isPublic) : true,
+  );
+  const [sitePublishExportable, setSitePublishExportable] = useState(() =>
+    mode === "edit" && initial?.exportable !== undefined ? Boolean(initial.exportable) : false,
+  );
+  const [userPublishVisibility, setUserPublishVisibility] = useState<"private" | "shared" | "public">(() => {
+    const v = initial?.visibility;
+    if (mode === "edit" && (v === "private" || v === "shared" || v === "public")) return v;
+    return "private";
+  });
+  const [userPublishReusePolicy, setUserPublishReusePolicy] = useState<
+    "private" | "reusable_in_tree" | "reusable_public"
+  >(() => {
+    const r = initial?.reusePolicy;
+    if (mode === "edit" && (r === "private" || r === "reusable_in_tree" || r === "reusable_public")) {
+      return r;
+    }
+    return "private";
+  });
+
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [peoplePickerOpen, setPeoplePickerOpen] = useState(false);
   const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
   const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<MediaMobileSectionKey | null>("media-preview");
+  const [createScope, setCreateScope] = useState<"family-tree" | "site-assets" | "my-media">(
+    mode === "create" ? (props.initialCreateScope ?? "family-tree") : (props.scope ?? "family-tree"),
+  );
+  const activeScope = mode === "create" ? createScope : (props.scope ?? "family-tree");
+  const supportsGedcomLinks = activeScope === "family-tree";
 
   const createMedia = useCreateMedia();
   const updateMedia = useUpdateMedia();
@@ -160,7 +194,22 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
     mode,
     initial,
     setErrMsg,
-    createMedia,
+    mediaUploadScope: activeScope,
+    createMediaForScope: async (payload) => {
+      if (createScope === "site-assets") {
+        await postJson("/api/admin/site-media", payload);
+        return;
+      }
+      if (createScope === "my-media") {
+        await postJson("/api/admin/user-media", payload);
+        return;
+      }
+      await createMedia.mutateAsync({
+        title: payload.title,
+        fileRef: payload.fileRef,
+        form: payload.form,
+      });
+    },
     queryClient: qc,
     router,
   });
@@ -233,7 +282,24 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
     prefillIndividuals: props.mode === "create" ? props.prefillIndividuals : undefined,
     prefillFamilies: props.mode === "create" ? props.prefillFamilies : undefined,
     setErrMsg,
+    detailScope: activeScope,
   });
+
+  const getScopedExtraBody = useCallback(() => {
+    if (activeScope === "site-assets") {
+      return { isPublic: sitePublishIsPublic, exportable: sitePublishExportable };
+    }
+    if (activeScope === "my-media") {
+      return { visibility: userPublishVisibility, reusePolicy: userPublishReusePolicy };
+    }
+    return {};
+  }, [
+    activeScope,
+    sitePublishIsPublic,
+    sitePublishExportable,
+    userPublishVisibility,
+    userPublishReusePolicy,
+  ]);
 
   const { submitting, handleSubmit } = useMediaEditorSubmit({
     mode,
@@ -242,12 +308,28 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
     description: file.description,
     fileRef: file.fileRef,
     form: file.form,
+    getScopedExtraBody,
     contextReturnHref: props.mode === "create" ? props.contextReturnHref : undefined,
+    createScope,
     setErrMsg,
-    createMedia: async (payload) => {
+    createMediaByScope: async (scope, payload) => {
+      if (scope === "site-assets") {
+        return (await postJson("/api/admin/site-media", payload)) as { media: { id: string } };
+      }
+      if (scope === "my-media") {
+        return (await postJson("/api/admin/user-media", payload)) as { media: { id: string } };
+      }
       return (await createMedia.mutateAsync(payload)) as { media: { id: string } };
     },
-    updateMedia: async (payload) => updateMedia.mutateAsync(payload),
+    updateMedia: async (payload) => {
+      if (activeScope === "site-assets") {
+        return patchJson(`/api/admin/site-media/${mediaId}`, payload);
+      }
+      if (activeScope === "my-media") {
+        return patchJson(`/api/admin/user-media/${mediaId}`, payload);
+      }
+      return updateMedia.mutateAsync(payload);
+    },
     persistStagedLinksForNewMedia,
     invalidateMediaQueries,
     invalidateMediaListQuery: async () => qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] }),
@@ -294,21 +376,30 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
   const handleDeleteMedia = useCallback(async () => {
     if (mode !== "edit" || !mediaId) return;
     const label = file.title.trim() || file.fileRef.trim() || mediaId;
-    if (
-      !window.confirm(
-        `Delete media "${label}"? This removes the GEDCOM media row, its tree links, tags, and album links. This cannot be undone.`,
-      )
-    ) {
+    const detail =
+      activeScope === "family-tree"
+        ? "This removes the GEDCOM media row, its tree links, tags, and album links."
+        : activeScope === "site-assets"
+          ? "This soft-deletes the site asset record."
+          : "This soft-deletes your private media record.";
+    if (!window.confirm(`Delete media "${label}"? ${detail} This cannot be undone.`)) {
       return;
     }
     try {
-      await deleteMedia.mutateAsync(mediaId);
+      if (activeScope === "site-assets") {
+        await deleteJson(`/api/admin/site-media/${mediaId}`);
+      } else if (activeScope === "my-media") {
+        await deleteJson(`/api/admin/user-media/${mediaId}`);
+      } else {
+        await deleteMedia.mutateAsync(mediaId);
+      }
+      await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
       toast.success(`Deleted "${label}".`);
       router.push("/admin/media");
     } catch (err) {
       toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-  }, [mode, mediaId, file.title, file.fileRef, deleteMedia, router]);
+  }, [mode, mediaId, file.title, file.fileRef, deleteMedia, router, activeScope, qc]);
 
   const onMobileToggle = useCallback((key: MediaMobileSectionKey) => {
     setMobileExpanded((cur) => (cur === key ? null : key));
@@ -363,11 +454,75 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
         </>
       ) : null}
 
-      <form id={formId} onSubmit={(e) => void handleSubmit(e)} className="w-full space-y-6">
+      <form
+        id={formId}
+        onSubmit={(e) => void handleSubmit(e)}
+        className="w-full space-y-6"
+      >
         {errMsg ? (
           <p className="text-sm text-destructive" role="alert">
             {errMsg}
           </p>
+        ) : null}
+
+        {mode === "create" ? (
+          <section className="rounded-xl border border-base-content/10 bg-card/60 p-4 shadow-sm sm:p-6">
+            <MediaSectionHeader
+              icon={ImagePlus}
+              title="Media scope"
+              description="Choose where this media belongs. This affects linking, permissions, and export behavior."
+            />
+            <div className="space-y-2">
+              <label
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  createScope === "family-tree"
+                    ? "border border-primary/35 bg-primary/10"
+                    : "border border-base-content/12 bg-base-200/35 text-muted-foreground",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="media-scope"
+                  checked={createScope === "family-tree"}
+                  onChange={() => setCreateScope("family-tree")}
+                />
+                Family Tree Media
+              </label>
+              <label
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  createScope === "site-assets"
+                    ? "border border-primary/35 bg-primary/10"
+                    : "border border-base-content/12 bg-base-200/35 text-muted-foreground",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="media-scope"
+                  checked={createScope === "site-assets"}
+                  onChange={() => setCreateScope("site-assets")}
+                />
+                Site Assets
+              </label>
+              <label
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  createScope === "my-media"
+                    ? "border border-primary/35 bg-primary/10"
+                    : "border border-base-content/12 bg-base-200/35 text-muted-foreground",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="media-scope"
+                  checked={createScope === "my-media"}
+                  onChange={() => setCreateScope("my-media")}
+                />
+                My Media
+              </label>
+            </div>
+          </section>
         ) : null}
 
         <MobileSectionToggle
@@ -529,6 +684,8 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           </div>
         </section>
 
+        {supportsGedcomLinks ? (
+          <>
         <MobileSectionToggle
           isDesktop={isDesktop}
           sectionKey="media-people"
@@ -869,6 +1026,8 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
             )}
           </div>
         </section>
+          </>
+        ) : null}
 
         <MobileSectionToggle
           isDesktop={isDesktop}
@@ -1054,6 +1213,80 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
                   <Input id="media-form" value={formValue} onChange={(e) => file.setForm(e.target.value)} />
                 </div>
               </div>
+              {activeScope === "site-assets" ? (
+                <div className="grid gap-4 border-t border-base-content/10 pt-4 md:grid-cols-2">
+                  <div className="flex items-start gap-3 space-y-0">
+                    <input
+                      id="site-media-is-public"
+                      type="checkbox"
+                      className="mt-1 size-4 rounded border-input"
+                      checked={sitePublishIsPublic}
+                      onChange={(e) => setSitePublishIsPublic(e.target.checked)}
+                    />
+                    <div>
+                      <Label htmlFor="site-media-is-public" className="font-medium">
+                        Public on site
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        When off, the asset stays limited to admin workflows that check this flag.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 space-y-0">
+                    <input
+                      id="site-media-exportable"
+                      type="checkbox"
+                      className="mt-1 size-4 rounded border-input"
+                      checked={sitePublishExportable}
+                      onChange={(e) => setSitePublishExportable(e.target.checked)}
+                    />
+                    <div>
+                      <Label htmlFor="site-media-exportable" className="font-medium">
+                        Exportable
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Allow this file to be included in downstream exports when those features are enabled.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {activeScope === "my-media" ? (
+                <div className="grid gap-4 border-t border-base-content/10 pt-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="user-media-visibility">Visibility</Label>
+                    <select
+                      id="user-media-visibility"
+                      className={selectClassName}
+                      value={userPublishVisibility}
+                      onChange={(e) =>
+                        setUserPublishVisibility(e.target.value as "private" | "shared" | "public")
+                      }
+                    >
+                      <option value="private">Private (only you)</option>
+                      <option value="shared">Shared (tree collaborators)</option>
+                      <option value="public">Public</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="user-media-reuse">Reuse policy</Label>
+                    <select
+                      id="user-media-reuse"
+                      className={selectClassName}
+                      value={userPublishReusePolicy}
+                      onChange={(e) =>
+                        setUserPublishReusePolicy(
+                          e.target.value as "private" | "reusable_in_tree" | "reusable_public",
+                        )
+                      }
+                    >
+                      <option value="private">Private — not reusable by others</option>
+                      <option value="reusable_in_tree">Reusable within this tree</option>
+                      <option value="reusable_public">Reusable publicly (when visibility allows)</option>
+                    </select>
+                  </div>
+                </div>
+              ) : null}
               {mode === "edit" ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   <p className="text-sm">
@@ -1092,8 +1325,11 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
             >
             <p className="text-sm font-medium text-destructive">9. Danger zone</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Deleting removes this media record and all links to people, families, events, sources, places, dates,
-              tags, and albums. This cannot be undone.
+              {activeScope === "family-tree"
+                ? "Deleting removes this media record and all links to people, families, events, sources, places, dates, tags, and albums. This cannot be undone."
+                : activeScope === "site-assets"
+                  ? "Deleting soft-deletes this site asset and removes its tag and album links. This cannot be undone."
+                  : "Deleting soft-deletes this private media row and removes its tag and album links. This cannot be undone."}
             </p>
             <Button
               type="button"
@@ -1109,7 +1345,12 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           </>
         ) : null}
 
-        <MediaEditorFormActions mode={mode} mediaId={mediaId} backHref={backHref} submitting={submitting} />
+        <MediaEditorFormActions
+          mode={mode}
+          mediaId={mediaId}
+          backHref={backHref}
+          submitting={submitting}
+        />
       </form>
     </div>
   );

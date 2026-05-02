@@ -11,6 +11,8 @@ type MediaPayload = {
   form: string | null;
 };
 
+type CreateMediaScope = "family-tree" | "site-assets" | "my-media";
+
 type Args = {
   mode: "create" | "edit";
   mediaId: string;
@@ -18,9 +20,15 @@ type Args = {
   description: string;
   fileRef: string;
   form: string;
+  /** Merged into create/update JSON for site-assets / my-media (e.g. isPublic, visibility). */
+  getScopedExtraBody?: () => Record<string, unknown>;
   contextReturnHref?: string;
+  createScope: CreateMediaScope;
   setErrMsg: (msg: string | null) => void;
-  createMedia: (payload: MediaPayload) => Promise<{ media: { id: string } }>;
+  createMediaByScope: (
+    scope: CreateMediaScope,
+    payload: MediaPayload,
+  ) => Promise<{ media: { id: string } }>;
   updateMedia: (payload: { id: string } & MediaPayload) => Promise<unknown>;
   persistStagedLinksForNewMedia: (newId: string) => Promise<void>;
   invalidateMediaQueries: () => Promise<void>;
@@ -35,9 +43,11 @@ export function useMediaEditorSubmit({
   description,
   fileRef,
   form,
+  getScopedExtraBody,
   contextReturnHref,
+  createScope,
   setErrMsg,
-  createMedia,
+  createMediaByScope,
   updateMedia,
   persistStagedLinksForNewMedia,
   invalidateMediaQueries,
@@ -46,30 +56,42 @@ export function useMediaEditorSubmit({
 }: Args) {
   const [submitting, setSubmitting] = useState(false);
 
+  const scopedHref = useCallback((href: string, scope: CreateMediaScope) => {
+    if (scope === "family-tree") return href;
+    const sep = href.includes("?") ? "&" : "?";
+    return `${href}${sep}scope=${scope}`;
+  }, []);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setErrMsg(null);
       setSubmitting(true);
       try {
-        const payload: MediaPayload = {
+        const scopedExtra = getScopedExtraBody?.() ?? {};
+        const payload: MediaPayload & Record<string, unknown> = {
           title: title.trim() || null,
           description: description.trim() || null,
           fileRef: fileRef.trim() || null,
           form: form.trim() || null,
+          ...scopedExtra,
         };
         if (mode === "create") {
-          const res = await createMedia(payload);
+          const res = await createMediaByScope(createScope, payload);
           const newId = res.media.id;
           await persistStagedLinksForNewMedia(newId);
           await invalidateMediaListQuery();
           const back = safeAdminContextHref(contextReturnHref);
-          push(back ?? `/admin/media/${newId}`);
+          if (back) {
+            push(back);
+          } else {
+            push(scopedHref(`/admin/media/${newId}`, createScope));
+          }
           return;
         }
         await updateMedia({ id: mediaId, ...payload });
         await invalidateMediaQueries();
-        push(`/admin/media/${mediaId}`);
+        push(scopedHref(`/admin/media/${mediaId}`, createScope));
       } catch (err) {
         setErrMsg(err instanceof ApiError ? err.message : "Save failed");
       } finally {
@@ -82,12 +104,15 @@ export function useMediaEditorSubmit({
       description,
       fileRef,
       form,
+      getScopedExtraBody,
       mode,
-      createMedia,
+      createScope,
+      createMediaByScope,
       persistStagedLinksForNewMedia,
       invalidateMediaListQuery,
       contextReturnHref,
       push,
+      scopedHref,
       updateMedia,
       mediaId,
       invalidateMediaQueries,

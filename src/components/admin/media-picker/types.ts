@@ -15,6 +15,8 @@ export type MediaPickerPurpose =
   | "gallery"
   | "storyIllustration"
   | "documentaryEvidence"
-  | "eventMedia";
+  | "eventMedia"
+  /** Sets explicit Gedcom profile/cover media (no junction attach). */
+  | "profileCover";
 
 export type MediaPickerMediaTypeFilter = "photo" | "document" | "video" | "audio";

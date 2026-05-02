@@ -134,6 +134,16 @@ export async function patchJson<T>(url: string, body: unknown): Promise<T> {
   return handleResponse<T>(res);
 }
 
+export async function putJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  return handleResponse<T>(res);
+}
+
 export async function deleteJson<T = void>(url: string): Promise<T> {
   const res = await fetch(url, { method: "DELETE", credentials: "include" });
   return handleResponse<T>(res);

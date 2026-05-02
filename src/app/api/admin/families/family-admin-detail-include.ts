@@ -20,6 +20,9 @@ export const ADMIN_FAMILY_DETAIL_INCLUDE = {
   familyMedia: {
     include: { media: gedcomMediaWithAppTagsInclude },
   },
+  profileMediaSelection: {
+    include: { media: gedcomMediaWithAppTagsInclude },
+  },
   familySources: {
     include: { source: true },
   },

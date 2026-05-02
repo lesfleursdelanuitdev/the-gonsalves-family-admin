@@ -263,26 +263,25 @@ export function EventCard({
 
         <div className="min-h-0 flex-1 px-1 pb-1 sm:px-2">
           <div
-            role="button"
-            tabIndex={0}
             className={cn(
-              "group/rel flex w-full cursor-pointer items-start gap-2 rounded-md px-2 py-2 text-left transition-colors",
-              "hover:bg-base-content/[0.04] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-base-content/20 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100",
+              "group/rel flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors",
+              onView ? "hover:bg-base-content/[0.04]" : undefined,
             )}
-            onClick={() => onView?.()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onView?.();
-              }
-            }}
-            aria-label={`View event: ${record.typeLabel}`}
           >
             <RelationshipBlock record={record} />
-            <ChevronRight
-              className="mt-1 size-4 shrink-0 text-base-content/25 transition-colors group-hover/rel:text-base-content/55"
-              aria-hidden
-            />
+            {onView ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="mt-0.5 size-7 shrink-0 text-base-content/35 hover:bg-base-content/[0.04] hover:text-base-content/65"
+                onClick={onView}
+                aria-label={`View event: ${record.typeLabel}`}
+                title="View event"
+              >
+                <ChevronRight className="size-4" aria-hidden />
+              </Button>
+            ) : null}
           </div>
         </div>
       </CardContent>

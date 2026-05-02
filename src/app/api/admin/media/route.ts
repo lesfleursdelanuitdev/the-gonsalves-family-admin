@@ -93,6 +93,7 @@ function toListDto(row: MediaListRow) {
   void _omitCount;
   return {
     ...rest,
+    mediaScope: "family-tree" as const,
     placeCount: counts.placeLinks,
     dateCount: counts.dateLinks,
     tagCount: counts.appTags,

@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@ligneous/prisma";
 import type { AlbumViewModel, AlbumViewSource, MediaSummary } from "@ligneous/album-view";
-import { pickCoverMediaFromSummaries } from "@ligneous/album-view";
+import { resolveAlbumCoverMedia } from "@ligneous/album-view";
 import { collectMediaIdsForGenerated } from "@ligneous/album-generated-queries";
 import { enrichAlbumWithCoverPreview } from "@/lib/admin/album-cover-preview";
 
@@ -95,7 +95,7 @@ export async function resolveGeneratedAlbumViewModelAdmin(
   fileUuid: string,
   source: Exclude<AlbumViewSource, { type: "album" }>,
 ): Promise<AlbumViewModel> {
-  const { title, mediaIds } = await collectMediaIdsForGenerated(prisma, fileUuid, source);
+  const { title, mediaIds, preferredCoverMediaId } = await collectMediaIdsForGenerated(prisma, fileUuid, source);
   const uniqueIds = [...new Set(mediaIds)];
   const inTreeIds = uniqueIds.length
     ? (
@@ -108,7 +108,7 @@ export async function resolveGeneratedAlbumViewModelAdmin(
   const media = await mediaRowsForIds(prisma, fileUuid, inTreeIds);
   const deduped = dedupeById(media);
   const stableKey = JSON.stringify(source);
-  const coverMedia = pickCoverMediaFromSummaries(deduped, stableKey);
+  const coverMedia = resolveAlbumCoverMedia(preferredCoverMediaId, deduped, stableKey);
 
   return {
     kind: "generated",

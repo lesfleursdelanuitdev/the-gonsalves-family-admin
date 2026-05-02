@@ -36,8 +36,26 @@ export function adminMediaGedcomAdminDir(): string {
   return path.join(adminMediaUploadsParentDir(), "gedcom-admin");
 }
 
+/** Tree/site assets: on-disk sibling of `gedcom-admin/`; URLs `/uploads/site-media/...`. */
+export function adminMediaSiteAssetsRootDir(): string {
+  return path.join(adminMediaUploadsParentDir(), "site-media");
+}
+
+/** Per-account uploads: `user-media/<userId>/...`; URLs `/uploads/user-media/<userId>/...`. */
+export function adminMediaUserUploadsRootDir(userId: string): string {
+  const id = userId.trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error("Invalid user id for media path");
+  }
+  return path.join(adminMediaUploadsParentDir(), "user-media", id);
+}
+
 /** URL path prefix (no trailing slash on base segment). */
 export const ADMIN_MEDIA_URL_PREFIX = "/uploads/gedcom-admin";
+
+export const ADMIN_SITE_MEDIA_URL_PREFIX = "/uploads/site-media/";
+
+export const ADMIN_USER_MEDIA_URL_PREFIX = "/uploads/user-media/";
 
 export { normalizeSiteMediaPath };
 
@@ -79,26 +97,41 @@ export function isSafeGedcomAdminFilename(name: string): boolean {
   return /^[\w.\-+() ]+$/.test(name);
 }
 
-export function resolveGedcomAdminDiskPath(segments: string[]): string | null {
+function resolveCategorizedUploadDiskPath(
+  baseDir: string,
+  segments: string[],
+): string | null {
   if (segments.length === 0) return null;
   for (const seg of segments) {
     if (!isSafeGedcomAdminFilename(seg)) return null;
   }
   if (segments.length === 1) {
-    return path.join(adminMediaGedcomAdminDir(), segments[0]!);
+    return path.join(baseDir, segments[0]!);
   }
   if (segments.length === 2) {
     const [category, filename] = segments;
     if (!category || !filename || !isAdminMediaStoreCategory(category)) return null;
-    return path.join(adminMediaGedcomAdminDir(), category, filename);
+    return path.join(baseDir, category, filename);
   }
   if (segments.length === 3) {
     const [category, originals, filename] = segments;
     if (originals !== "originals") return null;
     if (!category || !filename || !isAdminMediaStoreCategory(category)) return null;
-    return path.join(adminMediaGedcomAdminDir(), category, originals, filename);
+    return path.join(baseDir, category, originals, filename);
   }
   return null;
+}
+
+export function resolveGedcomAdminDiskPath(segments: string[]): string | null {
+  return resolveCategorizedUploadDiskPath(adminMediaGedcomAdminDir(), segments);
+}
+
+export function resolveSiteMediaDiskPath(segments: string[]): string | null {
+  return resolveCategorizedUploadDiskPath(adminMediaSiteAssetsRootDir(), segments);
+}
+
+export function resolveUserMediaDiskPath(userId: string, segments: string[]): string | null {
+  return resolveCategorizedUploadDiskPath(adminMediaUserUploadsRootDir(userId), segments);
 }
 
 export function guessContentType(filename: string): string {

@@ -19,6 +19,7 @@ import {
   Tag,
   FolderOpen,
   Download,
+  ScrollText,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -54,6 +55,7 @@ export const adminNavSections: AdminNavSection[] = [
     label: "Media & archive",
     items: [
       { href: "/admin/media", label: "Media", icon: Image },
+      { href: "/admin/stories", label: "Stories", icon: ScrollText },
       { href: "/admin/albums", label: "Albums", icon: FolderOpen },
       { href: "/admin/tags", label: "Tags", icon: Tag },
     ],

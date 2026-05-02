@@ -1,0 +1,330 @@
+/**
+ * Reference preview for Story Creator (`story-preview` root).
+ * Consuming sites may use different layouts; these are stable default hooks.
+ */
+
+.story-preview {
+  --story-preview-accent: oklch(0.78 0.06 85);
+}
+
+/* --- Viewport chrome --- */
+.story-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.story-preview-desktop .story-preview-article {
+  max-width: none;
+}
+
+.story-preview-mobile .story-preview-article-shell {
+  max-width: 390px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.story-preview-mobile .story-preview-article {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.story-preview-mobile figure,
+.story-preview-mobile video,
+.story-preview-mobile .story-tiptap img {
+  max-width: 100%;
+}
+
+/* --- Header / cover --- */
+.story-preview-header {
+  margin-bottom: 2rem;
+}
+
+.story-preview-cover {
+  position: relative;
+  border-radius: 0.75rem;
+  overflow: visible;
+  min-height: 0;
+  background: color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 12%, transparent);
+}
+
+.story-preview-cover--loading {
+  overflow: hidden;
+  min-height: 10rem;
+}
+
+.story-preview-cover-inner {
+  position: relative;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.story-preview-cover-img {
+  display: block;
+  width: 100%;
+  height: 12rem;
+  object-fit: cover;
+}
+
+.story-preview-cover-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 88%, transparent) 0%,
+    transparent 55%
+  );
+}
+
+.story-preview-profile {
+  position: absolute;
+  left: 1rem;
+  bottom: 0;
+  transform: translateY(45%);
+  z-index: 2;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 3px solid color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 94%, transparent);
+  box-shadow: 0 0.35rem 1rem color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 22%, transparent);
+  background: color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 85%, transparent);
+}
+
+.story-preview-profile-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-preview-profile-skeleton {
+  width: 100%;
+  height: 100%;
+  background: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 12%, transparent);
+  animation: story-preview-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes story-preview-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.story-preview-header-body {
+  padding: 1.25rem 0 0.25rem;
+}
+
+.story-preview-header-body--with-profile {
+  padding-top: 2.75rem;
+}
+
+@media (min-width: 768px) {
+  .story-preview-cover-img {
+    height: 14rem;
+  }
+
+  .story-preview-profile {
+    width: 6rem;
+    height: 6rem;
+    left: 1.25rem;
+    transform: translateY(42%);
+  }
+
+  .story-preview-header-body--with-profile {
+    padding-top: 3.25rem;
+  }
+}
+
+.story-preview-mobile .story-preview-profile {
+  width: 4.25rem;
+  height: 4.25rem;
+  left: 0.75rem;
+  transform: translateY(40%);
+  border-width: 2px;
+}
+
+.story-preview-mobile .story-preview-header-body--with-profile {
+  padding-top: 2.35rem;
+}
+
+.story-preview-mobile .story-preview-cover-img {
+  height: 10rem;
+}
+
+.story-preview-title {
+  font-family: var(--font-heading, ui-serif, Georgia, serif);
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--fallback-bc, oklch(var(--bc)));
+}
+
+.story-preview-subtitle {
+  margin-top: 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 72%, transparent);
+  max-width: 42rem;
+}
+
+.story-preview-author {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 58%, transparent);
+}
+
+/* --- Section hierarchy --- */
+.story-preview-section {
+  scroll-margin-top: 5rem;
+}
+
+.story-preview-section-title {
+  font-family: var(--font-heading, ui-serif, Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--fallback-bc, oklch(var(--bc)));
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--story-preview-accent) 55%, transparent);
+  margin-bottom: 0.25rem;
+}
+
+.story-preview-subsection-title {
+  font-family: var(--font-heading, ui-serif, Georgia, serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 88%, transparent);
+  margin-top: 0.15rem;
+}
+
+.story-preview-section-body {
+  margin-top: 1rem;
+}
+
+.story-preview-block-content {
+  /* TipTap prose lives inside; tables + story fields targeted below */
+}
+
+/* --- Inline story fields (TipTap `generateHTML`) --- */
+.story-preview .story-field {
+  font-weight: 600;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 92%, transparent);
+}
+
+.story-preview .story-field-title {
+  font-size: 1.05em;
+}
+
+.story-preview .story-field-subtitle {
+  font-size: 0.95em;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 78%, transparent);
+}
+
+.story-preview .story-field-author {
+  font-size: 0.88em;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 65%, transparent);
+}
+
+.story-preview .story-field--empty {
+  font-weight: 500;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 38%, transparent);
+}
+
+/* --- Tables --- */
+.story-preview .story-table-wrapper {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.story-preview .story-table {
+  width: 100%;
+  min-width: 20rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.story-preview .story-table-row {
+  border-bottom: 1px solid color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 12%, transparent);
+}
+
+.story-preview .story-table-cell,
+.story-preview .story-table-header-cell {
+  border: 1px solid color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 14%, transparent);
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+  min-width: 5rem;
+}
+
+.story-preview .story-table-header-cell {
+  background: color-mix(in oklab, var(--fallback-b2, oklch(var(--b2))) 55%, transparent);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* --- Divider --- */
+.story-preview-divider {
+  border: 0;
+  height: 1px;
+  margin: 0.75rem 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 22%, transparent),
+    transparent
+  );
+}
+
+/* --- Metadata footer --- */
+.story-metadata-footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 10%, transparent);
+}
+
+.story-metadata-group {
+  margin-bottom: 1.25rem;
+}
+
+.story-metadata-group:last-child {
+  margin-bottom: 0;
+}
+
+.story-metadata-group h3 {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 48%, transparent);
+  margin-bottom: 0.35rem;
+}
+
+.story-metadata-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.story-metadata-group li {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 78%, transparent);
+  padding: 0.15rem 0;
+}

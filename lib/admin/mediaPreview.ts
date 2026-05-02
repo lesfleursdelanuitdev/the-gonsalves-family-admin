@@ -19,7 +19,13 @@ export function isLikelyVideoFile(fileRef: string, formStr: string | null | unde
   const fm = (formStr ?? "").toLowerCase();
   if (fm.includes("video") || fm === "video") return true;
   const f = normalizeSiteMediaPath(fileRef).trim().toLowerCase();
-  if (f.includes("/gedcom-admin/videos/")) return true;
+  if (
+    f.includes("/gedcom-admin/videos/") ||
+    f.includes("/site-media/videos/") ||
+    (f.includes("/user-media/") && f.includes("/videos/"))
+  ) {
+    return true;
+  }
   return VIDEO_FILE_EXT.test(f);
 }
 
@@ -47,7 +53,7 @@ export function isLikelyAudioFile(fileRef: string, formStr: string | null | unde
   if (fm.includes("audio")) return true;
   if (AUDIO_FORM_HINTS.has(fm)) return true;
   const f = normalizeSiteMediaPath(fileRef).trim().toLowerCase();
-  if (f.includes("/gedcom-admin/audio/")) return true;
+  if (f.includes("/gedcom-admin/audio/") || f.includes("/site-media/audio/") || (f.includes("/user-media/") && f.includes("/audio/"))) return true;
   return AUDIO_FILE_EXT.test(f);
 }
 
@@ -108,14 +114,16 @@ export function mediaImageUnoptimized(src: string): boolean {
 }
 
 const ADMIN_MEDIA_URL_PREFIX = "/uploads/gedcom-admin/";
+/** Keep in sync with `ADMIN_SITE_MEDIA_URL_PREFIX` in `media-upload-storage.ts`. */
+const ADMIN_SITE_MEDIA_URL_PREFIX = "/uploads/site-media/";
+/** Keep in sync with `ADMIN_USER_MEDIA_URL_PREFIX` in `media-upload-storage.ts`. */
+const ADMIN_USER_MEDIA_URL_PREFIX = "/uploads/user-media/";
 const ADMIN_MEDIA_THUMB_API_PREFIX = "/api/admin/media/thumb/";
 
 /**
- * Returns a thumbnail URL for an admin media `fileRef` if it's a raster image stored under
- * `/uploads/gedcom-admin/`. The thumb endpoint serves resized JPEGs cached on disk, so the
- * card grid can render small bytes instead of the (already-optimized but still ~2560px-wide)
- * original. Returns `null` for non-raster, external, or non-uploads refs — callers should
- * fall back to {@link resolveMediaImageSrc}.
+ * Returns a thumbnail URL for a raster `fileRef` under `/uploads/gedcom-admin/`, `/uploads/site-media/`,
+ * or `/uploads/user-media/...`. The thumb endpoint serves resized JPEGs cached on disk. Returns `null`
+ * for non-raster, external, or unsupported refs — callers should fall back to {@link resolveMediaImageSrc}.
  */
 export function mediaThumbSrc(
   fileRef: string,
@@ -124,9 +132,22 @@ export function mediaThumbSrc(
 ): string | null {
   const t = normalizeSiteMediaPath(fileRef.trim());
   if (!t) return null;
-  if (!t.startsWith(ADMIN_MEDIA_URL_PREFIX)) return null;
   if (!isLikelyRasterImage(t, formStr ?? "", null)) return null;
-  const remainder = t.slice(ADMIN_MEDIA_URL_PREFIX.length);
-  if (!remainder || remainder.includes("..")) return null;
-  return `${ADMIN_MEDIA_THUMB_API_PREFIX}${remainder}?w=${Math.max(1, Math.floor(width))}`;
+  const wq = Math.max(1, Math.floor(width));
+  if (t.startsWith(ADMIN_MEDIA_URL_PREFIX)) {
+    const remainder = t.slice(ADMIN_MEDIA_URL_PREFIX.length);
+    if (!remainder || remainder.includes("..")) return null;
+    return `${ADMIN_MEDIA_THUMB_API_PREFIX}${remainder}?w=${wq}`;
+  }
+  if (t.startsWith(ADMIN_SITE_MEDIA_URL_PREFIX)) {
+    const remainder = t.slice(ADMIN_SITE_MEDIA_URL_PREFIX.length);
+    if (!remainder || remainder.includes("..")) return null;
+    return `${ADMIN_MEDIA_THUMB_API_PREFIX}site-media/${remainder}?w=${wq}`;
+  }
+  if (t.startsWith(ADMIN_USER_MEDIA_URL_PREFIX)) {
+    const remainder = t.slice(ADMIN_USER_MEDIA_URL_PREFIX.length);
+    if (!remainder || remainder.includes("..")) return null;
+    return `${ADMIN_MEDIA_THUMB_API_PREFIX}user-media/${remainder}?w=${wq}`;
+  }
+  return null;
 }

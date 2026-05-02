@@ -56,3 +56,29 @@ export async function reserveNextGedcomMediaXref(tx: Prisma.TransactionClient, f
   );
   return next[0]!;
 }
+
+/**
+ * Reserve the next GEDCOM-style media xref (`@M...@`) for a tree across all media pools:
+ * GEDCOM media, SiteMedia, and UserMedia. This keeps exportable media xrefs collision-free.
+ */
+export async function reserveNextTreeMediaXref(
+  tx: Prisma.TransactionClient,
+  args: { treeId: string; fileUuid: string },
+): Promise<string> {
+  const { treeId, fileUuid } = args;
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${treeId}::text)::bigint)`);
+  const [gedcom, site, user] = await Promise.all([
+    tx.gedcomMedia.findMany({ where: { fileUuid }, select: { xref: true } }),
+    tx.siteMedia.findMany({ where: { treeId }, select: { gedcomXref: true } }),
+    tx.userMedia.findMany({ where: { treeId }, select: { gedcomXref: true } }),
+  ]);
+  const next = nextMediaXrefsAfterOccupied(
+    [
+      ...gedcom.map((r) => r.xref),
+      ...site.map((r) => r.gedcomXref),
+      ...user.map((r) => r.gedcomXref),
+    ],
+    1,
+  );
+  return next[0]!;
+}

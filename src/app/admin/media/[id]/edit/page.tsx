@@ -1,15 +1,19 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { NoteEditorPageLayout } from "@/components/admin/NoteEditorPageLayout";
 import { MediaEditorForm, type MediaEditorInitial } from "@/components/admin/MediaEditorForm";
 import { useAdminMediaItem } from "@/hooks/useAdminMedia";
 
 export default function AdminMediaEditPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const scopeParam = searchParams.get("scope");
+  const scope =
+    scopeParam === "site-assets" || scopeParam === "my-media" ? scopeParam : "family-tree";
 
-  const { data, isLoading, error } = useAdminMediaItem(id);
+  const { data, isLoading, error } = useAdminMediaItem(id, scope);
   const media = data?.media as MediaEditorInitial | undefined;
 
   if (!id) {
@@ -38,7 +42,7 @@ export default function AdminMediaEditPage() {
 
   return (
     <NoteEditorPageLayout backHref="/admin/media" backLabel="Media" fullWidth hideBackLink>
-      <MediaEditorForm key={id} mode="edit" mediaId={id} initialMedia={media} hideBackLink />
+      <MediaEditorForm key={`${scope}:${id}`} mode="edit" mediaId={id} initialMedia={media} hideBackLink scope={scope} />
     </NoteEditorPageLayout>
   );
 }

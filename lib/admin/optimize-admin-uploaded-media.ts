@@ -4,7 +4,7 @@ import path from "node:path";
 import sharp from "sharp";
 
 import type { AdminMediaStoreCategory } from "@/lib/admin/media-upload-storage";
-import { guessContentType } from "@/lib/admin/media-upload-storage";
+import { adminMediaUploadsParentDir, guessContentType } from "@/lib/admin/media-upload-storage";
 
 /** Served under `gedcom-admin/<category>/originals/` — keeps uploaded bytes when we produce a derivative. */
 export const ADMIN_MEDIA_ORIGINALS_SUBDIR = "originals";
@@ -32,9 +32,16 @@ function stemFromUploadFilename(filename: string): string {
   return path.parse(rest).name || "image";
 }
 
-function siteFileRef(category: AdminMediaStoreCategory, basename: string): string {
-  const relativeDir = path.join("uploads", "gedcom-admin", category);
-  return `/${relativeDir.replace(/\\/g, "/")}/${basename}`;
+/** Build `/uploads/.../basename` from the on-disk category directory (gedcom-admin, site-media, user-media/…). */
+function fileRefForPublicMediaDir(publicDir: string, basename: string): string {
+  const base = path.resolve(adminMediaUploadsParentDir());
+  const dir = path.resolve(publicDir);
+  const rel = path.relative(base, dir);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error(`Could not derive upload URL path from publicDir (${publicDir}) relative to uploads root.`);
+  }
+  const parts = ["uploads", ...rel.split(path.sep).filter(Boolean)];
+  return `/${parts.join("/")}/${basename}`;
 }
 
 function extLower(filename: string): string {
@@ -213,7 +220,7 @@ export async function postProcessAdminMediaUpload(args: {
       if (!needsDim && sizeBytes < IMAGE_ALWAYS_OPTIMIZE_IF_LARGER_THAN_BYTES) {
         return {
           diskPath,
-          fileRef: siteFileRef(category, filename),
+          fileRef: fileRefForPublicMediaDir(publicDir, filename),
           size: sizeBytes,
           mimeType: mimeType.trim() || guessContentType(filename),
           suggestedForm: mime.split("/")[1] ?? "jpeg",
@@ -247,7 +254,7 @@ export async function postProcessAdminMediaUpload(args: {
       const outSt = await stat(finalPath);
       return {
         diskPath: finalPath,
-        fileRef: siteFileRef(category, outBasename),
+        fileRef: fileRefForPublicMediaDir(publicDir, outBasename),
         size: outSt.size,
         mimeType: mime,
         suggestedForm: form,
@@ -266,7 +273,7 @@ export async function postProcessAdminMediaUpload(args: {
     if (!shouldTranscodeVideo(mime, ext, sizeBytes)) {
       return {
         diskPath,
-        fileRef: siteFileRef(category, filename),
+        fileRef: fileRefForPublicMediaDir(publicDir, filename),
         size: sizeBytes,
         mimeType: mimeType.trim() || guessContentType(filename),
         suggestedForm: "video",
@@ -292,7 +299,7 @@ export async function postProcessAdminMediaUpload(args: {
       const outSt = await stat(finalPath);
       return {
         diskPath: finalPath,
-        fileRef: siteFileRef(category, outBasename),
+        fileRef: fileRefForPublicMediaDir(publicDir, outBasename),
         size: outSt.size,
         mimeType: "video/mp4",
         suggestedForm: "video",
@@ -303,7 +310,7 @@ export async function postProcessAdminMediaUpload(args: {
       console.warn("[media upload] video transcode skipped, keeping original:", msg);
       return {
         diskPath,
-        fileRef: siteFileRef(category, filename),
+        fileRef: fileRefForPublicMediaDir(publicDir, filename),
         size: sizeBytes,
         mimeType: mimeType.trim() || guessContentType(filename),
         suggestedForm: "video",
@@ -313,7 +320,7 @@ export async function postProcessAdminMediaUpload(args: {
 
   return {
     diskPath,
-    fileRef: siteFileRef(category, filename),
+    fileRef: fileRefForPublicMediaDir(publicDir, filename),
     size: sizeBytes,
     mimeType: mimeType.trim() || guessContentType(filename),
     suggestedForm: null,
@@ -372,7 +379,7 @@ export async function optimizeExistingAdminMediaFile(args: {
       return {
         changed: true,
         newDiskPath,
-        newFileRef: siteFileRef(category, outBasename),
+        newFileRef: fileRefForPublicMediaDir(publicDir, outBasename),
         newForm: form,
         newSize: 0,
         dryRun: true,
@@ -383,7 +390,7 @@ export async function optimizeExistingAdminMediaFile(args: {
     return {
       changed: true,
       newDiskPath,
-      newFileRef: siteFileRef(category, outBasename),
+      newFileRef: fileRefForPublicMediaDir(publicDir, outBasename),
       newForm: "video",
       newSize: 0,
       dryRun: true,

@@ -5,7 +5,13 @@ import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ApiError, deleteJson, postJson } from "@/lib/infra/api";
-import { ADMIN_MEDIA_QUERY_KEY } from "@/hooks/useAdminMedia";
+import { ADMIN_MEDIA_QUERY_KEY, type AdminMediaScope } from "@/hooks/useAdminMedia";
+
+function mediaOrganisationBase(mediaId: string, scope: AdminMediaScope): string {
+  if (scope === "site-assets") return `/api/admin/site-media/${mediaId}`;
+  if (scope === "my-media") return `/api/admin/user-media/${mediaId}`;
+  return `/api/admin/media/${mediaId}`;
+}
 import { ADMIN_PICKER_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAdminAlbums, type AdminAlbumListItem } from "@/hooks/useAdminAlbums";
 import { useAdminTags, type AdminTagListItem } from "@/hooks/useAdminTags";
@@ -47,6 +53,8 @@ export type UseMediaEditorLinksArgs = {
   prefillIndividuals?: { individualId: string; label: string }[];
   prefillFamilies?: { familyId: string; label: string }[];
   setErrMsg: (msg: string | null) => void;
+  /** For React Query detail key; must match {@link useAdminMediaItem}. */
+  detailScope?: AdminMediaScope;
 };
 
 type UseMediaEditorOrganisationLinksArgs = {
@@ -55,6 +63,7 @@ type UseMediaEditorOrganisationLinksArgs = {
   initial: MediaEditorInitial | null;
   setErrMsg: (msg: string | null) => void;
   invalidateMediaQueries: () => Promise<void>;
+  organisationScope: AdminMediaScope;
 };
 
 function useMediaEditorOrganisationLinks({
@@ -63,7 +72,9 @@ function useMediaEditorOrganisationLinks({
   initial,
   setErrMsg,
   invalidateMediaQueries,
+  organisationScope,
 }: UseMediaEditorOrganisationLinksArgs) {
+  const orgBase = mediaOrganisationBase(mediaId, organisationScope);
   const [stagedTags, setStagedTags] = useState<StagedTag[]>(() =>
     (initial?.appTags ?? []).map((r) => ({
       tagId: r.tag.id,
@@ -111,7 +122,7 @@ function useMediaEditorOrganisationLinks({
     if (mode === "edit") {
       try {
         const res = await postJson<{ appTag: { id: string; tag: { id: string; name: string; color: string | null } } }>(
-          `/api/admin/media/${mediaId}/app-tags`,
+          `${orgBase}/app-tags`,
           { tagId: row.id },
         );
         setStagedTags((s) => [
@@ -138,7 +149,7 @@ function useMediaEditorOrganisationLinks({
     setErrMsg(null);
     if (mode === "edit" && t.linkId) {
       try {
-        await deleteJson(`/api/admin/media/${mediaId}/app-tags/${t.linkId}`);
+        await deleteJson(`${orgBase}/app-tags/${t.linkId}`);
         await invalidateMediaQueries();
       } catch (e) {
         setErrMsg(e instanceof ApiError ? e.message : "Could not remove tag");
@@ -166,7 +177,7 @@ function useMediaEditorOrganisationLinks({
     if (mode === "edit") {
       try {
         const res = await postJson<{ albumLink: { id: string; album: { id: string; name: string } } }>(
-          `/api/admin/media/${mediaId}/album-links`,
+          `${orgBase}/album-links`,
           { albumId: row.id },
         );
         setStagedAlbums((s) => [
@@ -188,7 +199,7 @@ function useMediaEditorOrganisationLinks({
     setErrMsg(null);
     if (mode === "edit" && a.linkId) {
       try {
-        await deleteJson(`/api/admin/media/${mediaId}/album-links/${a.linkId}`);
+        await deleteJson(`${orgBase}/album-links/${a.linkId}`);
         await invalidateMediaQueries();
       } catch (e) {
         setErrMsg(e instanceof ApiError ? e.message : "Could not remove album");
@@ -637,15 +648,18 @@ export function useMediaEditorLinks({
   prefillIndividuals,
   prefillFamilies,
   setErrMsg,
+  detailScope = "family-tree",
 }: UseMediaEditorLinksArgs) {
   const qc = useQueryClient();
 
   const invalidateMediaQueries = useCallback(async () => {
     await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
     if (mode === "edit" && mediaId) {
-      await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY, "detail", mediaId] });
+      await qc.invalidateQueries({
+        queryKey: [...ADMIN_MEDIA_QUERY_KEY, "detail", detailScope, mediaId],
+      });
     }
-  }, [qc, mode, mediaId]);
+  }, [qc, mode, mediaId, detailScope]);
   const {
     stagedTags,
     stagedAlbums,
@@ -673,6 +687,7 @@ export function useMediaEditorLinks({
     initial,
     setErrMsg,
     invalidateMediaQueries,
+    organisationScope: detailScope,
   });
   const {
     stagedIndividuals,
@@ -736,12 +751,14 @@ export function useMediaEditorLinks({
 
   const persistStagedLinksForNewMedia = useCallback(
     async (newId: string) => {
+      const orgBase = mediaOrganisationBase(newId, detailScope);
       for (const t of stagedTags) {
-        await postJson(`/api/admin/media/${newId}/app-tags`, { tagId: t.tagId });
+        await postJson(`${orgBase}/app-tags`, { tagId: t.tagId });
       }
       for (const a of stagedAlbums) {
-        await postJson(`/api/admin/media/${newId}/album-links`, { albumId: a.albumId });
+        await postJson(`${orgBase}/album-links`, { albumId: a.albumId });
       }
+      if (detailScope !== "family-tree") return;
       for (const ind of stagedIndividuals) {
         await postJson(`/api/admin/media/${newId}/individual-media`, { individualId: ind.individualId });
       }
@@ -762,7 +779,16 @@ export function useMediaEditorLinks({
         }
       }
     },
-    [stagedTags, stagedAlbums, stagedIndividuals, stagedFamilies, stagedEvents, stagedPlaces, stagedDates],
+    [
+      detailScope,
+      stagedTags,
+      stagedAlbums,
+      stagedIndividuals,
+      stagedFamilies,
+      stagedEvents,
+      stagedPlaces,
+      stagedDates,
+    ],
   );
 
   return {

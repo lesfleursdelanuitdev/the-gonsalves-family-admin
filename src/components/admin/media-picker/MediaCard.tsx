@@ -21,6 +21,12 @@ const kindIcon = {
   audio: Headphones,
 } as const;
 
+const scopeBadge = {
+  "family-tree": { label: "Family Tree", className: "text-base-content/75" },
+  "site-assets": { label: "Site Asset", className: "text-info" },
+  "my-media": { label: "My Media", className: "text-success" },
+} as const;
+
 export function MediaCard({
   media,
   selected,
@@ -47,6 +53,8 @@ export function MediaCard({
 
   const firstAlbum = media.albumLinks?.[0]?.album?.name?.trim();
   const tagHint = media.appTags?.[0]?.tag?.name ? displayTagName(media.appTags[0].tag.name) : "";
+  const scope = media.mediaScope ?? "family-tree";
+  const scopeMeta = scopeBadge[scope];
 
   return (
     <button
@@ -98,6 +106,9 @@ export function MediaCard({
               : kind === "audio"
                 ? "Audio"
                 : "Doc"}
+        </span>
+        <span className={cn("absolute right-2 top-2 rounded-full border border-base-content/10 bg-base-100/90 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide", scopeMeta.className)}>
+          {scopeMeta.label}
         </span>
       </div>
       <div className="min-w-0 space-y-0.5 border-t border-base-content/10 p-2">

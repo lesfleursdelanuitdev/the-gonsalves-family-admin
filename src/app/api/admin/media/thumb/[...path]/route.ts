@@ -4,21 +4,28 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { resolveGedcomAdminDiskPath } from "@/lib/admin/media-upload-storage";
+import {
+  resolveGedcomAdminDiskPath,
+  resolveSiteMediaDiskPath,
+  resolveUserMediaDiskPath,
+} from "@/lib/admin/media-upload-storage";
+import { getCurrentUser } from "@/lib/infra/auth";
 
 /**
  * On-demand thumbnail endpoint for media list views.
  *
- * - Accepts the same path layout as `/uploads/gedcom-admin/[...path]` so callers can derive a
- *   thumb URL from a `fileRef` by replacing the prefix.
+ * - **GEDCOM uploads:** path segments match `/uploads/gedcom-admin/[...path]` (category + file).
+ * - **Site assets:** prefix `site-media/` then the same segment layout as `/uploads/site-media/...`.
+ * - **User uploads:** prefix `user-media/<userId>/` then category + file (same layout as the
+ *   authenticated `/uploads/user-media/...` route).
  * - `?w=<width>` selects the long-edge target (clamped). `?fmt=` reserved for future use.
  * - Encoded result is cached on disk under `<dir>/.thumbs/<basename>_w<w>.jpg`. Re-emits when the
  *   source file mtime is newer than the cache (so re-uploads invalidate cleanly).
  * - Falls through to the original via 302 if Sharp can't decode the source (e.g. exotic formats).
  *
- * Auth: this endpoint is intentionally readable without admin auth so `<img>` tags can use it.
- * The path is constrained by `resolveGedcomAdminDiskPath`, which only resolves files the public
- * `/uploads/...` route already serves; no new exposure is introduced.
+ * Auth: gedcom-admin and site-media thumbs are readable without auth (same exposure model as using
+ * the full image URL in `<img>`). **User-media** thumbs require a session whose user id matches the
+ * `user-media/<userId>/` segment, mirroring `GET /uploads/user-media/...`.
  */
 
 const ALLOWED_WIDTHS = [120, 240, 360, 480, 720, 960, 1280] as const;
@@ -50,13 +57,37 @@ function thumbCachePath(sourceDiskPath: string, width: number): string {
   return path.join(dir, THUMBS_SUBDIR, `${base}_w${width}.jpg`);
 }
 
-async function streamFile(diskPath: string): Promise<NextResponse> {
+function resolveThumbSourceDiskPath(segments: string[]): string | null {
+  if (segments.length === 0) return null;
+  const [head, ...tail] = segments;
+  if (head === "site-media") {
+    return resolveSiteMediaDiskPath(tail);
+  }
+  if (head === "user-media") {
+    const userId = tail[0];
+    if (!userId) return null;
+    return resolveUserMediaDiskPath(userId, tail.slice(1));
+  }
+  return resolveGedcomAdminDiskPath(segments);
+}
+
+function fallbackUploadsPath(segments: string[]): string {
+  if (segments[0] === "site-media" || segments[0] === "user-media") {
+    return `/uploads/${segments.join("/")}`;
+  }
+  return `/uploads/gedcom-admin/${segments.join("/")}`;
+}
+
+async function streamFile(diskPath: string, privateCache: boolean): Promise<NextResponse> {
   const stream = createReadStream(diskPath);
+  const cacheControl = privateCache
+    ? "private, max-age=3600"
+    : "public, max-age=31536000, immutable";
   return new NextResponse(Readable.toWeb(stream) as ReadableStream<Uint8Array>, {
     status: 200,
     headers: {
       "Content-Type": "image/jpeg",
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": cacheControl,
     },
   });
 }
@@ -67,7 +98,19 @@ export async function GET(
 ) {
   const { path: raw } = await ctx.params;
   const segments = normalizePathSegments(raw);
-  const sourceDiskPath = resolveGedcomAdminDiskPath(segments);
+  const isUserMediaThumb = segments[0] === "user-media";
+  if (isUserMediaThumb) {
+    const pathUserId = segments[1];
+    if (!pathUserId) {
+      return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+    }
+    const user = await getCurrentUser();
+    if (!user || user.id !== pathUserId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  const sourceDiskPath = resolveThumbSourceDiskPath(segments);
   if (!sourceDiskPath) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }
@@ -89,7 +132,7 @@ export async function GET(
   try {
     const cacheStat = await stat(cachePath);
     if (cacheStat.isFile() && cacheStat.mtimeMs >= sourceStat.mtimeMs) {
-      return await streamFile(cachePath);
+      return await streamFile(cachePath, isUserMediaThumb);
     }
   } catch {
     // Cache miss; fall through to generation.
@@ -102,10 +145,10 @@ export async function GET(
       .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: THUMB_QUALITY, mozjpeg: true })
       .toFile(cachePath);
-    return await streamFile(cachePath);
+    return await streamFile(cachePath, isUserMediaThumb);
   } catch (err) {
     console.warn("[media thumb] generation failed, falling back to original:", err);
-    const fallbackUrl = new URL(`/uploads/gedcom-admin/${segments.join("/")}`, url.origin);
+    const fallbackUrl = new URL(fallbackUploadsPath(segments), url.origin);
     return NextResponse.redirect(fallbackUrl, 302);
   }
 }

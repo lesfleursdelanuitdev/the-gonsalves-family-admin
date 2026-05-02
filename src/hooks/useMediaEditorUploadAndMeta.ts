@@ -11,8 +11,16 @@ import {
 } from "@/lib/admin/mediaPreview";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
 import { ApiError, postFormDataWithUploadProgress } from "@/lib/infra/api";
-import { ADMIN_MEDIA_QUERY_KEY, useCreateMedia } from "@/hooks/useAdminMedia";
+import { ADMIN_MEDIA_QUERY_KEY, type AdminMediaScope } from "@/hooks/useAdminMedia";
 import type { MediaEditorInitial } from "@/components/admin/media-editor/media-editor-types";
+
+export type MediaCreatePayload = {
+  title: string | null;
+  fileRef: string | null;
+  form: string | null;
+  mimeType?: string | null;
+  storageKey?: string | null;
+};
 
 export type MediaEditorUploadProgressState = {
   loaded: number;
@@ -26,7 +34,9 @@ export type UseMediaEditorUploadAndMetaArgs = {
   mode: "create" | "edit";
   initial: MediaEditorInitial | null;
   setErrMsg: (msg: string | null) => void;
-  createMedia: ReturnType<typeof useCreateMedia>;
+  createMediaForScope: (payload: MediaCreatePayload) => Promise<unknown>;
+  /** Controls upload disk layout and `?scope=` on `POST /api/admin/media/upload`. */
+  mediaUploadScope: AdminMediaScope;
   queryClient: QueryClient;
   router: { push: (href: string) => void };
 };
@@ -35,10 +45,18 @@ export function useMediaEditorUploadAndMeta({
   mode,
   initial,
   setErrMsg,
-  createMedia,
+  createMediaForScope,
+  mediaUploadScope,
   queryClient,
   router,
 }: UseMediaEditorUploadAndMetaArgs) {
+  const uploadUrl = useMemo(
+    () =>
+      mediaUploadScope === "family-tree"
+        ? "/api/admin/media/upload"
+        : `/api/admin/media/upload?scope=${encodeURIComponent(mediaUploadScope)}`,
+    [mediaUploadScope],
+  );
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [fileRef, setFileRef] = useState(initial?.fileRef ?? "");
@@ -82,7 +100,7 @@ export function useMediaEditorUploadAndMeta({
         suggestedForm: string | null;
         originalName: string;
         mimeType: string | null;
-      }>("/api/admin/media/upload", fd, (p) => {
+      }>(uploadUrl, fd, (p) => {
         setUploadProgress({
           loaded: p.loaded,
           total: p.total,
@@ -103,7 +121,7 @@ export function useMediaEditorUploadAndMeta({
       setUploadProgress(null);
       setUploading(false);
     }
-  }, [setErrMsg]);
+  }, [setErrMsg, uploadUrl]);
 
   const processBulkCreateFromFiles = useCallback(
     async (files: File[]) => {
@@ -131,7 +149,7 @@ export function useMediaEditorUploadAndMeta({
               suggestedForm: string | null;
               originalName: string;
               mimeType: string | null;
-            }>("/api/admin/media/upload", fd, (p) => {
+            }>(uploadUrl, fd, (p) => {
               setUploadProgress({
                 loaded: p.loaded,
                 total: p.total,
@@ -148,10 +166,12 @@ export function useMediaEditorUploadAndMeta({
               subCaption: "Saving media row…",
             });
             const rowTitle = titleFromUploadedFilename(up.originalName);
-            await createMedia.mutateAsync({
+            await createMediaForScope({
               title: rowTitle,
               fileRef: up.fileRef,
               form: up.suggestedForm ?? null,
+              mimeType: up.mimeType ?? null,
+              storageKey: up.fileRef ?? null,
             });
             created++;
           } catch (e) {
@@ -178,7 +198,7 @@ export function useMediaEditorUploadAndMeta({
         setUploading(false);
       }
     },
-    [createMedia, queryClient, router, setErrMsg],
+    [createMediaForScope, queryClient, router, setErrMsg, uploadUrl],
   );
 
   const onFilesChosenFromPicker = useCallback(

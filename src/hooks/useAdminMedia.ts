@@ -6,6 +6,8 @@ import { fetchJson } from "@/lib/infra/api";
 
 export interface AdminMediaListItem {
   id: string;
+  mediaScope?: "family-tree" | "site-assets" | "my-media";
+  createdAt?: string;
   title: string | null;
   description: string | null;
   fileRef: string | null;
@@ -42,6 +44,7 @@ export interface AdminMediaListResponse {
 }
 
 export interface UseAdminMediaOpts {
+  scope?: "all" | "family-tree" | "site-assets" | "my-media";
   q?: string;
   limit?: number;
   offset?: number;
@@ -54,6 +57,8 @@ export interface UseAdminMediaOpts {
   albumId?: string;
   tagId?: string;
 }
+
+export type AdminMediaScope = "family-tree" | "site-assets" | "my-media";
 
 function buildMediaParams(opts: UseAdminMediaOpts): URLSearchParams {
   const params = new URLSearchParams();
@@ -90,14 +95,62 @@ export const ADMIN_MEDIA_QUERY_KEY = mediaHooks.QUERY_KEY;
 export function useAdminMedia(opts?: UseAdminMediaOpts, enabled = true) {
   const params = opts ? buildMediaParams(opts) : new URLSearchParams();
   const qs = params.toString();
+  const scope = opts?.scope ?? "all";
+  const endpoint =
+    scope === "site-assets"
+      ? "/api/admin/site-media"
+      : scope === "my-media"
+        ? "/api/admin/user-media"
+        : "/api/admin/media";
   return useQuery({
-    queryKey: [...ADMIN_MEDIA_QUERY_KEY, qs],
-    queryFn: () => fetchJson<AdminMediaListResponse>(`/api/admin/media${qs ? `?${qs}` : ""}`),
+    queryKey: [...ADMIN_MEDIA_QUERY_KEY, scope, qs],
+    queryFn: async () => {
+      if (scope !== "all") {
+        return fetchJson<AdminMediaListResponse>(`${endpoint}${qs ? `?${qs}` : ""}`);
+      }
+
+      const pageSize = opts?.limit ?? 24;
+      const pageOffset = opts?.offset ?? 0;
+      const fullParams = opts ? buildMediaParams(opts) : new URLSearchParams();
+      // For combined "all", fetch each scope fully, then paginate after merge/sort.
+      fullParams.set("limit", "10000");
+      fullParams.set("offset", "0");
+      const fullQs = fullParams.toString();
+      const suffix = fullQs ? `?${fullQs}` : "";
+      const [familyTree, siteAssets, myMedia] = await Promise.all([
+        fetchJson<AdminMediaListResponse>(`/api/admin/media${suffix}`),
+        fetchJson<AdminMediaListResponse>(`/api/admin/site-media${suffix}`),
+        fetchJson<AdminMediaListResponse>(`/api/admin/user-media${suffix}`),
+      ]);
+      const merged = [...familyTree.media, ...siteAssets.media, ...myMedia.media].sort((a, b) => {
+        const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+        const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+        return tb - ta;
+      });
+      const page = merged.slice(pageOffset, pageOffset + pageSize);
+      return {
+        media: page,
+        total: merged.length,
+        hasMore: pageOffset + page.length < merged.length,
+      };
+    },
     enabled,
     placeholderData: keepPreviousData,
   });
 }
-export const useAdminMediaItem = (id: string) => mediaHooks.useDetail<{ media: unknown }>(id);
+export function useAdminMediaItem(id: string, scope: AdminMediaScope = "family-tree") {
+  const endpoint =
+    scope === "site-assets"
+      ? "/api/admin/site-media"
+      : scope === "my-media"
+        ? "/api/admin/user-media"
+        : "/api/admin/media";
+  return useQuery({
+    queryKey: [...ADMIN_MEDIA_QUERY_KEY, "detail", scope, id],
+    queryFn: () => fetchJson<{ media: unknown }>(`${endpoint}/${id}`),
+    enabled: !!id,
+  });
+}
 export const useCreateMedia = mediaHooks.useCreate;
 export const useUpdateMedia = mediaHooks.useUpdate;
 export const useDeleteMedia = mediaHooks.useDelete;

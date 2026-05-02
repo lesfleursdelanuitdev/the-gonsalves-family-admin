@@ -38,6 +38,7 @@ import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { adminMediaUploadMaxMbForUi } from "@/constants/admin";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -48,17 +49,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ADMIN_MEDIA_QUERY_KEY,
   useAdminMedia,
   useCreateMedia,
-  useDeleteMedia,
   type AdminMediaListResponse,
 } from "@/hooks/useAdminMedia";
 import { useAdminMediaPageFilters } from "@/hooks/useAdminMediaPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
-import { fetchJson, ApiError, postFormDataWithUploadProgress } from "@/lib/infra/api";
+import { fetchJson, ApiError, deleteJson, postJson, postFormDataWithUploadProgress } from "@/lib/infra/api";
 import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";
 import type { MediaEditorUploadProgressState } from "@/hooks/useMediaEditorUploadAndMeta";
 import { cn } from "@/lib/utils";
@@ -83,6 +90,7 @@ interface MediaRow {
   albumCount: number;
   /** Number of tags */
   tagCount: number;
+  mediaScope: "family-tree" | "site-assets" | "my-media";
 }
 
 const mediaTypeIcon: Record<MediaRow["mediaType"], ComponentType<{ className?: string }>> = {
@@ -102,6 +110,12 @@ const mediaTypeBadge: Record<
   audio:    { label: "Audio",    className: "bg-secondary/20 text-secondary" },
 };
 
+const mediaScopeBadge: Record<"family-tree" | "site-assets" | "my-media", { label: string; className: string }> = {
+  "family-tree": { label: "Family Tree", className: "bg-base-content/[0.08] text-base-content/80" },
+  "site-assets": { label: "Site Asset", className: "bg-info/15 text-info" },
+  "my-media": { label: "My Media", className: "bg-success/15 text-success" },
+};
+
 interface AdminSetupPayload {
   configured: boolean;
   message?: string;
@@ -114,20 +128,20 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
     const mediaType = inferAdminMediaCategory(m.form, m.fileRef);
 
     const parts: string[] = [];
-    m.individualMedia?.forEach((im) => {
+    (m.individualMedia ?? []).forEach((im) => {
       const n = stripSlashesFromName(im.individual?.fullName);
       if (n) parts.push(n);
     });
-    m.familyMedia?.forEach((fm) => {
+    (m.familyMedia ?? []).forEach((fm) => {
       const h = stripSlashesFromName(fm.family?.husband?.fullName);
       const w = stripSlashesFromName(fm.family?.wife?.fullName);
       if (h || w) parts.push(`${h} & ${w}`.replace(/^ & | & $/g, "").trim() || "Family");
     });
-    m.sourceMedia?.forEach((sm) => {
+    (m.sourceMedia ?? []).forEach((sm) => {
       const t = sm.source?.title ?? sm.source?.xref;
       if (t) parts.push(t);
     });
-    m.eventMedia?.forEach((em) => {
+    (m.eventMedia ?? []).forEach((em) => {
       const et = em.event?.eventType;
       if (et) {
         const base = labelGedcomEventType(et);
@@ -159,6 +173,7 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
       dateCount: m.dateCount ?? 0,
       albumCount: m.albumCount ?? m.albumLinks?.length ?? 0,
       tagCount: m.tagCount ?? m.appTags?.length ?? 0,
+      mediaScope: m.mediaScope === "site-assets" || m.mediaScope === "my-media" ? m.mediaScope : "family-tree",
     };
   });
 }
@@ -167,6 +182,16 @@ function mapApiToRows(api: AdminMediaListResponse): MediaRow[] {
 
 function MediaTypeBadge({ mediaType }: { mediaType: MediaRow["mediaType"] }) {
   const { label, className } = mediaTypeBadge[mediaType];
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-tight", className)}>
+      <span className="size-1.5 rounded-full bg-current shrink-0" aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+function MediaScopeBadge({ scope }: { scope: "family-tree" | "site-assets" | "my-media" }) {
+  const { label, className } = mediaScopeBadge[scope];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-tight", className)}>
       <span className="size-1.5 rounded-full bg-current shrink-0" aria-hidden />
@@ -326,7 +351,10 @@ function MediaCardItem({
       <CardHeader className="min-h-0 flex-1 space-y-1.5 pb-2 pt-3">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="line-clamp-2 min-w-0 text-sm leading-snug">{record.title}</CardTitle>
-          <MediaTypeBadge mediaType={record.mediaType} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <MediaTypeBadge mediaType={record.mediaType} />
+            <MediaScopeBadge scope={record.mediaScope} />
+          </div>
         </div>
         {record.description ? (
           <p className="line-clamp-1 text-xs leading-snug text-muted-foreground">{record.description}</p>
@@ -419,8 +447,14 @@ function buildMediaConfig(
       <MediaCardItem record={record} onView={onView} onEdit={onEdit} onDelete={onDel} />
     ),
     actions: {
-      view: { label: "View", handler: (r) => router.push(`/admin/media/${r.id}`) },
-      edit: { label: "Edit", handler: (r) => router.push(`/admin/media/${r.id}/edit`) },
+      view: {
+        label: "View",
+        handler: (r) => router.push(`/admin/media/${r.id}${r.mediaScope === "family-tree" ? "" : `?scope=${r.mediaScope}`}`),
+      },
+      edit: {
+        label: "Edit",
+        handler: (r) => router.push(`/admin/media/${r.id}/edit${r.mediaScope === "family-tree" ? "" : `?scope=${r.mediaScope}`}`),
+      },
       delete: { label: "Delete", handler: onDelete },
     },
   };
@@ -453,11 +487,12 @@ function useMediaPageSize(): number {
 export default function AdminMediaPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const deleteMedia = useDeleteMedia();
   const createMedia = useCreateMedia();
   const listUploadInputRef = useRef<HTMLInputElement>(null);
   const [listUploadDragOver, setListUploadDragOver] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [addScopeOpen, setAddScopeOpen] = useState(false);
+  const [selectedMediaScope, setSelectedMediaScope] = useState<"all" | "family-tree" | "site-assets" | "my-media">("all");
   const [listUploadProgress, setListUploadProgress] = useState<MediaEditorUploadProgressState | null>(null);
 
   const { draft: filterDraft, queryOpts: filterOpts, updateDraft, apply: applyFiltersBase, clear: clearFiltersBase } =
@@ -470,6 +505,9 @@ export default function AdminMediaPage() {
     // Reset to first page whenever the responsive breakpoint flips (cards/page changes).
     setPageIndex(0);
   }, [pageSize]);
+  useEffect(() => {
+    setPageIndex(0);
+  }, [selectedMediaScope]);
 
   const pagination = useMemo<PaginationState>(
     () => ({ pageIndex, pageSize }),
@@ -501,10 +539,11 @@ export default function AdminMediaPage() {
   const queryOpts = useMemo(
     () => ({
       ...filterOpts,
+      scope: selectedMediaScope,
       limit: pagination.pageSize,
       offset: pagination.pageIndex * pagination.pageSize,
     }),
-    [filterOpts, pagination.pageIndex, pagination.pageSize],
+    [filterOpts, selectedMediaScope, pagination.pageIndex, pagination.pageSize],
   );
 
   const handleListUploadFiles = useCallback(
@@ -532,11 +571,20 @@ export default function AdminMediaPage() {
               caption: `${i + 1} of ${files.length}: ${label}`,
               subCaption: "Uploading…",
             });
+            const uploadScope =
+              selectedMediaScope === "site-assets" || selectedMediaScope === "my-media"
+                ? selectedMediaScope
+                : "family-tree";
+            const uploadUrl =
+              uploadScope === "family-tree"
+                ? "/api/admin/media/upload"
+                : `/api/admin/media/upload?scope=${encodeURIComponent(uploadScope)}`;
             const up = await postFormDataWithUploadProgress<{
               fileRef: string;
               suggestedForm: string | null;
               originalName: string;
-            }>("/api/admin/media/upload", fd, (p) => {
+              mimeType: string | null;
+            }>(uploadUrl, fd, (p) => {
               setListUploadProgress({
                 loaded: p.loaded,
                 total: p.total,
@@ -553,11 +601,19 @@ export default function AdminMediaPage() {
               subCaption: "Saving media row…",
             });
             const title = titleFromUploadedFilename(up.originalName);
-            const res = (await createMedia.mutateAsync({
+            const payload = {
               title,
               fileRef: up.fileRef,
               form: up.suggestedForm ?? null,
-            })) as { media: { id: string } };
+              mimeType: up.mimeType ?? null,
+              storageKey: up.fileRef ?? null,
+            };
+            const res =
+              selectedMediaScope === "site-assets"
+                ? ((await postJson("/api/admin/site-media", payload)) as { media: { id: string } })
+                : selectedMediaScope === "my-media"
+                  ? ((await postJson("/api/admin/user-media", payload)) as { media: { id: string } })
+                  : ((await createMedia.mutateAsync(payload)) as { media: { id: string } });
             lastId = res.media.id;
             lastTitle = title;
           } catch (err) {
@@ -569,7 +625,13 @@ export default function AdminMediaPage() {
         if (errors.length === 0) {
           if (files.length === 1 && lastId) {
             toast.success(`Added media "${lastTitle}".`);
-            router.push(`/admin/media/${lastId}/edit`);
+            router.push(
+              `/admin/media/${lastId}/edit${
+                selectedMediaScope === "site-assets" || selectedMediaScope === "my-media"
+                  ? `?scope=${selectedMediaScope}`
+                  : ""
+              }`,
+            );
           } else {
             toast.success(`Added ${files.length} media files.`);
           }
@@ -586,21 +648,34 @@ export default function AdminMediaPage() {
         setListUploadProgress(null);
       }
     },
-    [createMedia, queryClient, router],
+    [createMedia, queryClient, router, selectedMediaScope],
   );
 
   const handleDelete = useCallback(
     async (r: MediaRow) => {
       const label = r.title.trim() || r.filename.trim() || r.id;
-      if (!window.confirm(`Delete media "${label}"? This removes the GEDCOM media row, its tree links, tags, and album links. This cannot be undone.`)) return;
+      const detail =
+        r.mediaScope === "family-tree"
+          ? "This removes the GEDCOM media row, its tree links, tags, and album links."
+          : r.mediaScope === "site-assets"
+            ? "This soft-deletes the site asset record."
+            : "This soft-deletes your private media record.";
+      if (!window.confirm(`Delete media "${label}"? ${detail} This cannot be undone.`)) return;
       try {
-        await deleteMedia.mutateAsync(r.id);
+        if (r.mediaScope === "site-assets") {
+          await deleteJson(`/api/admin/site-media/${r.id}`);
+        } else if (r.mediaScope === "my-media") {
+          await deleteJson(`/api/admin/user-media/${r.id}`);
+        } else {
+          await deleteJson(`/api/admin/media/${r.id}`);
+        }
+        await queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
         toast.success(`Deleted "${label}".`);
       } catch (err) {
         toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
     },
-    [deleteMedia],
+    [queryClient],
   );
 
   const { data: setup } = useQuery({
@@ -618,6 +693,15 @@ export default function AdminMediaPage() {
   const loadErrorMessage =
     error instanceof ApiError ? error.message : error instanceof Error ? error.message : "Could not load media.";
 
+  const scopeBlurb =
+    selectedMediaScope === "all"
+      ? "Showing all available scopes."
+      : selectedMediaScope === "family-tree"
+        ? "GEDCOM-linked media used in the family tree."
+        : selectedMediaScope === "site-assets"
+          ? "Tree-scoped site assets."
+          : "Media owned by your account.";
+
   return (
     <div className="space-y-5">
       {/* Header row */}
@@ -627,6 +711,7 @@ export default function AdminMediaPage() {
           <p className="text-sm text-muted-foreground">
             Photos, documents, video, and audio linked to people, families, and events in this tree.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">{scopeBlurb}</p>
           {setup?.configured && setup.gedcomFile && (
             <p className="mt-1 text-xs text-muted-foreground">
               Scoped to:{" "}
@@ -654,11 +739,36 @@ export default function AdminMediaPage() {
           <button
             type="button"
             className="btn btn-primary btn-sm gap-1.5"
-            onClick={() => router.push("/admin/media/new")}
+            onClick={() => setAddScopeOpen(true)}
           >
             + Add media
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            ["all", "All Media"],
+            ["family-tree", "Family Tree"],
+            ["site-assets", "Site Assets"],
+            ["my-media", "My Media"],
+          ] as const
+        ).map(([scope, label]) => (
+          <button
+            key={scope}
+            type="button"
+            onClick={() => setSelectedMediaScope(scope)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+              selectedMediaScope === scope
+                ? "border-primary/40 bg-primary/12 text-primary"
+                : "border-base-content/15 bg-base-200/40 text-muted-foreground hover:border-base-content/30 hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Upload zone — collapsed by default */}
@@ -795,6 +905,52 @@ export default function AdminMediaPage() {
         onPaginationChange={handlePaginationChange}
         pageCount={pageCount}
       />
+
+      <Dialog open={addScopeOpen} onOpenChange={setAddScopeOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogTitle>Add media</DialogTitle>
+          <DialogDescription>
+            Choose which media system this upload belongs to.
+          </DialogDescription>
+          <div className="mt-2 space-y-2">
+            <button
+              type="button"
+              className="w-full rounded-lg border border-primary/35 bg-primary/10 px-3 py-2 text-left text-sm font-medium text-primary"
+              onClick={() => {
+                setAddScopeOpen(false);
+                router.push("/admin/media/new");
+              }}
+            >
+              Family Tree Media
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-lg border border-base-content/12 bg-base-200/35 px-3 py-2 text-left text-sm text-muted-foreground"
+              onClick={() => {
+                setAddScopeOpen(false);
+                router.push("/admin/media/new?scope=site-assets");
+              }}
+            >
+              Site Assets
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-lg border border-base-content/12 bg-base-200/35 px-3 py-2 text-left text-sm text-muted-foreground"
+              onClick={() => {
+                setAddScopeOpen(false);
+                router.push("/admin/media/new?scope=my-media");
+              }}
+            >
+              My Media
+            </button>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAddScopeOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

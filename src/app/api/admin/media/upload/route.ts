@@ -16,13 +16,22 @@ function resolveAdminMediaUploadMaxBytes(): number {
 }
 
 /**
- * POST multipart/form-data with field `file` — streams to disk under
- * `{ADMIN_MEDIA_FILES_ROOT | production /mnt default | dev public/uploads}/gedcom-admin/{images|documents|audio|videos}/`
- * and returns a site-relative path suitable for GedcomMedia.file_ref.
+ * POST multipart/form-data with field `file` — streams to disk.
+ *
+ * Query `scope`:
+ * - omitted / `family-tree` → `gedcom-admin/…` (GEDCOM-exportable tree media)
+ * - `site-assets` → `site-media/…`
+ * - `my-media` → `user-media/<your-user-id>/…`
  */
-export const POST = withAdminAuth(async (request) => {
+export const POST = withAdminAuth(async (request, user) => {
   const maxBytes = resolveAdminMediaUploadMaxBytes();
-  const result = await streamAdminMediaUpload(request, maxBytes);
+  const scope = request.nextUrl.searchParams.get("scope")?.trim();
+  const target =
+    scope === "site-assets" ? ("site" as const) : scope === "my-media" ? ("user" as const) : ("gedcom" as const);
+  const result = await streamAdminMediaUpload(request, maxBytes, {
+    target,
+    userId: target === "user" ? user.id : undefined,
+  });
 
   if (!("fileRef" in result)) {
     return NextResponse.json({ error: result.error }, { status: result.status });
@@ -30,6 +39,7 @@ export const POST = withAdminAuth(async (request) => {
 
   return NextResponse.json({
     fileRef: result.fileRef,
+    storageKey: result.fileRef,
     originalName: result.originalName,
     size: result.size,
     mimeType: result.mimeType,

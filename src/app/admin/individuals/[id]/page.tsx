@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
 import {
+  ADMIN_INDIVIDUALS_QUERY_KEY,
   useAdminIndividual,
   useAdminIndividualEvents,
   useAdminIndividualUserLinks,
@@ -29,6 +30,10 @@ import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import {
+  EntityGedcomProfileMediaSection,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   individual: "Self",
@@ -233,6 +238,15 @@ export default function AdminIndividualViewPage() {
       notFoundMessage="Could not load this person."
     >
       <header className="space-y-4 border-b border-base-content/[0.08] pb-8">
+        {id ? (
+          <EntityGedcomProfileMediaSection
+            entity="individual"
+            entityId={id}
+            heading="Profile picture"
+            profileMediaSelection={(ind?.profileMediaSelection ?? null) as ProfileMediaSelectionShape}
+            invalidateQueryKeys={[[...ADMIN_INDIVIDUALS_QUERY_KEY, "detail", id]]}
+          />
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-base-content">
             <span className="mt-1 shrink-0">

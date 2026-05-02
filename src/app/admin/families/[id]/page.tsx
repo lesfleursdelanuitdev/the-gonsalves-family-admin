@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
+import { ADMIN_FAMILIES_QUERY_KEY } from "@/hooks/admin-families-shared";
 import { useAdminFamily } from "@/hooks/useAdminFamilies";
 import { useAdminFamilyEvents } from "@/hooks/useAdminFamilyEvents";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
@@ -24,6 +25,10 @@ import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import {
+  EntityGedcomProfileMediaSection,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
 import {
   FAMILY_PARTNER_1_LABEL,
   FAMILY_PARTNER_2_LABEL,
@@ -307,6 +312,17 @@ export default function AdminFamilyViewPage() {
       notFoundMessage="Could not load this family."
     >
       <header className="space-y-4 border-b border-base-content/[0.08] pb-8">
+        {id ? (
+          <EntityGedcomProfileMediaSection
+            entity="family"
+            entityId={id}
+            heading="Family cover image"
+            profileMediaSelection={(fam?.profileMediaSelection ?? null) as ProfileMediaSelectionShape}
+            invalidateQueryKeys={[[...ADMIN_FAMILIES_QUERY_KEY, "detail", id]]}
+            emptyHint="No family cover image set."
+            chooseTriggerLabel="Choose family cover image"
+          />
+        ) : null}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-3xl font-bold tracking-tight text-base-content">{familyPageTitle}</h1>
           {id ? (
