@@ -13,6 +13,7 @@
     "start": "next start",
     "start:prod": "next start -p 3040",
     "deploy": "./scripts/deploy.sh",
+    "db:migrate:all": "npm run migrate:all --prefix ../packages/ligneous-prisma",
     "migrate-admin-uploads": "node --experimental-strip-types scripts/migrate-admin-uploads.ts",
     "optimize-gedcom-admin-media": "node --experimental-strip-types scripts/optimize-gedcom-admin-media.ts",
     "backfill-gedcom-media-xrefs": "node --experimental-strip-types scripts/backfill-gedcom-media-xrefs.ts",

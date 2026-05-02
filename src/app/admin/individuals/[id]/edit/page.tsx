@@ -13,7 +13,10 @@ import {
   type NameFormForDisplay,
 } from "@/lib/gedcom/display-name";
 import { cn } from "@/lib/utils";
-import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
+import {
+  photoUrlFromProfileRow,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
 import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 
 function individualEditPageLabel(ind: Record<string, unknown>): string {
@@ -27,29 +30,6 @@ function individualEditPageLabel(ind: Record<string, unknown>): string {
   return "—";
 }
 
-function isHttpUrl(s: string): boolean {
-  try {
-    const u = new URL(s);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function firstIndividualPhotoUrl(
-  individualMedia: { media: Record<string, unknown> }[] | null | undefined,
-): string | null {
-  for (const row of individualMedia ?? []) {
-    const m = row.media;
-    const ref = typeof m.fileRef === "string" ? m.fileRef.trim() : "";
-    if (!ref || !isHttpUrl(ref)) continue;
-    const form = typeof m.form === "string" ? m.form : null;
-    if (inferAdminMediaCategory(form, ref) !== "photo") continue;
-    return ref;
-  }
-  return null;
-}
-
 export default function AdminIndividualEditPage() {
   const params = useParams();
   const id = routeDynamicId(params);
@@ -60,14 +40,15 @@ export default function AdminIndividualEditPage() {
   const personLabel = ind ? individualEditPageLabel(ind) : "—";
   const photoUrl = useMemo(() => {
     if (!ind) return null;
-    const profile = ind.profileMediaSelection as { media?: Record<string, unknown> } | null | undefined;
-    const fromProfile = profile?.media
-      ? firstIndividualPhotoUrl([{ media: profile.media }])
-      : null;
+    const profile = ind.profileMediaSelection as ProfileMediaSelectionShape;
+    const fromProfile = photoUrlFromProfileRow(profile ?? null);
     if (fromProfile) return fromProfile;
-    return firstIndividualPhotoUrl(
-      ind.individualMedia as { media: Record<string, unknown> }[] | null | undefined,
-    );
+    const media = ind.individualMedia as { media: Record<string, unknown> }[] | null | undefined;
+    for (const row of media ?? []) {
+      const u = photoUrlFromProfileRow({ media: row.media } as ProfileMediaSelectionShape);
+      if (u) return u;
+    }
+    return null;
   }, [ind]);
 
   useEffect(() => {

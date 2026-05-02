@@ -9,6 +9,7 @@ import { MediaPicker } from "@/components/admin/media-picker";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
+import { mediaThumbSrc, resolveMediaImageSrc } from "@/lib/admin/mediaPreview";
 import { ApiError, deleteJson } from "@/lib/infra/api";
 
 type Entity = "individual" | "family" | "event";
@@ -22,24 +23,20 @@ export type ProfileMediaSelectionShape = {
   } | null;
 } | null;
 
-function isHttpUrl(s: string): boolean {
-  try {
-    const u = new URL(s);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-/** Same rules as the profile picker: HTTP(S) `fileRef` + inferred photo category. */
+/**
+ * Preview URL for profile / header avatars: same-origin `/uploads/…` and http(s), aligned with
+ * {@link AssociatedMediaThumbnailGrid} (thumb API when available, else direct path).
+ */
 export function photoUrlFromProfileRow(row: ProfileMediaSelectionShape): string | null {
   const m = row?.media;
   if (!m) return null;
   const ref = typeof m.fileRef === "string" ? m.fileRef.trim() : "";
-  if (!ref || !isHttpUrl(ref)) return null;
+  if (!ref) return null;
   const form = typeof m.form === "string" ? m.form : null;
   if (inferAdminMediaCategory(form, ref) !== "photo") return null;
-  return ref;
+  const direct = resolveMediaImageSrc(ref);
+  if (!direct) return null;
+  return mediaThumbSrc(ref, form, 256) ?? direct;
 }
 
 function profileApiBase(entity: Entity, entityId: string): string {
