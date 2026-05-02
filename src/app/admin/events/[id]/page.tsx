@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ImageIcon, Pencil } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ADMIN_EVENTS_QUERY_KEY, useAdminEvent } from "@/hooks/useAdminEvents";
+import { useAdminEvent } from "@/hooks/useAdminEvents";
 import { formatDateRecord } from "@/lib/gedcom/format-event-date";
 import { eventPageDisplayTitle } from "@/lib/gedcom/event-page-title";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
@@ -16,14 +16,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
-import {
-  EntityGedcomProfileMediaSection,
-  type ProfileMediaSelectionShape,
-} from "@/components/admin/EntityGedcomProfileMediaSection";
+import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
+import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 
 export default function AdminEventDetailPage() {
   const params = useParams();
-  const id = typeof params.id === "string" ? params.id : "";
+  const id = routeDynamicId(params);
 
   const { data, isLoading, error } = useAdminEvent(id);
 
@@ -79,6 +77,16 @@ export default function AdminEventDetailPage() {
   const eventMedia =
     (ev?.eventMedia as { media: Record<string, unknown> }[] | undefined) ?? [];
 
+  const profileMediaSelection = (ev?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
+  const headerProfilePhotoUrl = useMemo(
+    () => photoUrlFromProfileRow(profileMediaSelection),
+    [profileMediaSelection],
+  );
+  const [headerProfileImgFailed, setHeaderProfileImgFailed] = useState(false);
+  useEffect(() => {
+    setHeaderProfileImgFailed(false);
+  }, [id, headerProfilePhotoUrl]);
+
   return (
     <DetailPageShell
       backHref="/admin/events"
@@ -89,20 +97,20 @@ export default function AdminEventDetailPage() {
       notFoundMessage="Could not load this event."
     >
       <header className="space-y-4 border-b border-base-content/[0.08] pb-8">
-        {id ? (
-          <EntityGedcomProfileMediaSection
-            entity="event"
-            entityId={id}
-            heading="Event cover image"
-            profileMediaSelection={(ev?.profileMediaSelection ?? null) as ProfileMediaSelectionShape}
-            invalidateQueryKeys={[[...ADMIN_EVENTS_QUERY_KEY, "detail", id]]}
-            emptyHint="No event cover image set."
-            chooseTriggerLabel="Choose event cover image"
-          />
-        ) : null}
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-base-content">
-            <GedcomEventTypeIcon eventType={eventType} className="size-8 shrink-0 sm:size-9" />
+          <h1 className="flex min-w-0 items-center gap-3 text-3xl font-bold tracking-tight text-base-content">
+            {headerProfilePhotoUrl && !headerProfileImgFailed ? (
+              <span className="relative flex size-12 shrink-0 overflow-hidden rounded-full border border-base-content/15 bg-muted sm:size-14">
+                <img
+                  src={headerProfilePhotoUrl}
+                  alt=""
+                  className="size-full object-cover"
+                  onError={() => setHeaderProfileImgFailed(true)}
+                />
+              </span>
+            ) : (
+              <GedcomEventTypeIcon eventType={eventType} className="size-8 shrink-0 sm:size-9" />
+            )}
             <span className="min-w-0 leading-tight">{pageTitle}</span>
           </h1>
           <Link

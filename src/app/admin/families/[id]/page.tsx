@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Users } from "lucide-react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
-import { ADMIN_FAMILIES_QUERY_KEY } from "@/hooks/admin-families-shared";
 import { useAdminFamily } from "@/hooks/useAdminFamilies";
 import { useAdminFamilyEvents } from "@/hooks/useAdminFamilyEvents";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
@@ -21,14 +20,12 @@ import { SexIcon } from "@/components/admin/SexIcon";
 import { formatEventDate } from "@/lib/gedcom/format-event-date";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
+import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
-import {
-  EntityGedcomProfileMediaSection,
-  type ProfileMediaSelectionShape,
-} from "@/components/admin/EntityGedcomProfileMediaSection";
+import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import {
   FAMILY_PARTNER_1_LABEL,
   FAMILY_PARTNER_2_LABEL,
@@ -173,9 +170,10 @@ function PaginatedChildrenList({
 
 export default function AdminFamilyViewPage() {
   const params = useParams();
-  const id = typeof params.id === "string" ? params.id : "";
+  const id = routeDynamicId(params);
 
-  const { data: detailRes, isLoading: detailLoading, error: detailError } = useAdminFamily(id);
+  const { data: detailRes, isPending: detailPending, error: detailError } = useAdminFamily(id);
+  const detailLoading = Boolean(id) && detailPending;
   const { data: eventsRes, isLoading: eventsLoading, error: eventsError } = useAdminFamilyEvents(id);
 
   const events = eventsRes?.events ?? [];
@@ -302,29 +300,46 @@ export default function AdminFamilyViewPage() {
       .trim() ||
     id;
 
+  const profileMediaSelection = (fam?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
+  const headerProfilePhotoUrl = useMemo(
+    () => photoUrlFromProfileRow(profileMediaSelection),
+    [profileMediaSelection],
+  );
+  const [headerProfileImgFailed, setHeaderProfileImgFailed] = useState(false);
+  useEffect(() => {
+    setHeaderProfileImgFailed(false);
+  }, [id, headerProfilePhotoUrl]);
+
   return (
     <DetailPageShell
       backHref="/admin/families"
       backLabel="Families"
       isLoading={detailLoading}
       error={detailError}
-      data={fam}
-      notFoundMessage="Could not load this family."
+      data={id ? fam : undefined}
+      notFoundMessage={
+        id ? "Could not load this family." : "This page is missing a family id in the URL."
+      }
     >
       <header className="space-y-4 border-b border-base-content/[0.08] pb-8">
-        {id ? (
-          <EntityGedcomProfileMediaSection
-            entity="family"
-            entityId={id}
-            heading="Family cover image"
-            profileMediaSelection={(fam?.profileMediaSelection ?? null) as ProfileMediaSelectionShape}
-            invalidateQueryKeys={[[...ADMIN_FAMILIES_QUERY_KEY, "detail", id]]}
-            emptyHint="No family cover image set."
-            chooseTriggerLabel="Choose family cover image"
-          />
-        ) : null}
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-base-content">{familyPageTitle}</h1>
+          <h1 className="flex min-w-0 items-center gap-3 text-3xl font-bold tracking-tight text-base-content">
+            {headerProfilePhotoUrl && !headerProfileImgFailed ? (
+              <span className="relative flex size-12 shrink-0 overflow-hidden rounded-full border border-base-content/15 bg-muted sm:size-14">
+                <img
+                  src={headerProfilePhotoUrl}
+                  alt=""
+                  className="size-full object-cover"
+                  onError={() => setHeaderProfileImgFailed(true)}
+                />
+              </span>
+            ) : (
+              <span className="shrink-0 text-base-content/70" aria-hidden>
+                <Users className="size-7 sm:size-8" />
+              </span>
+            )}
+            <span className="min-w-0">{familyPageTitle}</span>
+          </h1>
           {id ? (
             <Link
               href={`/admin/families/${id}/edit`}

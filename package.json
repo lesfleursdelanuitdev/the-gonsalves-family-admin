@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "npm run generate --prefix ../packages/ligneous-prisma",
+    "ensure-prisma": "npm run generate --prefix ../packages/ligneous-prisma",
+    "prebuild": "npm run ensure-prisma",
+    "predev": "npm run ensure-prisma",
+    "predev:turbopack": "npm run ensure-prisma",
     "dev": "next dev --webpack",
     "dev:turbopack": "next dev --turbopack",
     "build": "next build --webpack",

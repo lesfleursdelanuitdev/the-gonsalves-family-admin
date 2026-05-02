@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
@@ -72,8 +73,20 @@ export const PUT = withAdminAuth(async (request, user, ctx) => {
     if (e instanceof Error && e.message.includes("Document id must match")) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
-    console.error("PUT /api/admin/stories/[storyId] transaction failed", e);
-    return NextResponse.json({ error: "Could not save story (database rejected the payload)" }, { status: 400 });
+    const prismaErr = e instanceof Prisma.PrismaClientKnownRequestError ? e : null;
+    console.error("PUT /api/admin/stories/[storyId] transaction failed", prismaErr?.code ?? "", prismaErr?.message ?? e);
+    return NextResponse.json(
+      {
+        error: "Could not save story (database rejected the payload)",
+        ...(prismaErr
+          ? {
+              code: prismaErr.code,
+              ...(process.env.NODE_ENV === "development" ? { detail: prismaErr.message } : {}),
+            }
+          : {}),
+      },
+      { status: 400 },
+    );
   }
 });
 

@@ -44,6 +44,11 @@ const INDIVIDUAL_SELECT = {
       },
     },
   },
+  profileMediaSelection: {
+    select: {
+      media: { select: { id: true, fileRef: true, form: true } },
+    },
+  },
 } as const;
 
 function parseStructuredFilters(

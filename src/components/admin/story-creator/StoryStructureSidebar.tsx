@@ -82,6 +82,7 @@ type BranchProps = {
   onToggleCollapsed: (sectionId: string) => void;
   onMoveSection: (draggedId: string, newParentId: string | null, insertBeforeId: string | null) => void;
   setDraggedId: (id: string | null) => void;
+  onToggleSectionChapter?: (sectionId: string, isChapter: boolean) => void;
 };
 
 function OutlineSectionBranch({
@@ -101,6 +102,7 @@ function OutlineSectionBranch({
   onToggleCollapsed,
   onMoveSection,
   setDraggedId,
+  onToggleSectionChapter,
 }: BranchProps) {
   const tryDrop = (dragged: string, beforeIndex: number) => {
     const insertBeforeId = beforeIndex >= sections.length ? null : sections[beforeIndex]!.id;
@@ -195,6 +197,25 @@ function OutlineSectionBranch({
                 </button>
               )}
             </div>
+            {depth === 0 && onToggleSectionChapter ? (
+              <label
+                className="flex shrink-0 cursor-pointer select-none items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-base-content/45"
+                title="Mark as a narrative chapter for the public table of contents (story kind)"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs rounded border-base-content/25"
+                  checked={sec.isChapter ?? false}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onToggleSectionChapter(sec.id, e.target.checked);
+                  }}
+                />
+                <span className="hidden sm:inline">Chapter</span>
+              </label>
+            ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger
                 type="button"
@@ -247,6 +268,7 @@ function OutlineSectionBranch({
               onToggleCollapsed={onToggleCollapsed}
               onMoveSection={onMoveSection}
               setDraggedId={setDraggedId}
+              onToggleSectionChapter={onToggleSectionChapter}
             />
           ) : null}
         </li>
@@ -320,6 +342,7 @@ export function StoryStructureSidebar({
   onDeleteSection,
   onToggleCollapsed,
   onMoveSection,
+  onToggleSectionChapter,
   isCompact,
   mobileOverlay,
   onCloseMobileOverlay,
@@ -337,6 +360,7 @@ export function StoryStructureSidebar({
   onDeleteSection: (sectionId: string) => void;
   onToggleCollapsed: (sectionId: string) => void;
   onMoveSection: (draggedId: string, newParentId: string | null, insertBeforeId: string | null) => void;
+  onToggleSectionChapter?: (sectionId: string, isChapter: boolean) => void;
   isCompact: boolean;
   mobileOverlay?: boolean;
   onCloseMobileOverlay?: () => void;
@@ -362,6 +386,7 @@ export function StoryStructureSidebar({
         onToggleCollapsed={onToggleCollapsed}
         onMoveSection={onMoveSection}
         setDraggedId={setDraggedId}
+        onToggleSectionChapter={onToggleSectionChapter}
       />
       <Button
         type="button"

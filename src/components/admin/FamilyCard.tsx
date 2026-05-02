@@ -74,7 +74,7 @@ export function FamilyCard({
   const hInitials = initialsFromPersonLabel(record.partner1);
   const wInitials = initialsFromPersonLabel(record.partner2);
   const marriageDisplay = record.marriageYear.trim() || "—";
-  const childLabel = `${record.childCount} ${record.childCount === 1 ? "child" : "children"}`;
+  const childLabel = String(record.childCount);
 
   const partner1El =
     record.husbandId && record.partner1 !== "—" ? (
@@ -206,6 +206,7 @@ export function FamilyCard({
               <Link
                 href={`/admin/families/${record.id}`}
                 className="text-muted-foreground underline-offset-2 transition-colors hover:text-primary hover:underline"
+                aria-label={`View family (${record.childCount})`}
               >
                 {childLabel}
               </Link>

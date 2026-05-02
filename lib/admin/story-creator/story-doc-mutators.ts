@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type {
   StoryBlock,
+  StoryBlockDateAnnotation,
   StoryBlockDesign,
   StoryBlockRowLayout,
   StoryColumnNestedBlock,
@@ -127,6 +128,19 @@ export function patchRichTextInSection(
     ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
       b.type === "richText" && b.id === richId ? { ...b, doc } : b,
+    ),
+  };
+}
+
+export function patchBlockDateAnnotationInSection(
+  sec: StorySection,
+  blockId: string,
+  dateAnnotation: StoryBlockDateAnnotation | undefined,
+): StorySection {
+  return {
+    ...sec,
+    blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
+      b.id === blockId ? ({ ...b, dateAnnotation } as StoryBlock) : b,
     ),
   };
 }

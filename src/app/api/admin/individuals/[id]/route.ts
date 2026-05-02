@@ -20,10 +20,14 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
     return NextResponse.json({ error: "Individual not found" }, { status: 404 });
   }
 
-  await prisma.$transaction((tx) => {
-    const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId: "" };
-    return repairIndividualKeyFactDenormFromEvents(changeCtx, id);
-  });
+  try {
+    await prisma.$transaction((tx) => {
+      const changeCtx: ChangeCtx = { tx, fileUuid, userId: user.id, batchId: "" };
+      return repairIndividualKeyFactDenormFromEvents(changeCtx, id);
+    });
+  } catch (e) {
+    console.error("GET /api/admin/individuals/[id] key-fact denorm repair failed (continuing)", e);
+  }
 
   const individual = await prisma.gedcomIndividual.findUnique({
     where: { id },

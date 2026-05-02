@@ -60,10 +60,11 @@ export function DetailPageShell({
   }
 
   if (error || !data) {
+    const headline = error instanceof Error ? error.message : notFoundMessage;
     return (
       <div className={cn(containerClass, "gap-4 pb-20")}>
         <BackLink href={backHref} label={backLabel} />
-        <p className="text-destructive">{notFoundMessage}</p>
+        <p className="text-destructive">{headline}</p>
       </div>
     );
   }

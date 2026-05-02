@@ -37,6 +37,13 @@ export type StoryBlockDesign = {
   css?: string;
 };
 
+/** Timeline / reader annotations; stored inside block JSON in `content_json` (no DB column). */
+export type StoryBlockDateAnnotation = {
+  date: string;
+  dateDisplay: string;
+  endDate?: string;
+};
+
 /** Matches Prisma `StoryKind` — used in local drafts until server sync. */
 export type StoryDocumentKind = "story" | "article" | "post";
 
@@ -71,6 +78,7 @@ export type StoryRichTextBlock = {
   /** Row width / alignment (rich text stays on its own row; no float). */
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
 };
 
 /** Raster / video / audio attached from the media library (picker, thumbnail, captions). */
@@ -94,6 +102,7 @@ export type StoryMediaBlock = {
   /** Row width, alignment, and optional float-with-text layout. */
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
 };
 
 /** Non-media embeds: maps, timelines, trees, documents, graphs. */
@@ -131,6 +140,7 @@ export type StoryEmbedBlock = {
   linkMode?: StoryEmbedLinkMode;
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
 };
 
 /**
@@ -178,12 +188,14 @@ export type StoryColumnsBlock = {
   /** Horizontal gap between columns in `rem` (stable, theme-relative). */
   columnGapRem?: number;
   design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
 };
 
 export type StoryDividerBlock = {
   id: string;
   type: "divider";
   design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
 };
 
 /** Layout-only container; children are full section-level block shapes (recursive). */
@@ -206,6 +218,7 @@ export type StoryContainerBlock = {
   props: StoryContainerBlockProps;
   children: StoryBlock[];
   design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
 };
 
 export type StoryBlock =
@@ -225,6 +238,11 @@ export type StorySection = {
   title: string;
   /** When true, nested sections are hidden in the outline (editor only). */
   collapsed?: boolean;
+  /**
+   * For `StoryKind.story` public TOC: narrative chapter vs front/back matter (top-level sections only).
+   * Serialized to the first `StorySection` row under a chapter when the outline has nested children.
+   */
+  isChapter?: boolean;
   blocks: StoryBlock[];
   children?: StorySection[];
 };
@@ -233,6 +251,8 @@ export type StoryDocument = {
   version: 1;
   id: string;
   title: string;
+  /** Per-tree URL slug (`stories.slug`); lowercase hyphenated. */
+  slug?: string;
   /** Optional byline (person or organization). Shown in preview and when synced to public pages. */
   author?: string;
   /** Label before `author` (default: word “By”). Ignored when `author` is empty. */
@@ -267,6 +287,8 @@ export type StoryDocument = {
   /** Top-level sections in document order; each may nest `children`. */
   sections: StorySection[];
   updatedAt: string;
+  /** Mirrors Prisma `stories.content_version` when loaded from the server. */
+  contentVersion?: number;
 };
 
 /** Subset of `StoryDocument` fields edited from the Story inspector tab. */
@@ -275,6 +297,7 @@ export type StoryDocumentMetaPatch = Partial<
     StoryDocument,
     | "kind"
     | "status"
+    | "slug"
     | "author"
     | "authorPrefixMode"
     | "authorPrefixCustom"
@@ -294,6 +317,7 @@ export type StoryIndexEntry = {
   title: string;
   updatedAt: string;
   kind?: StoryDocumentKind;
+  slug?: string | null;
   /** Omitted in older local indexes; hydrated from the full document on read. */
   status?: StoryLifecycleStatus;
 };

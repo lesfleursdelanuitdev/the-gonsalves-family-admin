@@ -31,7 +31,8 @@ function isHttpUrl(s: string): boolean {
   }
 }
 
-function photoUrlFromProfileRow(row: ProfileMediaSelectionShape): string | null {
+/** Same rules as the profile picker: HTTP(S) `fileRef` + inferred photo category. */
+export function photoUrlFromProfileRow(row: ProfileMediaSelectionShape): string | null {
   const m = row?.media;
   if (!m) return null;
   const ref = typeof m.fileRef === "string" ? m.fileRef.trim() : "";

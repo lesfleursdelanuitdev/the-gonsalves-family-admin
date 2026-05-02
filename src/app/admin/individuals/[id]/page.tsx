@@ -4,12 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
-import {
-  ADMIN_INDIVIDUALS_QUERY_KEY,
-  useAdminIndividual,
-  useAdminIndividualEvents,
-  useAdminIndividualUserLinks,
-} from "@/hooks/useAdminIndividuals";
+import { useAdminIndividual, useAdminIndividualEvents, useAdminIndividualUserLinks } from "@/hooks/useAdminIndividuals";
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { SURNAME_PIECE_TYPE_OPTIONS } from "@/lib/forms/individual-editor-form";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,14 +21,12 @@ import { SexIcon } from "@/components/admin/SexIcon";
 import { formatEventDate } from "@/lib/gedcom/format-event-date";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
+import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
-import {
-  EntityGedcomProfileMediaSection,
-  type ProfileMediaSelectionShape,
-} from "@/components/admin/EntityGedcomProfileMediaSection";
+import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   individual: "Self",
@@ -157,9 +150,11 @@ function PaginatedFamilyChildrenList({
 
 export default function AdminIndividualViewPage() {
   const params = useParams();
-  const id = typeof params.id === "string" ? params.id : "";
+  const id = routeDynamicId(params);
 
-  const { data: detailRes, isLoading: detailLoading, error: detailError } = useAdminIndividual(id);
+  /** TanStack Query v5: `isLoading` is only true while fetching; disabled / idle pending uses `isPending`. */
+  const { data: detailRes, isPending: detailPending, error: detailError } = useAdminIndividual(id);
+  const detailLoading = Boolean(id) && detailPending;
   const { data: eventsRes, isLoading: eventsLoading, error: eventsError } = useAdminIndividualEvents(id);
   const {
     data: userLinksRes,
@@ -228,30 +223,44 @@ export default function AdminIndividualViewPage() {
   const husbandFams = (ind?.husbandInFamilies as Record<string, unknown>[]) ?? [];
   const wifeFams = (ind?.wifeInFamilies as Record<string, unknown>[]) ?? [];
 
+  const profileMediaSelection = (ind?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
+  const headerProfilePhotoUrl = useMemo(
+    () => photoUrlFromProfileRow(profileMediaSelection),
+    [profileMediaSelection],
+  );
+  const [headerProfileImgFailed, setHeaderProfileImgFailed] = useState(false);
+  useEffect(() => {
+    setHeaderProfileImgFailed(false);
+  }, [id, headerProfilePhotoUrl]);
+
   return (
     <DetailPageShell
       backHref="/admin/individuals"
       backLabel="Individuals"
       isLoading={detailLoading}
       error={detailError}
-      data={ind}
-      notFoundMessage="Could not load this person."
+      data={id ? ind : undefined}
+      notFoundMessage={
+        id ? "Could not load this person." : "This page is missing a person id in the URL."
+      }
     >
       <header className="space-y-4 border-b border-base-content/[0.08] pb-8">
-        {id ? (
-          <EntityGedcomProfileMediaSection
-            entity="individual"
-            entityId={id}
-            heading="Profile picture"
-            profileMediaSelection={(ind?.profileMediaSelection ?? null) as ProfileMediaSelectionShape}
-            invalidateQueryKeys={[[...ADMIN_INDIVIDUALS_QUERY_KEY, "detail", id]]}
-          />
-        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-base-content">
-            <span className="mt-1 shrink-0">
-              <SexIcon sex={sex} className="size-7 sm:size-8" />
-            </span>
+          <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-base-content">
+            {headerProfilePhotoUrl && !headerProfileImgFailed ? (
+              <span className="relative flex size-12 shrink-0 overflow-hidden rounded-full border border-base-content/15 bg-muted sm:size-14">
+                <img
+                  src={headerProfilePhotoUrl}
+                  alt=""
+                  className="size-full object-cover"
+                  onError={() => setHeaderProfileImgFailed(true)}
+                />
+              </span>
+            ) : (
+              <span className="shrink-0">
+                <SexIcon sex={sex} className="size-7 sm:size-8" />
+              </span>
+            )}
             <span className="min-w-0">{fullName}</span>
           </h1>
           {id ? (

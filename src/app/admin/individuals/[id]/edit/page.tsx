@@ -14,6 +14,7 @@ import {
 } from "@/lib/gedcom/display-name";
 import { cn } from "@/lib/utils";
 import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
+import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 
 function individualEditPageLabel(ind: Record<string, unknown>): string {
   const fromForms = formatDisplayNameFromNameForms(
@@ -51,8 +52,8 @@ function firstIndividualPhotoUrl(
 
 export default function AdminIndividualEditPage() {
   const params = useParams();
-  const id = typeof params.id === "string" ? params.id : "";
-  const { data, isLoading, error } = useAdminIndividual(id);
+  const id = routeDynamicId(params);
+  const { data, isPending, error } = useAdminIndividual(id);
   const ind = data?.individual as Record<string, unknown> | undefined;
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
 
@@ -91,7 +92,7 @@ export default function AdminIndividualEditPage() {
       </div>
     );
   }
-  if (isLoading) {
+  if (id && isPending) {
     return (
       <div>
         {backIndividuals}
@@ -103,7 +104,9 @@ export default function AdminIndividualEditPage() {
     return (
       <div>
         {backIndividuals}
-        <p className="text-sm text-destructive">Could not load this person.</p>
+        <p className="text-sm text-destructive">
+          {error instanceof Error ? error.message : "Could not load this person."}
+        </p>
       </div>
     );
   }

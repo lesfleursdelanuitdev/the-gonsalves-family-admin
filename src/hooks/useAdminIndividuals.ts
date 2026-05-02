@@ -12,6 +12,10 @@ export interface AdminIndividualListItem {
   sex: string | null;
   birthYear: number | null;
   deathYear: number | null;
+  /** Present when list API includes profile row (grid avatar). */
+  profileMediaSelection?: {
+    media: { id: string; fileRef: string | null; form: string | null } | null;
+  } | null;
   individualNameForms?: Array<{
     isPrimary: boolean | null;
     sortOrder: number | null;

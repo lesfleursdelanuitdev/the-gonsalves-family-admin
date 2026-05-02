@@ -1,16 +1,30 @@
 import { NextResponse } from "next/server";
-import { Prisma, StoryKind } from "@ligneous/prisma";
+import { Prisma, StoryKind, StoryStatus } from "@ligneous/prisma";
 import { createDefaultSectionBlocks } from "@/lib/admin/story-creator/story-block-factory";
+import { slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
+
+async function allocateUniqueStorySlug(treeId: string, title: string): Promise<string> {
+  const base = slugifyStoryTitle(title);
+  for (let i = 0; i < 80; i++) {
+    const candidate = i === 0 ? base : `${base}-${i + 1}`;
+    const taken = await prisma.story.findFirst({
+      where: { treeId, deletedAt: null, slug: candidate },
+      select: { id: true },
+    });
+    if (!taken) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
 
 export const GET = withAdminAuth(async (_req, user) => {
   const treeId = await getAdminTreeId();
   const stories = await prisma.story.findMany({
     where: { treeId, authorId: user.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, kind: true, status: true, updatedAt: true },
+    select: { id: true, title: true, kind: true, status: true, slug: true, updatedAt: true },
   });
 
   return NextResponse.json({
@@ -19,6 +33,7 @@ export const GET = withAdminAuth(async (_req, user) => {
       title: s.title,
       kind: s.kind === StoryKind.article ? "article" : s.kind === StoryKind.post ? "post" : "story",
       status: s.status === "published" ? "published" : "draft",
+      slug: s.slug,
       updatedAt: s.updatedAt.toISOString(),
     })),
   });
@@ -37,15 +52,23 @@ export const POST = withAdminAuth(async (request, user) => {
         ? StoryKind.post
         : StoryKind.story;
 
+  const slug = await allocateUniqueStorySlug(treeId, title);
+
   const story = await prisma.story.create({
     data: {
       treeId,
       authorId: user.id,
       title,
+      slug,
       kind,
-      status: "draft",
+      status: StoryStatus.draft,
       tags: [],
-      body: "",
+      body: JSON.stringify({
+        v: "ligneous-story-meta/1",
+        author: null,
+        authorPrefixMode: null,
+        authorPrefixCustom: null,
+      }),
       contentVersion: 1,
       isPublished: false,
     },
@@ -64,5 +87,5 @@ export const POST = withAdminAuth(async (request, user) => {
     },
   });
 
-  return NextResponse.json({ id: story.id }, { status: 201 });
+  return NextResponse.json({ id: story.id, slug: story.slug }, { status: 201 });
 });

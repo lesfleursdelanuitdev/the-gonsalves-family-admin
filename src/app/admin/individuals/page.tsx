@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useLayoutEffect, useRef, Suspense } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -39,6 +39,10 @@ import {
   type AdminIndividualsUrlFilterState,
 } from "@/lib/admin/admin-individuals-url-filters";
 import { Eye, Pencil, Trash2 } from "lucide-react";
+import {
+  photoUrlFromProfileRow,
+  type ProfileMediaSelectionShape,
+} from "@/components/admin/EntityGedcomProfileMediaSection";
 
 interface IndividualRow {
   id: string;
@@ -47,6 +51,37 @@ interface IndividualRow {
   sex: string;
   birthYear: string;
   deathYear: string;
+  profileMediaSelection: ProfileMediaSelectionShape;
+}
+
+function IndividualGridAvatar({
+  initials,
+  profileSelection,
+}: {
+  initials: string;
+  profileSelection: ProfileMediaSelectionShape;
+}) {
+  const url = useMemo(() => photoUrlFromProfileRow(profileSelection), [profileSelection]);
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [url]);
+
+  const circleClass =
+    "mx-auto flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-base-content/12 bg-white/8 text-sm font-bold text-base-content";
+
+  if (url && !imgFailed) {
+    return (
+      <div className={circleClass} aria-hidden>
+        <img src={url} alt="" className="size-full object-cover" onError={() => setImgFailed(true)} />
+      </div>
+    );
+  }
+  return (
+    <div className={circleClass} aria-hidden>
+      {initials}
+    </div>
+  );
 }
 
 type FilterState = AdminIndividualsUrlFilterState;
@@ -63,6 +98,7 @@ function mapApiToRows(api: AdminIndividualsListResponse): IndividualRow[] {
     sex: ind.sex ?? "",
     birthYear: ind.birthYear != null ? String(ind.birthYear) : "",
     deathYear: ind.deathYear != null ? String(ind.deathYear) : "",
+    profileMediaSelection: (ind.profileMediaSelection ?? null) as ProfileMediaSelectionShape,
   }));
 }
 
@@ -130,12 +166,7 @@ function buildIndividualsConfig(
               {xrefDisplay}
             </span>
           </div>
-          <div
-            className="mx-auto flex size-11 shrink-0 items-center justify-center rounded-full border border-base-content/12 bg-white/8 text-sm font-bold text-base-content"
-            aria-hidden
-          >
-            {avatarInitials}
-          </div>
+          <IndividualGridAvatar initials={avatarInitials} profileSelection={record.profileMediaSelection} />
           <CardTitle className="text-balance text-base font-semibold leading-tight text-base-content sm:text-lg">
             {nameDisplay}
           </CardTitle>

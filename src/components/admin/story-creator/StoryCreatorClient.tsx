@@ -39,6 +39,7 @@ import { StoryCreatorPreview } from "@/components/admin/story-creator/story-crea
 import type { JSONContent } from "@tiptap/core";
 import type {
   StoryBlock,
+  StoryBlockDateAnnotation,
   StoryBlockDesign,
   StoryBlockRowLayout,
   StoryColumnNestedBlock,
@@ -91,6 +92,7 @@ import {
   patchColumnSlotLayout,
   patchColumnsInSection,
   patchContainerInSection,
+  patchBlockDateAnnotationInSection,
   patchEmbedInSection,
   patchMediaInSection,
   patchRichTextInSection,
@@ -1270,6 +1272,16 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     [activePair, selectedBlockId, updateDoc],
   );
 
+  const patchBlockDateAnnotation = useCallback(
+    (dateAnnotation: StoryBlockDateAnnotation | undefined) => {
+      if (!activePair || !selectedBlockId) return;
+      const sid = activePair.section.id;
+      const bid = selectedBlockId;
+      updateDoc((d) => mapDocSection(d, sid, (sec) => patchBlockDateAnnotationInSection(sec, bid, dateAnnotation)));
+    },
+    [activePair, selectedBlockId, updateDoc],
+  );
+
   const appendIntoContainer = useCallback(
     (sectionId: string, containerId: string, block: StoryBlock) => {
       updateDoc((d) =>
@@ -1320,6 +1332,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     (sectionId: string, title: string) => {
       const t = title.trim() || "Untitled section";
       updateDoc((d) => mapDocSection(d, sectionId, (s) => ({ ...s, title: t })));
+    },
+    [updateDoc],
+  );
+
+  const toggleSectionChapter = useCallback(
+    (sectionId: string, isChapter: boolean) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (s) => ({ ...s, isChapter })));
     },
     [updateDoc],
   );
@@ -1599,6 +1618,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onDeleteSection={deleteSection}
         onToggleCollapsed={toggleSectionCollapsed}
         onMoveSection={moveSection}
+        onToggleSectionChapter={toggleSectionChapter}
         isCompact={!isLg}
         mobileOverlay={mobileOverlay}
         onCloseMobileOverlay={mobileOverlay ? () => setMobileShellTab("add-block") : undefined}
@@ -1864,6 +1884,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onPatchContainer={patchContainer}
         onPatchBlockRowLayout={patchBlockRowLayout}
         onPatchBlockDesign={patchBlockDesign}
+        onPatchBlockDateAnnotation={patchBlockDateAnnotation}
         onTitleChange={setTitle}
         onExcerptChange={setExcerpt}
         onStoryMetaChange={patchStoryMeta}
@@ -2124,6 +2145,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   onPatchContainer={patchContainer}
                   onPatchBlockRowLayout={patchBlockRowLayout}
                   onPatchBlockDesign={patchBlockDesign}
+                  onPatchBlockDateAnnotation={patchBlockDateAnnotation}
                   onTitleChange={setTitle}
                   onExcerptChange={setExcerpt}
                   onStoryMetaChange={patchStoryMeta}

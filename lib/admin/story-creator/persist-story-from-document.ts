@@ -65,6 +65,7 @@ export async function replaceStoryFromDocumentInTx(
       profileMediaId: payload.story.profileMediaId,
       profileMediaKind: payload.story.profileMediaKind,
       contentVersion: payload.story.contentVersion,
+      slug: payload.story.slug,
       body: payload.story.body,
     },
   });
@@ -87,6 +88,7 @@ export async function replaceStoryFromDocumentInTx(
           title: sec.title,
           sortOrder: sec.sortOrder,
           slug: sec.slug,
+          isChapter: sec.isChapter,
           contentJson: sec.contentJson as Prisma.InputJsonValue,
         },
       });

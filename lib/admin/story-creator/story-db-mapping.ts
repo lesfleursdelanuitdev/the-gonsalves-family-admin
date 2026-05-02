@@ -1,6 +1,7 @@
 import type { Prisma } from "@ligneous/prisma";
 import { StoryCoverMediaKind as PrismaStoryCoverMediaKind, StoryKind, StoryStatus } from "@ligneous/prisma";
 import type {
+  StoryAuthorPrefixMode,
   StoryBlock,
   StoryCoverMediaKind,
   StoryDocument,
@@ -9,6 +10,7 @@ import type {
   StoryLifecycleStatus,
   StorySection,
 } from "@/lib/admin/story-creator/story-types";
+import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions";
 
@@ -16,6 +18,7 @@ import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions"
 export type StorySectionContentEnvelope = { blocks: StoryBlock[] };
 
 export const STORY_DB_READ_INCLUDE = {
+  author: { select: { id: true, name: true, username: true } },
   chapters: {
     orderBy: { sortOrder: "asc" as const },
     include: {
@@ -78,6 +81,7 @@ export type StoryDbSerializedPayload = {
     profileMediaId: string | null;
     profileMediaKind: PrismaStoryCoverMediaKind | null;
     contentVersion: number;
+    slug: string | null;
     body: string;
   };
   chapters: Array<{
@@ -88,6 +92,7 @@ export type StoryDbSerializedPayload = {
       title: string;
       sortOrder: number;
       slug: string | null;
+      isChapter: boolean;
       contentJson: StorySectionContentEnvelope;
     }>;
   }>;
@@ -105,6 +110,48 @@ function parseSectionContentJson(json: unknown): StoryBlock[] {
   if (!json || typeof json !== "object") return [];
   const blocks = (json as { blocks?: unknown }).blocks;
   return Array.isArray(blocks) ? (blocks as StoryBlock[]) : [];
+}
+
+const STORY_META_BODY_V = "ligneous-story-meta/1" as const;
+
+/** Persists author / prefix fields (no dedicated columns yet). */
+function serializeStoryBodyMeta(doc: StoryDocument): string {
+  return JSON.stringify({
+    v: STORY_META_BODY_V,
+    author: doc.author ?? null,
+    authorPrefixMode: doc.authorPrefixMode ?? null,
+    authorPrefixCustom: doc.authorPrefixCustom ?? null,
+  });
+}
+
+function parseStoryBodyMeta(body: string): Partial<
+  Pick<StoryDocument, "author" | "authorPrefixMode" | "authorPrefixCustom">
+> {
+  const t = (body ?? "").trim();
+  if (!t.startsWith("{")) return {};
+  try {
+    const o = JSON.parse(t) as Record<string, unknown>;
+    if (o.v !== STORY_META_BODY_V) return {};
+    const out: Partial<Pick<StoryDocument, "author" | "authorPrefixMode" | "authorPrefixCustom">> = {};
+    if (typeof o.author === "string") out.author = o.author;
+    if (
+      o.authorPrefixMode === "by" ||
+      o.authorPrefixMode === "author_label" ||
+      o.authorPrefixMode === "custom" ||
+      o.authorPrefixMode === "none"
+    ) {
+      out.authorPrefixMode = o.authorPrefixMode as StoryAuthorPrefixMode;
+    }
+    if (typeof o.authorPrefixCustom === "string") out.authorPrefixCustom = o.authorPrefixCustom;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function slugFromDoc(doc: StoryDocument): string | null {
+  const n = normalizeStorySlugInput(doc.slug ?? "");
+  return n.length > 0 ? n : null;
 }
 
 function docKindToPrisma(kind: StoryDocumentKind | undefined): StoryKind {
@@ -156,8 +203,9 @@ function coverFromDoc(doc: StoryDocument): {
 }
 
 function readContentVersion(doc: StoryDocument): number {
-  const raw = (doc as unknown as Record<string, unknown>).contentVersion;
-  return typeof raw === "number" && Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
+  const raw = doc.contentVersion;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 1) return Math.floor(raw);
+  return 1;
 }
 
 /**
@@ -190,6 +238,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
     const root = roots[i];
     const childList = root.children?.length ? root.children : null;
     if (childList) {
+      const parentChapter = root.isChapter ?? false;
       chapters.push({
         title: root.title,
         sortOrder: i,
@@ -198,6 +247,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
           title: ch.title,
           sortOrder: j,
           slug: null,
+          isChapter: j === 0 ? parentChapter : false,
           contentJson: { blocks: ch.blocks ?? [] },
         })),
       });
@@ -211,6 +261,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
             title: root.title,
             sortOrder: 0,
             slug: null,
+            isChapter: root.isChapter ?? false,
             contentJson: { blocks: root.blocks ?? [] },
           },
         ],
@@ -231,7 +282,8 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
       profileMediaId: cover.profileMediaId,
       profileMediaKind: cover.profileMediaKind,
       contentVersion: readContentVersion(doc),
-      body: "",
+      slug: slugFromDoc(doc),
+      body: serializeStoryBodyMeta(doc),
     },
     chapters,
     junctions: {
@@ -272,13 +324,16 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
         id: s0.id,
         title: s0.title,
         collapsed: false,
+        isChapter: s0.isChapter ?? false,
         blocks: parseSectionContentJson(s0.contentJson),
       });
     } else {
+      const chapterFlag = secs[0]?.isChapter ?? false;
       roots.push({
         id: ch.id,
         title: ch.title,
         collapsed: false,
+        isChapter: chapterFlag,
         blocks: [],
         children: secs.map((s) => ({
           id: s.id,
@@ -333,10 +388,16 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
     name: as.album.name?.trim() || as.albumId,
   }));
 
+  const meta = parseStoryBodyMeta(story.body ?? "");
+  const authorFallback = story.author?.name?.trim() || story.author?.username?.trim();
+  const authorResolved =
+    typeof meta.author === "string" && meta.author.trim().length > 0 ? meta.author.trim() : authorFallback || undefined;
+
   const doc: StoryDocument = {
     version: 1,
     id: story.id,
     title: story.title,
+    slug: story.slug ?? undefined,
     excerpt: story.excerpt ?? undefined,
     status: prismaStatusToDoc(story.status),
     kind: prismaKindToDoc(story.kind),
@@ -350,6 +411,10 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
     placeLinks,
     sections: roots,
     updatedAt: story.updatedAt.toISOString(),
+    contentVersion: story.contentVersion,
+    author: authorResolved,
+    authorPrefixMode: meta.authorPrefixMode,
+    authorPrefixCustom: meta.authorPrefixCustom,
   };
 
   return doc;

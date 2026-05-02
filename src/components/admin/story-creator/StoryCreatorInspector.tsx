@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   StoryBlock,
+  StoryBlockDateAnnotation,
   StoryBlockDesign,
   StoryBlockRowAlignment,
   StoryBlockRowLayout,
@@ -25,6 +26,8 @@ import type {
   StoryImageMediaRef,
   StoryMediaBlock,
 } from "@/lib/admin/story-creator/story-types";
+import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
+import { fetchJson } from "@/lib/infra/api";
 import { legacyCoverImageRef } from "@/lib/admin/story-creator/story-images-resolve";
 import { formatPlaceSuggestionLabel, type AdminPlaceSuggestionRow } from "@/lib/forms/admin-place-suggestions";
 import { StoryPlaceSearchPicker } from "@/components/admin/story-creator/StoryPlaceSearchPicker";
@@ -957,6 +960,26 @@ function InspectorStoryTabContent({
   const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
   const kind = doc.kind ?? "story";
   const status = doc.status ?? "draft";
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const publicOrigin =
+    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_PUBLIC_STORY_SITE_ORIGIN?.trim()) ||
+    "https://gonsalves.family";
+
+  const checkSlugAvailability = useCallback(async () => {
+    const slug = normalizeStorySlugInput(doc.slug ?? "");
+    if (!slug) {
+      setSlugError(null);
+      return;
+    }
+    try {
+      const res = await fetchJson<{ available: boolean }>(
+        `/api/admin/stories/check-slug?slug=${encodeURIComponent(slug)}&excludeId=${encodeURIComponent(storyId)}`,
+      );
+      setSlugError(res.available ? null : "This URL slug is already taken. Try another.");
+    } catch {
+      setSlugError(null);
+    }
+  }, [doc.slug, storyId]);
 
   const chipBtn = (active: boolean) =>
     cn(
@@ -990,6 +1013,38 @@ function InspectorStoryTabContent({
             value={doc.title}
             onChange={(e) => onTitleChange(e.target.value)}
           />
+        </div>
+        <div>
+          <FieldLabel>Slug</FieldLabel>
+          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
+            URL-safe identifier (lowercase letters, numbers, hyphens). Used on the public site at{" "}
+            <span className="font-medium text-base-content/70">/stories/your-slug</span>.
+          </p>
+          <input
+            className={cn(
+              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
+              controlH,
+              slugError ? "border-error/60" : "",
+            )}
+            placeholder="e.g. the-gonsalves-of-berbice"
+            value={doc.slug ?? ""}
+            onChange={(e) => {
+              const v = normalizeStorySlugInput(e.target.value);
+              onStoryMetaChange({ slug: v.length ? v : undefined });
+              if (slugError) setSlugError(null);
+            }}
+            onBlur={() => void checkSlugAvailability()}
+            spellCheck={false}
+            aria-invalid={Boolean(slugError)}
+          />
+          {slugError ? <p className="mt-1.5 text-xs font-medium text-error">{slugError}</p> : null}
+          <p className="mt-1.5 text-[11px] leading-relaxed text-base-content/50">
+            Public URL:{" "}
+            <span className="break-all font-mono text-base-content/65">
+              {publicOrigin.replace(/\/$/, "")}/stories/
+              {normalizeStorySlugInput(doc.slug ?? "").length > 0 ? normalizeStorySlugInput(doc.slug ?? "") : "…"}
+            </span>
+          </p>
         </div>
         <div>
           <FieldLabel>Author</FieldLabel>
@@ -1132,13 +1187,6 @@ function InspectorStoryTabContent({
       </CollapsibleFormSection>
 
       <InspectorStoryImagesSection doc={doc} storyId={storyId} onStoryMetaChange={onStoryMetaChange} touchComfort={touchComfort} />
-
-      <CollapsibleFormSection title="Publishing" defaultOpen={false}>
-        <p className="text-sm leading-relaxed text-base-content/65">
-          URL slug, scheduled publish date, featured placement, SEO title, and meta description are not editable in this
-          local draft yet. They will appear here when the story is backed by the database API.
-        </p>
-      </CollapsibleFormSection>
 
       <CollapsibleFormSection title="Story context" defaultOpen>
         <InspectorStoryLinkedRecords
@@ -1526,6 +1574,104 @@ function StoryBlockDesignInspector({
   );
 }
 
+function BlockDateAnnotationInspector({
+  annotation,
+  onCommit,
+  touchComfort,
+}: {
+  annotation: StoryBlockDateAnnotation | undefined;
+  onCommit: (next: StoryBlockDateAnnotation | undefined) => void;
+  touchComfort?: boolean;
+}) {
+  const controlH = touchComfort ? "h-11 min-h-[44px]" : "h-10";
+  const [date, setDate] = useState(annotation?.date ?? "");
+  const [dateDisplay, setDateDisplay] = useState(annotation?.dateDisplay ?? "");
+  const [endDate, setEndDate] = useState(annotation?.endDate ?? "");
+
+  useEffect(() => {
+    setDate(annotation?.date ?? "");
+    setDateDisplay(annotation?.dateDisplay ?? "");
+    setEndDate(annotation?.endDate ?? "");
+  }, [annotation]);
+
+  const flush = useCallback(() => {
+    const d = date.trim();
+    const dd = dateDisplay.trim();
+    const ed = endDate.trim();
+    if (!d || !dd) {
+      onCommit(undefined);
+      return;
+    }
+    onCommit({ date: d, dateDisplay: dd, ...(ed ? { endDate: ed } : {}) });
+  }, [date, dateDisplay, endDate, onCommit]);
+
+  return (
+    <CollapsibleFormSection title="Date annotation" defaultOpen={false}>
+      <p className="mb-3 text-xs leading-relaxed text-base-content/55">
+        Optional dated marker for the public timeline view. Use an ISO 8601 date (e.g. <span className="font-mono">1887-03-14</span>) and a
+        human label (e.g. “March 1887” or “circa 1920”).
+      </p>
+      <div className="space-y-3">
+        <div>
+          <FieldLabel>Date (ISO 8601)</FieldLabel>
+          <input
+            className={cn(
+              "input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
+              controlH,
+            )}
+            placeholder="1887-03-14"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            onBlur={() => flush()}
+            spellCheck={false}
+          />
+        </div>
+        <div>
+          <FieldLabel>Display label</FieldLabel>
+          <input
+            className={cn(
+              "input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100 text-sm",
+              controlH,
+            )}
+            placeholder="March 1887"
+            value={dateDisplay}
+            onChange={(e) => setDateDisplay(e.target.value)}
+            onBlur={() => flush()}
+          />
+        </div>
+        <div>
+          <FieldLabel>End date (ISO, optional)</FieldLabel>
+          <input
+            className={cn(
+              "input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
+              controlH,
+            )}
+            placeholder="1920-12-31"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            onBlur={() => flush()}
+            spellCheck={false}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("w-full gap-2 font-medium", touchComfort ? "min-h-11 h-11" : "h-9")}
+          onClick={() => {
+            setDate("");
+            setDateDisplay("");
+            setEndDate("");
+            onCommit(undefined);
+          }}
+        >
+          Clear date annotation
+        </Button>
+      </div>
+    </CollapsibleFormSection>
+  );
+}
+
 function InspectorBlockTabContent({
   storyId,
   selectedBlock,
@@ -1538,6 +1684,7 @@ function InspectorBlockTabContent({
   onPatchContainer,
   onPatchBlockRowLayout,
   onPatchBlockDesign,
+  onPatchBlockDateAnnotation,
   onDeleteBlock,
   touchComfort,
 }: {
@@ -1552,6 +1699,7 @@ function InspectorBlockTabContent({
   onPatchContainer?: (patch: Partial<StoryContainerBlockProps>) => void;
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
+  onPatchBlockDateAnnotation?: (next: StoryBlockDateAnnotation | undefined) => void;
   onDeleteBlock?: () => void;
   touchComfort?: boolean;
 }) {
@@ -1609,6 +1757,15 @@ function InspectorBlockTabContent({
           </p>
         </div>
       )}
+      {selectedBlock && onPatchBlockDateAnnotation ? (
+        <div className="mt-6 border-t border-base-content/10 pt-6">
+          <BlockDateAnnotationInspector
+            annotation={selectedBlock.dateAnnotation}
+            onCommit={onPatchBlockDateAnnotation}
+            touchComfort={touchComfort}
+          />
+        </div>
+      ) : null}
       {selectedBlock ? (
         <div className="mt-6 border-t border-base-content/10 pt-6">
           <StoryBlockDesignInspector
@@ -1659,6 +1816,7 @@ export function StoryCreatorInspector({
   onPatchContainer,
   onPatchBlockRowLayout,
   onPatchBlockDesign,
+  onPatchBlockDateAnnotation,
   onTitleChange,
   onExcerptChange,
   onStoryMetaChange,
@@ -1685,6 +1843,7 @@ export function StoryCreatorInspector({
   onPatchContainer?: (patch: Partial<StoryContainerBlockProps>) => void;
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
+  onPatchBlockDateAnnotation?: (next: StoryBlockDateAnnotation | undefined) => void;
   onTitleChange: (title: string) => void;
   onExcerptChange: (excerpt: string) => void;
   onStoryMetaChange?: (patch: StoryDocumentMetaPatch) => void;
@@ -1709,6 +1868,7 @@ export function StoryCreatorInspector({
             onPatchContainer={onPatchContainer}
             onPatchBlockRowLayout={onPatchBlockRowLayout}
             onPatchBlockDesign={onPatchBlockDesign}
+            onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
             onDeleteBlock={onDeleteBlock}
             touchComfort
           />
@@ -1811,6 +1971,7 @@ export function StoryCreatorInspector({
             onPatchContainer={onPatchContainer}
             onPatchBlockRowLayout={onPatchBlockRowLayout}
             onPatchBlockDesign={onPatchBlockDesign}
+            onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
             onDeleteBlock={onDeleteBlock}
           />
         )}

@@ -333,7 +333,8 @@ function useFamilyMemberPanelsState(familyId: string) {
 
 export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEditorStateArgs) {
   const router = useRouter();
-  const { data, isLoading, error, refetch } = useAdminFamily(familyId);
+  const { data, isPending: familyDetailPending, error, refetch } = useAdminFamily(familyId);
+  const familyDetailLoading = Boolean(familyId) && familyDetailPending;
   const membership = useFamilyMembershipMutation(familyId);
   const updateFamily = useUpdateFamily();
   const createIndividual = useCreateIndividual();
@@ -556,7 +557,7 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     mode,
     familyId,
     fam,
-    isLoading,
+    isLoading: familyDetailLoading,
     error,
     refetch,
     husband,

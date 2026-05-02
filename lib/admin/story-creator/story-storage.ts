@@ -33,12 +33,20 @@ function extractStoryIdFromDocKey(key: string): string {
 }
 
 async function promoteLocalDraftToServer(oldId: string, doc: StoryDocument): Promise<string> {
-  const created = await postJson<{ id: string }>("/api/admin/stories", {
+  const created = await postJson<{ id: string; slug: string | null }>("/api/admin/stories", {
     title: doc.title?.trim() || "Untitled story",
     kind: doc.kind ?? "story",
   });
   const newId = created.id;
-  const body = migrateStoryDocument({ ...doc, id: newId });
+  /** Orphan drafts often carry stale Gedcom / album UUIDs or a slug that collides; first server save must not fail FK or unique checks. */
+  const body = migrateStoryDocument({
+    ...doc,
+    id: newId,
+    slug: created.slug?.trim() ? created.slug.trim() : undefined,
+    linkedRecords: [],
+    placeLinks: [],
+    linkedAlbums: [],
+  });
   await putJson(`/api/admin/stories/${newId}`, body);
   try {
     localStorage.setItem(
