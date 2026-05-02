@@ -2,6 +2,8 @@
 
 This document describes the **Story Creator** in the Gonsalves Family Admin app: what it is for, how it stores data, and everything the current implementation can do. The live editor lives under **`/admin/stories`** (Next.js). A separate static HTML/React prototype, **`/apps/Story Creator.html`**, exists at the workspace root as a design playground (themes, layout experiments); behavior and data model should be taken from the **admin app** unless noted otherwise.
 
+**Public site reading experience** (routes, cover parity with albums, viewer polish, env): see **`the-gonsalves-family/docs/STORY_PUBLIC_READING_PLAN.md`** in the family app repo.
+
 ---
 
 ## Purpose
