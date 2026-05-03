@@ -77,23 +77,27 @@ function innerWidthClass(width: StoryContainerWidth): string {
 }
 
 /**
- * User-controlled border on top/right/bottom. For callout/quote, the left accent bar uses
- * `border-l-*` on the same node so `border: "none"` never removes that accent (only the soft
- * frame on the other three sides).
+ * Callout/quote: user border is only top/right/bottom so it does not replace the left accent bar
+ * (`border-l-*` on the same node). Card, hero, and default use a full box border when enabled.
  */
 function userBorderShellClass(preset: StoryContainerPreset, border: ResolvedContainerVisualProps["border"]): string {
+  const frameLeftFree = preset === "callout" || preset === "quote";
+
   if (border === "none") {
     if (preset === "default") return "border border-transparent";
-    return "border-t border-r border-b border-transparent";
+    if (frameLeftFree) return "border-t border-r border-b border-transparent";
+    return "border border-transparent";
   }
   if (border === "dashed") {
-    return cn(
-      "border-t border-r border-b border-dashed [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]",
-    );
+    if (frameLeftFree) {
+      return "border-t border-r border-b border-dashed [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]";
+    }
+    return "border border-dashed [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]";
   }
-  return cn(
-    "border-t border-r border-b border-solid [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]",
-  );
+  if (frameLeftFree) {
+    return "border-t border-r border-b border-solid [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]";
+  }
+  return "border border-solid [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]";
 }
 
 function presetShellClassName(r: ResolvedContainerVisualProps, mode: StoryContainerRenderMode): string {
