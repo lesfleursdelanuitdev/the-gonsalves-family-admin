@@ -10,8 +10,10 @@ async function allocateUniqueStorySlug(treeId: string, title: string): Promise<s
   const base = slugifyStoryTitle(title);
   for (let i = 0; i < 80; i++) {
     const candidate = i === 0 ? base : `${base}-${i + 1}`;
+    // `@@unique([treeId, slug])` applies to all rows; soft-deleted stories used to keep `slug`
+    // and blocked new creates when we only checked `deletedAt: null`.
     const taken = await prisma.story.findFirst({
-      where: { treeId, deletedAt: null, slug: candidate },
+      where: { treeId, slug: candidate },
       select: { id: true },
     });
     if (!taken) return candidate;
@@ -65,6 +67,7 @@ export const POST = withAdminAuth(async (request, user) => {
       tags: [],
       body: JSON.stringify({
         v: "ligneous-story-meta/1",
+        authors: [],
         author: null,
         authorPrefixMode: null,
         authorPrefixCustom: null,

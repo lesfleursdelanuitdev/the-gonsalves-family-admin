@@ -34,8 +34,6 @@ interface SurnameRow {
   surname: string;
   displaySurname: string;
   frequency: number;
-  soundex: string;
-  metaphone: string;
 }
 
 function mapApiToRows(api: AdminSurnamesListResponse): SurnameRow[] {
@@ -44,8 +42,6 @@ function mapApiToRows(api: AdminSurnamesListResponse): SurnameRow[] {
     surname: s.surname,
     displaySurname: stripSlashesFromName(s.surname) || s.surname,
     frequency: s.frequency,
-    soundex: s.soundex ?? "—",
-    metaphone: s.metaphone ?? "—",
   }));
 }
 
@@ -75,8 +71,6 @@ function buildSurnamesConfig(router: ReturnType<typeof useRouter>): DataViewerCo
         },
       },
       { accessorKey: "frequency", header: "Frequency", enableSorting: true },
-      { accessorKey: "soundex", header: "Soundex", enableSorting: true },
-      { accessorKey: "metaphone", header: "Metaphone", enableSorting: true },
     ],
     renderCard: ({ record, onView }) => (
       <Card>
@@ -95,9 +89,6 @@ function buildSurnamesConfig(router: ReturnType<typeof useRouter>): DataViewerCo
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <p>Frequency: {record.frequency.toLocaleString()}</p>
-          <p className="text-xs">
-            {record.soundex} / {record.metaphone}
-          </p>
         </CardContent>
         <CardActionFooter onView={onView} />
       </Card>

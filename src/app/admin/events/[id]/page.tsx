@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 
@@ -240,6 +241,8 @@ export default function AdminEventDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {id ? <EntityOpenQuestionsSection entityType="event" entityId={id} variant="view" entityLabel={pageTitle} /> : null}
 
       <Card>
         <CardHeader className="pb-2">

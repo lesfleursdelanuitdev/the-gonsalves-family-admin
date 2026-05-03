@@ -2,18 +2,81 @@ import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import type {
   StoryBlock,
+  StoryBlockRowAlignment,
   StoryBlockRowLayout,
+  StoryBlockWidthMode,
   StoryColumnNestedBlock,
   StoryContainerBlockProps,
   StoryEmbedBlock,
+  StoryEmbedLayoutAlign,
+  StoryEmbedWidthPreset,
   StoryMediaBlock,
   StoryRichTextBlock,
 } from "@/lib/admin/story-creator/story-types";
 
+/** Maps legacy embed/media width preset to row `widthMode` (inspector + preview must agree). */
+export function legacyWidthPresetToWidthMode(preset: StoryEmbedWidthPreset | undefined): StoryBlockWidthMode {
+  switch (preset ?? "large") {
+    case "full":
+      return "full";
+    case "large":
+      return "wide";
+    case "content":
+      return "medium";
+    case "medium":
+      return "medium";
+    case "small":
+      return "narrow";
+    default:
+      return "full";
+  }
+}
+
+export function layoutAlignToRowAlignment(la: StoryEmbedLayoutAlign | undefined): StoryBlockRowAlignment {
+  if (la === "left" || la === "right" || la === "center") return la;
+  return "center";
+}
+
+type LegacyMediaEmbedShape = Pick<StoryMediaBlock, "widthPreset" | "textWrap" | "fullWidth" | "layoutAlign">;
+
+function legacyMediaEmbedShape(block: StoryMediaBlock | StoryEmbedBlock): LegacyMediaEmbedShape {
+  return {
+    widthPreset: block.widthPreset,
+    textWrap: block.textWrap,
+    fullWidth: block.fullWidth,
+    layoutAlign: block.layoutAlign,
+  };
+}
+
+/**
+ * Row layout for media/embed: explicit `rowLayout` wins; otherwise infer from legacy
+ * `widthPreset` / `layoutAlign` / `textWrap` / `fullWidth` (same rules as the inspector).
+ */
+export function effectiveMediaEmbedInspectorRowLayout(block: StoryMediaBlock | StoryEmbedBlock): StoryBlockRowLayout {
+  const hasExplicitRow =
+    block.rowLayout != null &&
+    (block.rowLayout.widthMode != null ||
+      block.rowLayout.displayMode != null ||
+      block.rowLayout.alignment != null ||
+      block.rowLayout.float != null ||
+      block.rowLayout.widthValue != null);
+  if (hasExplicitRow) {
+    return effectiveRowLayout(block.rowLayout);
+  }
+  const l = legacyMediaEmbedShape(block);
+  const widthMode = l.fullWidth ? "full" : legacyWidthPresetToWidthMode(l.widthPreset);
+  return effectiveRowLayout({
+    widthMode,
+    alignment: layoutAlignToRowAlignment(l.layoutAlign),
+    displayMode: l.textWrap ? "float" : "block",
+    float: l.textWrap ? "left" : undefined,
+  });
+}
+
 /** Row layout for editor/preview wrapping (null = full-width block types without row layout). */
 export function effectiveBlockRowLayout(block: StoryBlock): StoryBlockRowLayout | null {
   if (block.type === "richText") return effectiveRowLayoutForRichText(block.rowLayout);
-  if (block.type === "media" || block.type === "embed") return effectiveRowLayout(block.rowLayout);
+  if (block.type === "media" || block.type === "embed") return effectiveMediaEmbedInspectorRowLayout(block);
   if (block.type === "container") return effectiveContainerRowLayout(block.props);
   return null;
 }
@@ -121,14 +184,14 @@ export function storyRowInnerTextAlignClass(row?: StoryBlockRowLayout): string {
 export function isFloatMediaOrEmbed(block: StoryBlock): block is StoryMediaBlock | StoryEmbedBlock {
   return (
     (block.type === "media" || block.type === "embed") &&
-    effectiveRowLayout(block.rowLayout).displayMode === "float"
+    effectiveMediaEmbedInspectorRowLayout(block).displayMode === "float"
   );
 }
 
 export function isFloatNestedMediaOrEmbed(block: StoryColumnNestedBlock): block is StoryMediaBlock | StoryEmbedBlock {
   return (
     (block.type === "media" || block.type === "embed") &&
-    effectiveRowLayout(block.rowLayout).displayMode === "float"
+    effectiveMediaEmbedInspectorRowLayout(block).displayMode === "float"
   );
 }
 

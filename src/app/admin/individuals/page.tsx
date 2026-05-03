@@ -10,7 +10,11 @@ import {
   IconHelpCircle,
 } from "@tabler/icons-react";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
-import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
+import {
+  DataViewer,
+  DataViewerGedcomBatchEditModal,
+  type DataViewerConfig,
+} from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { Button } from "@/components/ui/button";
@@ -39,6 +43,7 @@ import {
   type AdminIndividualsUrlFilterState,
 } from "@/lib/admin/admin-individuals-url-filters";
 import { Eye, Pencil, Trash2 } from "lucide-react";
+import { deleteJson } from "@/lib/infra/api";
 import {
   photoUrlFromProfileRow,
   type ProfileMediaSelectionShape,
@@ -105,6 +110,8 @@ function mapApiToRows(api: AdminIndividualsListResponse): IndividualRow[] {
 function buildIndividualsConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (r: IndividualRow) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
+  onBulkEdit: (ids: string[]) => void,
 ): DataViewerConfig<IndividualRow> {
   return {
     id: "individuals",
@@ -237,7 +244,8 @@ function buildIndividualsConfig(
       add: { label: "Add individual", handler: () => router.push("/admin/individuals/new") },
       view: { label: "View", handler: (r) => router.push(`/admin/individuals/${r.id}`) },
       edit: { label: "Edit", handler: (r) => router.push(`/admin/individuals/${r.id}/edit`) },
-      delete: { label: "Delete", handler: onDelete },
+      bulkEdit: { label: "Edit selected", handler: onBulkEdit },
+      delete: { label: "Delete", handler: onDelete, bulkDeleteOne },
     },
   };
 }
@@ -273,6 +281,9 @@ function AdminIndividualsPageInner() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const lastHydratedQsRef = useRef<string | null>(null);
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
+  const [batchApplyKey, setBatchApplyKey] = useState<number | undefined>();
   const { draft: filterDraft, queryOpts, updateDraft, apply, clear, replace } = useFilterState(
     FILTER_DEFAULTS,
     filterStateToQueryOpts,
@@ -328,8 +339,24 @@ function AdminIndividualsPageInner() {
     [queryClient],
   );
 
+  const bulkDeleteOneIndividual = useCallback(async (id: string) => {
+    await deleteJson(`/api/admin/individuals/${id}`);
+  }, []);
+
+  const handleBulkDeleteFinished = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "individuals"] });
+  }, [queryClient]);
+
+  const openBulkEdit = useCallback((ids: string[]) => {
+    setBatchEditIds(ids);
+    setBatchEditOpen(true);
+  }, []);
+
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildIndividualsConfig(router, handleDelete), [router, handleDelete]);
+  const config = useMemo(
+    () => buildIndividualsConfig(router, handleDelete, bulkDeleteOneIndividual, openBulkEdit),
+    [router, handleDelete, bulkDeleteOneIndividual, openBulkEdit],
+  );
 
   return (
     <div className="space-y-6">
@@ -446,6 +473,17 @@ function AdminIndividualsPageInner() {
         </div>
       </FilterPanel>
 
+      <DataViewerGedcomBatchEditModal
+        open={batchEditOpen}
+        onOpenChange={setBatchEditOpen}
+        entityKind="individual"
+        selectedIds={batchEditIds}
+        onApplied={() => {
+          setBatchApplyKey((k) => (k ?? 0) + 1);
+          void queryClient.invalidateQueries({ queryKey: ["admin", "individuals"] });
+        }}
+      />
+
       <DataViewer
         config={config}
         data={rows}
@@ -453,6 +491,8 @@ function AdminIndividualsPageInner() {
         viewModeKey="admin-individuals-view"
         paginationResetKey={JSON.stringify(queryOpts)}
         totalCount={data?.total}
+        batchApplyKey={batchApplyKey}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
       />
     </div>
   );

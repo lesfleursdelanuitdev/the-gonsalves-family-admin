@@ -346,6 +346,8 @@ export function StoryStructureSidebar({
   isCompact,
   mobileOverlay,
   onCloseMobileOverlay,
+  /** When false, the sidebar does not render the narrow collapsed rail; the parent controls open/closed width. */
+  showCollapsedRail = true,
 }: {
   doc: StoryDocument;
   activeSectionId: string | null;
@@ -364,6 +366,7 @@ export function StoryStructureSidebar({
   isCompact: boolean;
   mobileOverlay?: boolean;
   onCloseMobileOverlay?: () => void;
+  showCollapsedRail?: boolean;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
@@ -402,14 +405,16 @@ export function StoryStructureSidebar({
   );
 
   if (!outlineOpen && !mobileOverlay) {
+    if (!showCollapsedRail) return null;
     return (
-      <div className="flex w-12 shrink-0 flex-col items-center border-r border-base-content/10 bg-base-200/40 py-3 shadow-[inset_-1px_0_0_0] shadow-base-content/[0.04]">
+      <div className="flex w-12 shrink-0 flex-col items-center border-r border-primary/20 bg-base-200/50 py-3 shadow-[inset_-1px_0_0_0] shadow-black/10">
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 w-8 rounded-lg p-0"
+          className="h-8 w-8 rounded-lg p-0 text-primary/90 hover:bg-primary/15 hover:text-primary"
           title="Expand outline"
+          aria-label="Open story structure panel"
           onClick={() => onOutlineOpenChange(true)}
         >
           <ChevronRight className="size-4" />
@@ -418,8 +423,9 @@ export function StoryStructureSidebar({
           type="button"
           variant="ghost"
           size="sm"
-          className="mt-2 h-8 w-8 rounded-lg p-0"
+          className="mt-2 h-8 w-8 rounded-lg p-0 text-base-content/70 hover:bg-primary/12 hover:text-primary"
           title="Add section"
+          aria-label="Add section"
           onClick={() => onAddSectionAfter(null)}
         >
           <Plus className="size-4" />
@@ -431,8 +437,8 @@ export function StoryStructureSidebar({
   return (
     <div
       className={cn(
-        "flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-base-content/10 bg-base-200/40 shadow-[inset_-1px_0_0_0] shadow-base-content/[0.04]",
-        isCompact ? "w-full" : "w-[min(100%,288px)]",
+        "flex min-h-0 h-full min-w-0 shrink-0 flex-col overflow-hidden border-r border-primary/20 bg-base-200/55 shadow-[inset_-1px_0_0_0] shadow-black/15",
+        isCompact ? "w-full" : "w-full max-w-none",
       )}
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-base-content/10 px-3">
@@ -464,8 +470,9 @@ export function StoryStructureSidebar({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 w-8 rounded-lg p-0"
+              className="h-8 w-8 rounded-lg p-0 text-base-content/70 hover:bg-primary/12 hover:text-primary"
               title="Collapse outline"
+              aria-label="Close story structure panel"
               onClick={() => onOutlineOpenChange(false)}
             >
               <ChevronLeft className="size-4" />

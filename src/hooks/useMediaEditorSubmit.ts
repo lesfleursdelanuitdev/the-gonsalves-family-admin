@@ -66,6 +66,10 @@ export function useMediaEditorSubmit({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setErrMsg(null);
+      if (mode === "create" && !fileRef.trim()) {
+        setErrMsg("Upload a file or enter a file reference in Advanced details before creating media.");
+        return;
+      }
       setSubmitting(true);
       try {
         const scopedExtra = getScopedExtraBody?.() ?? {};

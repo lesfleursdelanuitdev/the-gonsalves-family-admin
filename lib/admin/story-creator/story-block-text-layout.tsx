@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { StoryBlockTextPlacement } from "@/lib/admin/story-creator/story-types";
+import { cn } from "@/lib/utils";
 
 export const STORY_TEXT_PLACEMENT_OPTIONS: { value: StoryBlockTextPlacement; label: string }[] = [
   { value: "above", label: "Above" },
@@ -67,12 +68,14 @@ export function StoryAssetWithTitleCaption({
   const band = (nodes: ReactNode[]) =>
     nodes.length > 0 ? <div className="flex min-w-0 flex-col gap-1">{nodes}</div> : null;
 
+  const hasSideSlots = slots.left.length > 0 || slots.right.length > 0;
+
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex min-w-0 w-full flex-col gap-2">
       {band(slots.above)}
-      <div className="flex min-w-0 flex-row items-start gap-3">
+      <div className={cn("flex min-w-0 items-start gap-3", hasSideSlots ? "flex-row" : "w-full flex-col")}>
         {band(slots.left)}
-        <div className="min-w-0 shrink-0">{asset}</div>
+        <div className={cn("min-w-0", hasSideSlots ? "shrink-0" : "w-full")}>{asset}</div>
         {band(slots.right)}
       </div>
       {band(slots.below)}

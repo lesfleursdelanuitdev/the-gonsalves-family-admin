@@ -15,6 +15,15 @@ function parseUuidParam(raw: string | null): string | null {
   return v;
 }
 
+/** GEDCOM event type tags are short ASCII identifiers (BIRT, EVEN, …). */
+const LINKED_EVENT_TYPE_TAG_RE = /^[A-Za-z0-9_]{1,32}$/;
+
+function parseLinkedEventTypeParam(raw: string | null): string | null {
+  const v = raw?.trim() ?? "";
+  if (!v || !LINKED_EVENT_TYPE_TAG_RE.test(v)) return null;
+  return v.toUpperCase();
+}
+
 export interface AdminMediaStructuredFilters {
   mediaCategory: AdminMediaCategory | null;
   titleContains: string | null;
@@ -27,6 +36,14 @@ export interface AdminMediaStructuredFilters {
   albumId: string | null;
   /** Filter to media tagged with this app tag (GedcomMediaAppTag). */
   tagId: string | null;
+  /** Media linked to this individual via `gedcom_individual_media_v2`. */
+  linkedIndividualId: string | null;
+  /** Media linked to this family via `gedcom_family_media_v2`. */
+  linkedFamilyId: string | null;
+  /** Media linked to this event via `gedcom_event_media_v2`. */
+  linkedEventId: string | null;
+  /** GEDCOM event tag on a linked event (e.g. BIRT, MARR); family-tree list only. */
+  linkedEventType: string | null;
 }
 
 export function parseMediaCategoryParam(searchParams: URLSearchParams): AdminMediaCategory | null {
@@ -52,6 +69,10 @@ export function parseStructuredMediaFromSearchParams(
     linkedLast: cl || null,
     albumId: parseUuidParam(searchParams.get("albumId")),
     tagId: parseUuidParam(searchParams.get("tagId")),
+    linkedIndividualId: parseUuidParam(searchParams.get("linkedIndividualId")),
+    linkedFamilyId: parseUuidParam(searchParams.get("linkedFamilyId")),
+    linkedEventId: parseUuidParam(searchParams.get("linkedEventId")),
+    linkedEventType: parseLinkedEventTypeParam(searchParams.get("linkedEventType")),
   };
 }
 
@@ -64,7 +85,11 @@ export function hasStructuredMediaFilters(f: AdminMediaStructuredFilters): boole
     f.linkedGiven ||
     f.linkedLast ||
     f.albumId ||
-    f.tagId
+    f.tagId ||
+    f.linkedIndividualId ||
+    f.linkedFamilyId ||
+    f.linkedEventId ||
+    f.linkedEventType
   );
 }
 
@@ -153,6 +178,51 @@ export function adminMediaFilterConditions(
       Prisma.sql`EXISTS (
         SELECT 1 FROM gedcom_media_app_tags gmat
         WHERE gmat.gedcom_media_id = m.id AND gmat.tag_id = ${structured.tagId}::uuid
+      )`,
+    );
+  }
+
+  if (structured.linkedIndividualId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_individual_media_v2 gim
+        WHERE gim.media_id = m.id
+          AND gim.file_uuid = ${fileUuid}::uuid
+          AND gim.individual_id = ${structured.linkedIndividualId}::uuid
+      )`,
+    );
+  }
+  if (structured.linkedFamilyId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_family_media_v2 gfm
+        WHERE gfm.media_id = m.id
+          AND gfm.file_uuid = ${fileUuid}::uuid
+          AND gfm.family_id = ${structured.linkedFamilyId}::uuid
+      )`,
+    );
+  }
+  if (structured.linkedEventId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_event_media_v2 gem
+        WHERE gem.media_id = m.id
+          AND gem.file_uuid = ${fileUuid}::uuid
+          AND gem.event_id = ${structured.linkedEventId}::uuid
+      )`,
+    );
+  }
+
+  if (structured.linkedEventType) {
+    const et = structured.linkedEventType;
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_event_media_v2 gem
+        INNER JOIN gedcom_events_v2 ge
+          ON ge.id = gem.event_id AND ge.file_uuid = gem.file_uuid
+        WHERE gem.media_id = m.id
+          AND gem.file_uuid = ${fileUuid}::uuid
+          AND UPPER(TRIM(ge.event_type)) = ${et}
       )`,
     );
   }

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { isStoryEmbedUnconfigured } from "@/lib/admin/story-creator/story-block-config-status";
-import { storyRowInnerTextAlignClass } from "@/lib/admin/story-creator/story-block-layout";
+import { effectiveMediaEmbedInspectorRowLayout, storyRowInnerTextAlignClass } from "@/lib/admin/story-creator/story-block-layout";
 import { storyEmbedMediaFrameClassNames } from "@/lib/admin/story-creator/story-embed-frame-classes";
 import { StoryAssetWithTitleCaption } from "@/lib/admin/story-creator/story-block-text-layout";
 import type { StoryEmbedBlock } from "@/lib/admin/story-creator/story-types";
@@ -36,7 +36,7 @@ export function EmbedBlockContentRenderer({
 }) {
   const isEditor = variant === "editor";
   const unsetTitle = isStoryEmbedUnconfigured(block);
-  const alignClass = storyRowInnerTextAlignClass(block.rowLayout);
+  const alignClass = storyRowInnerTextAlignClass(effectiveMediaEmbedInspectorRowLayout(block));
 
   const displayTitle = unsetTitle && isEditor ? "Embed block" : block.label.trim() || EMBED_KIND_LABEL[block.embedKind];
   const helper =

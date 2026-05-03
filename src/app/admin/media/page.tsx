@@ -33,10 +33,14 @@ import {
 } from "@/lib/admin/mediaPreview";
 import { inferAdminMediaCategory, type AdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
 import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
-import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
+import {
+  DataViewer,
+  type DataViewerConfig,
+  type DataViewerSelectionChangeDetail,
+} from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
-import { adminMediaUploadMaxMbForUi } from "@/constants/admin";
+import { ADMIN_LIST_MAX_LIMIT, adminMediaUploadMaxMbForUi } from "@/constants/admin";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +59,8 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MediaDeleteConfirmDialog } from "@/components/admin/MediaDeleteConfirmDialog";
+import { BatchMediaEditorModal } from "@/components/admin/BatchMediaEditorModal";
 import {
   ADMIN_MEDIA_QUERY_KEY,
   useAdminMedia,
@@ -62,8 +68,10 @@ import {
   type AdminMediaListResponse,
 } from "@/hooks/useAdminMedia";
 import { useAdminMediaPageFilters } from "@/hooks/useAdminMediaPageFilters";
+import { useAdminTags } from "@/hooks/useAdminTags";
+import { useAdminAlbums } from "@/hooks/useAdminAlbums";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { GEDCOM_EVENT_TYPE_LABELS, labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
 import { fetchJson, ApiError, deleteJson, postJson, postFormDataWithUploadProgress } from "@/lib/infra/api";
 import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";
@@ -408,6 +416,8 @@ function MediaCardItem({
 function buildMediaConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (r: MediaRow) => void,
+  onBulkEdit: (ids: string[]) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
 ): DataViewerConfig<MediaRow> {
   return {
     id: "media",
@@ -443,9 +453,7 @@ function buildMediaConfig(
         },
       },
     ],
-    renderCard: ({ record, onView, onEdit, onDelete: onDel }) => (
-      <MediaCardItem record={record} onView={onView} onEdit={onEdit} onDelete={onDel} />
-    ),
+    renderCard: (props) => <MediaCardItem {...props} />,
     actions: {
       view: {
         label: "View",
@@ -455,7 +463,8 @@ function buildMediaConfig(
         label: "Edit",
         handler: (r) => router.push(`/admin/media/${r.id}/edit${r.mediaScope === "family-tree" ? "" : `?scope=${r.mediaScope}`}`),
       },
-      delete: { label: "Delete", handler: onDelete },
+      bulkEdit: { label: "Edit selected", handler: onBulkEdit },
+      delete: { label: "Delete", handler: onDelete, bulkDeleteOne },
     },
   };
 }
@@ -492,14 +501,47 @@ export default function AdminMediaPage() {
   const [listUploadDragOver, setListUploadDragOver] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [addScopeOpen, setAddScopeOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<MediaRow | null>(null);
   const [selectedMediaScope, setSelectedMediaScope] = useState<"all" | "family-tree" | "site-assets" | "my-media">("all");
   const [listUploadProgress, setListUploadProgress] = useState<MediaEditorUploadProgressState | null>(null);
+  const [selectedMediaIds, setSelectedMediaIds] = useState(() => new Set<string>());
+  const [mediaScopeById, setMediaScopeById] = useState(() => new Map<string, MediaRow["mediaScope"]>());
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchIds, setBatchIds] = useState<string[]>([]);
+
+  const clearMediaSelection = useCallback(() => {
+    setSelectedMediaIds(new Set());
+    setMediaScopeById(new Map());
+  }, []);
 
   const { draft: filterDraft, queryOpts: filterOpts, updateDraft, apply: applyFiltersBase, clear: clearFiltersBase } =
     useAdminMediaPageFilters();
 
+  const tagsForFilters = useAdminTags({ limit: ADMIN_LIST_MAX_LIMIT });
+  const albumsForFilters = useAdminAlbums({ limit: ADMIN_LIST_MAX_LIMIT });
+  const eventTypeFilterOptions = useMemo(
+    () =>
+      Object.entries(GEDCOM_EVENT_TYPE_LABELS)
+        .map(([code, label]) => ({ code, label }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" })),
+    [],
+  );
+
   const pageSize = useMediaPageSize();
   const [pageIndex, setPageIndex] = useState(0);
+
+  /** Deep-link from `/admin/media?scope=…` (e.g. after delete on the edit screen). */
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("scope")?.trim();
+    if (
+      raw === "all" ||
+      raw === "family-tree" ||
+      raw === "site-assets" ||
+      raw === "my-media"
+    ) {
+      setSelectedMediaScope(raw);
+    }
+  }, []);
 
   useEffect(() => {
     // Reset to first page whenever the responsive breakpoint flips (cards/page changes).
@@ -507,7 +549,8 @@ export default function AdminMediaPage() {
   }, [pageSize]);
   useEffect(() => {
     setPageIndex(0);
-  }, [selectedMediaScope]);
+    clearMediaSelection();
+  }, [selectedMediaScope, clearMediaSelection]);
 
   const pagination = useMemo<PaginationState>(
     () => ({ pageIndex, pageSize }),
@@ -528,13 +571,15 @@ export default function AdminMediaPage() {
 
   const applyFilters = useCallback(() => {
     setPageIndex(0);
+    clearMediaSelection();
     applyFiltersBase();
-  }, [applyFiltersBase]);
+  }, [applyFiltersBase, clearMediaSelection]);
 
   const clearFilters = useCallback(() => {
     setPageIndex(0);
+    clearMediaSelection();
     clearFiltersBase();
-  }, [clearFiltersBase]);
+  }, [clearFiltersBase, clearMediaSelection]);
 
   const queryOpts = useMemo(
     () => ({
@@ -651,32 +696,37 @@ export default function AdminMediaPage() {
     [createMedia, queryClient, router, selectedMediaScope],
   );
 
-  const handleDelete = useCallback(
-    async (r: MediaRow) => {
-      const label = r.title.trim() || r.filename.trim() || r.id;
-      const detail =
-        r.mediaScope === "family-tree"
-          ? "This removes the GEDCOM media row, its tree links, tags, and album links."
-          : r.mediaScope === "site-assets"
-            ? "This soft-deletes the site asset record."
-            : "This soft-deletes your private media record.";
-      if (!window.confirm(`Delete media "${label}"? ${detail} This cannot be undone.`)) return;
-      try {
-        if (r.mediaScope === "site-assets") {
-          await deleteJson(`/api/admin/site-media/${r.id}`);
-        } else if (r.mediaScope === "my-media") {
-          await deleteJson(`/api/admin/user-media/${r.id}`);
-        } else {
-          await deleteJson(`/api/admin/media/${r.id}`);
-        }
-        await queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
-        toast.success(`Deleted "${label}".`);
-      } catch (err) {
-        toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
-      }
-    },
-    [queryClient],
-  );
+  const requestDeleteRow = useCallback((r: MediaRow) => {
+    setDeleteTarget(r);
+  }, []);
+
+  const listDeleteDetail = useMemo(() => {
+    if (!deleteTarget) return "";
+    if (deleteTarget.mediaScope === "family-tree") {
+      return "This removes the GEDCOM media row, its tree links, tags, and album links.";
+    }
+    if (deleteTarget.mediaScope === "site-assets") {
+      return "This soft-deletes the site asset record.";
+    }
+    return "This soft-deletes your private media record.";
+  }, [deleteTarget]);
+
+  const executeListDelete = useCallback(async () => {
+    if (!deleteTarget) {
+      throw new Error("No media item selected.");
+    }
+    const r = deleteTarget;
+    const label = r.title.trim() || r.filename.trim() || r.id;
+    if (r.mediaScope === "site-assets") {
+      await deleteJson(`/api/admin/site-media/${r.id}`);
+    } else if (r.mediaScope === "my-media") {
+      await deleteJson(`/api/admin/user-media/${r.id}`);
+    } else {
+      await deleteJson(`/api/admin/media/${r.id}`);
+    }
+    await queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
+    toast.success(`Deleted "${label}".`);
+  }, [deleteTarget, queryClient]);
 
   const { data: setup } = useQuery({
     queryKey: ["admin", "setup"],
@@ -686,7 +736,73 @@ export default function AdminMediaPage() {
 
   const { data, isLoading, isFetching, isError, error } = useAdminMedia(queryOpts);
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildMediaConfig(router, handleDelete), [router, handleDelete]);
+
+  const onSelectionDetailChange = useCallback((d: DataViewerSelectionChangeDetail<MediaRow>) => {
+    setMediaScopeById((prev) => {
+      const next = new Map(prev);
+      if (d.kind === "clear") return new Map();
+      const records = d.affectedRecords;
+      if (!records?.length) return next;
+      if (d.kind === "page") {
+        const pageIds = new Set(records.map((r) => r.id));
+        const allOnPageSelected = records.every((r) => d.selectedIds.has(r.id));
+        if (allOnPageSelected) {
+          for (const r of records) next.set(r.id, r.mediaScope);
+        } else {
+          for (const id of pageIds) next.delete(id);
+        }
+        return next;
+      }
+      for (const r of records) {
+        if (d.selectedIds.has(r.id)) next.set(r.id, r.mediaScope);
+        else next.delete(r.id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBulkEditMedia = useCallback(
+    (ids: string[]) => {
+      const resolve = (id: string) => mediaScopeById.get(id) ?? rows.find((r) => r.id === id)?.mediaScope;
+      const bad = ids.filter((id) => resolve(id) !== "family-tree");
+      if (bad.length > 0) {
+        toast.error("Batch editing links and dates is only available for family tree media.", {
+          description: "Deselect site assets or my media, or filter the list to family tree only.",
+        });
+        return;
+      }
+      setBatchIds(ids);
+      setBatchOpen(true);
+    },
+    [mediaScopeById, rows],
+  );
+
+  const bulkDeleteOneMedia = useCallback(
+    async (id: string) => {
+      const resolve = (x: string) => mediaScopeById.get(x) ?? rows.find((r) => r.id === x)?.mediaScope;
+      const scope = resolve(id);
+      if (!scope) {
+        throw new Error(`Missing scope for media ${id.slice(0, 8)}…`);
+      }
+      if (scope === "site-assets") {
+        await deleteJson(`/api/admin/site-media/${id}`);
+      } else if (scope === "my-media") {
+        await deleteJson(`/api/admin/user-media/${id}`);
+      } else {
+        await deleteJson(`/api/admin/media/${id}`);
+      }
+    },
+    [mediaScopeById, rows],
+  );
+
+  const handleBulkDeleteFinished = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
+  }, [queryClient]);
+
+  const config = useMemo(
+    () => buildMediaConfig(router, requestDeleteRow, handleBulkEditMedia, bulkDeleteOneMedia),
+    [router, requestDeleteRow, handleBulkEditMedia, bulkDeleteOneMedia],
+  );
   const totalCount = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / pagination.pageSize) || 1);
 
@@ -889,6 +1005,58 @@ export default function AdminMediaPage() {
             <Label htmlFor="filter-linked-last">Linked person — last name prefix</Label>
             <Input id="filter-linked-last" value={filterDraft.linkedLast} onChange={(e) => updateDraft("linkedLast", e.target.value)} placeholder="GEDCOM slash-aware prefix" />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-linked-event-type">Linked event type</Label>
+            <select
+              id="filter-linked-event-type"
+              className={selectClassName}
+              value={filterDraft.linkedEventType}
+              onChange={(e) => updateDraft("linkedEventType", e.target.value)}
+            >
+              <option value="">Any</option>
+              {eventTypeFilterOptions.map(({ code, label }) => (
+                <option key={code} value={code}>
+                  {label} ({code})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Family tree media only: rows linked to an event with this GEDCOM tag (ignored for site / my media).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-tag">Tag</Label>
+            <select
+              id="filter-tag"
+              className={selectClassName}
+              value={filterDraft.tagId}
+              onChange={(e) => updateDraft("tagId", e.target.value)}
+            >
+              <option value="">Any</option>
+              {(tagsForFilters.data?.tags ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.isGlobal ? " (global)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-album">Album</Label>
+            <select
+              id="filter-album"
+              className={selectClassName}
+              value={filterDraft.albumId}
+              onChange={(e) => updateDraft("albumId", e.target.value)}
+            >
+              <option value="">Any</option>
+              {(albumsForFilters.data?.albums ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </FilterPanel>
 
@@ -904,6 +1072,29 @@ export default function AdminMediaPage() {
         pagination={pagination}
         onPaginationChange={handlePaginationChange}
         pageCount={pageCount}
+        selectedRowIds={selectedMediaIds}
+        onSelectedRowIdsChange={setSelectedMediaIds}
+        onSelectionDetailChange={onSelectionDetailChange}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
+      />
+
+      <BatchMediaEditorModal
+        open={batchOpen}
+        onOpenChange={setBatchOpen}
+        mediaIds={batchIds}
+        onApplied={clearMediaSelection}
+      />
+
+      <MediaDeleteConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        mediaLabel={
+          deleteTarget ? deleteTarget.title.trim() || deleteTarget.filename.trim() || deleteTarget.id : ""
+        }
+        detail={listDeleteDetail}
+        onDelete={executeListDelete}
       />
 
       <Dialog open={addScopeOpen} onOpenChange={setAddScopeOpen}>

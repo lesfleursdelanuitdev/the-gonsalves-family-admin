@@ -3,11 +3,22 @@
  */
 import { randomBytes, createHash } from "crypto";
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
+import { ADMIN_SESSION_COOKIE } from "@/lib/infra/admin-session-cookie";
 import { prisma } from "@/lib/database/prisma";
 
-const SESSION_COOKIE = "admin_session";
+export { ADMIN_SESSION_COOKIE };
+
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+const sessionCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: SESSION_TTL_MS / 1000,
+};
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
@@ -50,25 +61,25 @@ export async function createSession(userId: string, req?: Request) {
   return { token, refreshToken };
 }
 
-export async function setSessionCookie(token: string) {
-  const jar = await cookies();
-  jar.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_TTL_MS / 1000,
-  });
+/**
+ * Attach session cookie to a Route Handler response. Prefer this over `cookies().set`
+ * in `app/api/**` so Next.js reliably emits `Set-Cookie` (avoids missing session after login).
+ */
+export function applySessionCookieToResponse(response: NextResponse, token: string) {
+  response.cookies.set(ADMIN_SESSION_COOKIE, token, sessionCookieOptions);
 }
 
-export async function clearSessionCookie() {
-  const jar = await cookies();
-  jar.delete(SESSION_COOKIE);
+/** Clear session cookie on a Route Handler response. */
+export function clearSessionCookieOnResponse(response: NextResponse) {
+  response.cookies.set(ADMIN_SESSION_COOKIE, "", {
+    ...sessionCookieOptions,
+    maxAge: 0,
+  });
 }
 
 export async function getSessionToken(): Promise<string | null> {
   const jar = await cookies();
-  return jar.get(SESSION_COOKIE)?.value ?? null;
+  return jar.get(ADMIN_SESSION_COOKIE)?.value ?? null;
 }
 
 export async function validateSession(token: string): Promise<SessionUser | null> {

@@ -36,6 +36,7 @@ export async function attachMediaToTarget(
     case "place":
       await postJson(`/api/admin/media/${mediaId}/place-media`, { placeId: id });
       return;
+    case "tag":
     case "story":
     case "document":
       throw new Error("LINK_UNSUPPORTED");

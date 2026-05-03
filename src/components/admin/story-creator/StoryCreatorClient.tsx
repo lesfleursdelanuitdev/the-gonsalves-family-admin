@@ -1,26 +1,39 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Columns2,
-  Copy,
-  LayoutTemplate,
+  Expand,
   Eye,
-  ImageIcon,
   GripVertical,
+  ImageIcon,
   Layers,
+  LayoutTemplate,
+  Minimize2,
   Minus,
   MoreHorizontal,
   Pencil,
   PanelRight,
   PanelRightClose,
-  Plus,
   Loader2,
+  Plus,
   Save,
   Send,
-  Trash2,
   Type,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,7 +46,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { StoryGlobalTipTapToolbar } from "@/components/admin/story-creator/StoryGlobalTipTapToolbar";
 import { StoryTipTapEditor } from "@/components/admin/story-creator/StoryTipTapEditor";
+import { StoryTiptapActiveEditorProvider } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import { StoryTipTapStoryDocProvider } from "@/components/admin/story-creator/story-tiptap-story-doc-context";
 import { StoryCreatorPreview } from "@/components/admin/story-creator/story-creator-preview";
 import type { JSONContent } from "@tiptap/core";
@@ -73,6 +88,7 @@ import {
   type OutlineRenameTarget,
 } from "@/components/admin/story-creator/StoryStructureSidebar";
 import { migrateStoryDocument } from "@/lib/admin/story-creator/migrate-story-document";
+import { normalizeStorySlugInput, slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
 import { ApiError } from "@/lib/infra/api";
 import { columnsBlockDepthInSection, MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import {
@@ -80,6 +96,7 @@ import {
   storyColumnStackStyle,
   storyColumnsGridStyle,
 } from "@/lib/admin/story-creator/story-columns-layout";
+import { moveStoryBlockRelative } from "@/lib/admin/story-creator/story-block-move-relative";
 import {
   appendBlockIntoContainer,
   duplicateBlockRelativeToBlockId,
@@ -115,6 +132,7 @@ import {
   type StoryBlockPlacementVariant,
 } from "@/components/admin/story-creator/StoryBlockPlacementDialog";
 import { StoryBlockRowDesignWrap } from "@/components/admin/story-creator/StoryBlockDesignWrap";
+import { StoryEditorBlockFrame } from "@/components/admin/story-creator/StoryEditorBlockFrame";
 import { StoryColumnInsertAffordance } from "@/components/admin/story-creator/StoryColumnInsertAffordance";
 import {
   appendChildSection,
@@ -139,6 +157,24 @@ function formatLastSaved(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+const STORY_LEFT_PANEL_WIDTH_KEY = "story-creator:left-panel-width";
+const STORY_LEFT_PANEL_MIN = 260;
+const STORY_LEFT_PANEL_DEFAULT = 340;
+const STORY_LEFT_PANEL_MAX = 520;
+const STORY_RIGHT_PANEL_WIDTH_KEY = "story-creator:right-panel-width";
+const STORY_RIGHT_PANEL_MIN = 260;
+const STORY_RIGHT_PANEL_DEFAULT = 320;
+const STORY_RIGHT_PANEL_MAX = 520;
+const STORY_PANEL_TRANSITION = "transition-[width] duration-[250ms] ease-in-out";
+
+function clampStoryLeftPanelWidth(px: number) {
+  return Math.min(STORY_LEFT_PANEL_MAX, Math.max(STORY_LEFT_PANEL_MIN, Math.round(px)));
+}
+
+function clampStoryRightPanelWidth(px: number) {
+  return Math.min(STORY_RIGHT_PANEL_MAX, Math.max(STORY_RIGHT_PANEL_MIN, Math.round(px)));
+}
+
 function cloneDoc(d: StoryDocument): StoryDocument {
   return JSON.parse(JSON.stringify(d)) as StoryDocument;
 }
@@ -157,38 +193,6 @@ function blockCanvasHeaderLabel(block: StoryBlock): string {
   return "Block";
 }
 
-function sectionBlockSubtreeContainsSelection(block: StoryBlock, sel: StorySelection | null): boolean {
-  if (!sel || sel.mode !== "section") return false;
-  if (sel.block.id === block.id) return true;
-  if (block.type === "container") {
-    return block.children.some((c: StoryBlock) => sectionBlockSubtreeContainsSelection(c, sel));
-  }
-  if (block.type === "columns") {
-    for (const slot of block.columns) {
-      for (const nb of slot.blocks) {
-        if (columnNestedSubtreeContainsSectionSelection(nb, sel)) return true;
-      }
-    }
-  }
-  return false;
-}
-
-function columnNestedSubtreeContainsSectionSelection(nb: StoryColumnNestedBlock, sel: StorySelection): boolean {
-  if (sel.mode !== "section") return false;
-  if (nb.id === sel.block.id) return true;
-  if (nb.type === "container") {
-    return nb.children.some((c: StoryBlock) => sectionBlockSubtreeContainsSelection(c, sel));
-  }
-  if (nb.type === "columns") {
-    for (const slot of nb.columns) {
-      for (const inner of slot.blocks) {
-        if (columnNestedSubtreeContainsSectionSelection(inner, sel)) return true;
-      }
-    }
-  }
-  return false;
-}
-
 function storyKindUiLabel(kind: StoryDocument["kind"]): string {
   switch (kind ?? "story") {
     case "article":
@@ -205,6 +209,7 @@ type StoryBlockPlacementModalArgs = {
   targetBlockId: string;
   variant: StoryBlockPlacementVariant;
   allowNestedColumns: boolean;
+  initialAddPosition?: "above" | "below";
 };
 
 type StoryNestedColumnsGridProps = {
@@ -229,6 +234,7 @@ type StoryNestedColumnsGridProps = {
   setBlockSettingsSheetOpen: (open: boolean) => void;
   updateRichBlock: (sectionId: string, blockId: string, json: JSONContent) => void;
   openBlockPlacement: (args: StoryBlockPlacementModalArgs) => void;
+  moveBlock: (sectionId: string, blockId: string, direction: -1 | 1) => void;
   appendIntoContainer: (sectionId: string, containerId: string, block: StoryBlock) => void;
 };
 
@@ -247,6 +253,7 @@ function StoryNestedColumnsGrid({
   setBlockSettingsSheetOpen,
   updateRichBlock,
   openBlockPlacement,
+  moveBlock,
   appendIntoContainer,
 }: StoryNestedColumnsGridProps) {
   const allowNestedColumns = depth < MAX_STORY_COLUMNS_NEST_DEPTH;
@@ -266,11 +273,201 @@ function StoryNestedColumnsGrid({
   const cellActiveBorder = depth >= 2 ? "border-primary/30 ring-1 ring-primary/12" : "border-primary/40 ring-1 ring-primary/18";
 
   function renderContainerInColumn(nest: StoryContainerBlock) {
+    const nestSelected = storySelection?.mode === "section" && storySelection.block.id === nest.id;
+    const frameLabel = nest.props.label?.trim() || "Container";
+    const placementVariant: StoryBlockPlacementVariant = "column";
+
+    function renderColContainerChildBody(child: StoryBlock) {
+      if (child.type === "richText") {
+        return (
+          <StoryTipTapEditor
+            editorKey={`${sectionId}-${nest.id}-${child.id}`}
+            content={child.doc}
+            onChange={(json) => updateRichBlock(sectionId, child.id, json)}
+            toolbarDensity={isLg ? "default" : "touch"}
+            surface="canvas"
+          />
+        );
+      }
+      if (child.type === "media") {
+        return (
+          <MediaEmbedCanvasCard
+            compact
+            block={child}
+            onConfigure={() => {
+              setSelectedBlockId(child.id);
+              setInspectorTab("block");
+              if (!isLg) setBlockSettingsSheetOpen(true);
+            }}
+          />
+        );
+      }
+      if (child.type === "embed") {
+        return (
+          <EmbedCanvasCard
+            block={child}
+            compact
+            onConfigure={() => {
+              setSelectedBlockId(child.id);
+              setInspectorTab("block");
+              if (!isLg) setBlockSettingsSheetOpen(true);
+            }}
+          />
+        );
+      }
+      if (child.type === "divider") {
+        return (
+          <div className="py-2">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-base-content/18 to-transparent" />
+          </div>
+        );
+      }
+      if (child.type === "columns") {
+        return (
+          <StoryNestedColumnsGrid
+            sectionId={sectionId}
+            columnsBlock={child}
+            depth={depth + 1}
+            isSm={isSm}
+            isLg={isLg}
+            storySelection={storySelection}
+            insertColumnNested={insertColumnNested}
+            removeBlock={removeBlock}
+            setSelectedBlockId={setSelectedBlockId}
+            setInspectorTab={setInspectorTab}
+            setInspectorOpen={setInspectorOpen}
+            setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
+            updateRichBlock={updateRichBlock}
+            openBlockPlacement={openBlockPlacement}
+            moveBlock={moveBlock}
+            appendIntoContainer={appendIntoContainer}
+          />
+        );
+      }
+      return renderContainerInColumn(child);
+    }
+
+    function renderColContainerChildCard(child: StoryBlock) {
+      const sel = storySelection?.mode === "section" && storySelection.block.id === child.id;
+      const v: StoryBlockPlacementVariant = child.type === "container" ? "container" : "column";
+      const openInspector = () => {
+        setSelectedBlockId(child.id);
+        setInspectorTab("block");
+        if (isLg) setInspectorOpen(true);
+        else setBlockSettingsSheetOpen(true);
+      };
+      return (
+        <StoryEditorBlockFrame
+          block={child}
+          frameLabel={blockCanvasHeaderLabel(child)}
+          selected={sel}
+          isLg={isLg}
+          visualQuietContainer={child.type === "container"}
+          onSelect={() => {
+            setSelectedBlockId(child.id);
+            setInspectorTab("block");
+          }}
+          onAddAbove={() =>
+            openBlockPlacement({
+              flow: "add",
+              targetBlockId: child.id,
+              variant: v,
+              allowNestedColumns,
+              initialAddPosition: "above",
+            })
+          }
+          onAddBelow={() =>
+            openBlockPlacement({
+              flow: "add",
+              targetBlockId: child.id,
+              variant: v,
+              allowNestedColumns,
+              initialAddPosition: "below",
+            })
+          }
+          onAddInsideContainer={
+            child.type === "container"
+              ? () =>
+                  openBlockPlacement({
+                    flow: "add",
+                    targetBlockId: child.children?.[0]?.id ?? child.id,
+                    variant: "container",
+                    allowNestedColumns,
+                  })
+              : undefined
+          }
+          onDuplicate={() =>
+            openBlockPlacement({
+              flow: "duplicate",
+              targetBlockId: child.id,
+              variant: v,
+              allowNestedColumns,
+            })
+          }
+          onDelete={() => removeBlock(sectionId, child.id)}
+          onOpenInspector={openInspector}
+          onMove={(dir) => moveBlock(sectionId, child.id, dir)}
+          contentClassName={cn(child.type === "richText" && "pb-4 pt-5")}
+        >
+          {renderColContainerChildBody(child)}
+        </StoryEditorBlockFrame>
+      );
+    }
+
     return (
-      <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/[0.04] p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/80">
-          {nest.props.label?.trim() || "Container"}
-        </p>
+      <StoryEditorBlockFrame
+        block={nest}
+        frameLabel={frameLabel}
+        selected={nestSelected}
+        isLg={isLg}
+        visualQuietContainer
+        onSelect={() => {
+          setSelectedBlockId(nest.id);
+          setInspectorTab("block");
+        }}
+        onAddAbove={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: nest.id,
+            variant: placementVariant,
+            allowNestedColumns,
+            initialAddPosition: "above",
+          })
+        }
+        onAddBelow={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: nest.id,
+            variant: placementVariant,
+            allowNestedColumns,
+            initialAddPosition: "below",
+          })
+        }
+        onAddInsideContainer={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: nest.children?.[0]?.id ?? nest.id,
+            variant: "container",
+            allowNestedColumns,
+          })
+        }
+        onDuplicate={() =>
+          openBlockPlacement({
+            flow: "duplicate",
+            targetBlockId: nest.id,
+            variant: placementVariant,
+            allowNestedColumns,
+          })
+        }
+        onDelete={() => removeBlock(sectionId, nest.id)}
+        onOpenInspector={() => {
+          setSelectedBlockId(nest.id);
+          setInspectorTab("block");
+          if (isLg) setInspectorOpen(true);
+          else setBlockSettingsSheetOpen(true);
+        }}
+        onMove={(dir) => moveBlock(sectionId, nest.id, dir)}
+      >
         {nest.children.length === 0 ? (
           <>
             <p className="text-center text-xs leading-relaxed text-base-content/55">
@@ -288,91 +485,6 @@ function StoryNestedColumnsGrid({
         ) : (
           <div className="space-y-2">
             {groupStoryBlocksForLayout(nest.children).map((group) => {
-              function renderColContainerChildBody(child: StoryBlock) {
-                if (child.type === "richText") {
-                  return (
-                    <StoryTipTapEditor
-                      editorKey={`${sectionId}-${nest.id}-${child.id}`}
-                      content={child.doc}
-                      onChange={(json) => updateRichBlock(sectionId, child.id, json)}
-                      placeholder="Start writing…"
-                      toolbarDensity={isLg ? "default" : "touch"}
-                    />
-                  );
-                }
-                if (child.type === "media") {
-                  return (
-                    <MediaEmbedCanvasCard
-                      compact
-                      block={child}
-                      onConfigure={() => {
-                        setSelectedBlockId(child.id);
-                        setInspectorTab("block");
-                        if (!isLg) setBlockSettingsSheetOpen(true);
-                      }}
-                    />
-                  );
-                }
-                if (child.type === "embed") {
-                  return (
-                    <EmbedCanvasCard
-                      block={child}
-                      compact
-                      onConfigure={() => {
-                        setSelectedBlockId(child.id);
-                        setInspectorTab("block");
-                        if (!isLg) setBlockSettingsSheetOpen(true);
-                      }}
-                    />
-                  );
-                }
-                if (child.type === "divider") {
-                  return (
-                    <div className="py-2">
-                      <div className="h-px w-full bg-gradient-to-r from-transparent via-base-content/18 to-transparent" />
-                    </div>
-                  );
-                }
-                if (child.type === "columns") {
-                  return (
-                    <StoryNestedColumnsGrid
-                      sectionId={sectionId}
-                      columnsBlock={child}
-                      depth={depth + 1}
-                      isSm={isSm}
-                      isLg={isLg}
-                      storySelection={storySelection}
-                      insertColumnNested={insertColumnNested}
-                      removeBlock={removeBlock}
-                      setSelectedBlockId={setSelectedBlockId}
-                      setInspectorTab={setInspectorTab}
-                      setInspectorOpen={setInspectorOpen}
-                      setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
-                      updateRichBlock={updateRichBlock}
-                      openBlockPlacement={openBlockPlacement}
-                      appendIntoContainer={appendIntoContainer}
-                    />
-                  );
-                }
-                return renderContainerInColumn(child);
-              }
-              function renderColContainerChildCard(child: StoryBlock) {
-                const sel = storySelection?.mode === "section" && storySelection.block.id === child.id;
-                return (
-                  <div
-                    className={cn(
-                      "rounded-lg border bg-base-100/50 p-2 sm:p-2.5",
-                      sel ? "border-primary/35 ring-1 ring-primary/12" : "border-base-content/[0.07]",
-                    )}
-                    onPointerDownCapture={() => {
-                      setSelectedBlockId(child.id);
-                      setInspectorTab("block");
-                    }}
-                  >
-                    {renderColContainerChildBody(child)}
-                  </div>
-                );
-              }
               if (group.kind === "float-wrap") {
                 return (
                   <div key={`${group.float.id}-${group.text.id}`} className="flow-root min-w-0">
@@ -392,234 +504,127 @@ function StoryNestedColumnsGrid({
                 </StoryBlockRowDesignWrap>
               );
             })}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                type="button"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "mt-1 w-full justify-center gap-2 rounded-lg border-dashed border-primary/30 text-xs font-medium text-primary/90",
-                )}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Plus className="size-3.5 opacity-80" aria-hidden />
-                Add block inside container
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="min-w-[10rem]">
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("richText"))}
-                >
-                  <Type className="size-3.5 opacity-80" aria-hidden />
-                  Text
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("media"))}
-                >
-                  <ImageIcon className="size-3.5 opacity-80" aria-hidden />
-                  Media
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("embed"))}
-                >
-                  <Layers className="size-3.5 opacity-80" aria-hidden />
-                  Embed
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("divider"))}
-                >
-                  <Minus className="size-3.5 opacity-80" aria-hidden />
-                  Divider
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("container"))}
-                >
-                  <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
-                  Container
-                </DropdownMenuItem>
-                {allowNestedColumns ? (
-                  <DropdownMenuItem
-                    className="gap-2 font-medium"
-                    onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("columns"))}
-                  >
-                    <Columns2 className="size-3.5 opacity-80" aria-hidden />
-                    Columns
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         )}
-      </div>
+      </StoryEditorBlockFrame>
     );
   }
 
   function renderColumnNestedChrome(nested: StoryColumnNestedBlock) {
     const nestedSelected = storySelection?.mode === "column" && storySelection.block.id === nested.id;
+    const asBlock = nested as StoryBlock;
+    const placementVariant: StoryBlockPlacementVariant = nested.type === "container" ? "container" : "column";
+    const openInspector = () => {
+      setSelectedBlockId(nested.id);
+      setInspectorTab("block");
+      if (isLg) setInspectorOpen(true);
+      else setBlockSettingsSheetOpen(true);
+    };
+
     return (
-      <div
-        className={cn(
-          "overflow-visible rounded-xl border bg-base-100/25 transition-[border-color,box-shadow]",
-          nestedSelected
-            ? "border-primary/45 ring-1 ring-primary/16"
-            : depth >= 2
-              ? "border-base-content/[0.05]"
-              : "border-base-content/[0.06]",
-        )}
+      <StoryEditorBlockFrame
+        block={asBlock}
+        frameLabel={blockCanvasHeaderLabel(asBlock)}
+        selected={nestedSelected}
+        isLg={isLg}
+        visualQuietContainer={nested.type === "container"}
+        onSelect={() => {
+          setSelectedBlockId(nested.id);
+          setInspectorTab("block");
+        }}
+        onAddAbove={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: nested.id,
+            variant: placementVariant,
+            allowNestedColumns,
+            initialAddPosition: "above",
+          })
+        }
+        onAddBelow={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: nested.id,
+            variant: placementVariant,
+            allowNestedColumns,
+            initialAddPosition: "below",
+          })
+        }
+        onAddInsideContainer={
+          nested.type === "container"
+            ? () =>
+                openBlockPlacement({
+                  flow: "add",
+                  targetBlockId: nested.children?.[0]?.id ?? nested.id,
+                  variant: "container",
+                  allowNestedColumns,
+                })
+            : undefined
+        }
+        onDuplicate={() =>
+          openBlockPlacement({
+            flow: "duplicate",
+            targetBlockId: nested.id,
+            variant: placementVariant,
+            allowNestedColumns,
+          })
+        }
+        onDelete={() => removeBlock(sectionId, nested.id)}
+        onOpenInspector={openInspector}
+        onMove={(dir) => moveBlock(sectionId, nested.id, dir)}
+        contentClassName={cn(nested.type === "richText" && "pb-4 pt-5")}
       >
-        <div className="flex min-h-9 shrink-0 items-center justify-end gap-2 border-b border-base-content/10 bg-base-200/20 px-2 py-1 lg:min-h-8">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              type="button"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "h-9 w-9 shrink-0 rounded-lg p-0 text-base-content/50 hover:bg-base-content/[0.08] lg:h-8 lg:w-8",
-              )}
-              aria-label="Block menu"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[200] min-w-[10rem]">
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedBlockId(nested.id);
-                  setInspectorTab("block");
-                  if (isLg) {
-                    setInspectorOpen(true);
-                  } else {
-                    setBlockSettingsSheetOpen(true);
-                  }
-                }}
-              >
-                <PanelRight className="size-3.5 opacity-80" aria-hidden />
-                Open inspector
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBlockPlacement({
-                    flow: "add",
-                    targetBlockId: nested.id,
-                    variant: "column",
-                    allowNestedColumns,
-                  });
-                }}
-              >
-                <Plus className="size-3.5 opacity-80" aria-hidden />
-                Add block
-              </DropdownMenuItem>
-              {nested.type === "container" ? (
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openBlockPlacement({
-                      flow: "add",
-                      targetBlockId: nested.children?.[0]?.id ?? nested.id,
-                      variant: "container",
-                      allowNestedColumns,
-                    });
-                  }}
-                >
-                  <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
-                  Add block inside container
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBlockPlacement({
-                    flow: "duplicate",
-                    targetBlockId: nested.id,
-                    variant: "column",
-                    allowNestedColumns,
-                  });
-                }}
-              >
-                <Copy className="size-3.5 opacity-80" aria-hidden />
-                Duplicate block
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="gap-2 font-medium text-error focus:text-error"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeBlock(sectionId, nested.id);
-                }}
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-                Delete block
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <div
-          className={cn("p-2 sm:p-3", nested.type === "richText" && "pb-2 pt-1")}
-          onPointerDownCapture={() => {
-            setSelectedBlockId(nested.id);
-            setInspectorTab("block");
-          }}
-        >
-          {nested.type === "richText" ? (
-            <StoryTipTapEditor
-              editorKey={`${sectionId}-${columnsBlock.id}-${nested.id}`}
-              content={nested.doc}
-              onChange={(json) => updateRichBlock(sectionId, nested.id, json)}
-              placeholder="Start writing your story…"
-              toolbarDensity={isLg ? "default" : "touch"}
-            />
-          ) : nested.type === "media" ? (
-            <MediaEmbedCanvasCard
-              compact
-              block={nested}
-              onConfigure={() => {
-                setSelectedBlockId(nested.id);
-                setInspectorTab("block");
-                if (!isLg) setBlockSettingsSheetOpen(true);
-              }}
-            />
-          ) : nested.type === "columns" ? (
-            <StoryNestedColumnsGrid
-              sectionId={sectionId}
-              columnsBlock={nested}
-              depth={depth + 1}
-              isSm={isSm}
-              isLg={isLg}
-              storySelection={storySelection}
-              insertColumnNested={insertColumnNested}
-              removeBlock={removeBlock}
-              setSelectedBlockId={setSelectedBlockId}
-              setInspectorTab={setInspectorTab}
-              setInspectorOpen={setInspectorOpen}
-              setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
-              updateRichBlock={updateRichBlock}
-              openBlockPlacement={openBlockPlacement}
-              appendIntoContainer={appendIntoContainer}
-            />
-          ) : nested.type === "embed" ? (
-            <EmbedCanvasCard
-              block={nested}
-              compact
-              onConfigure={() => {
-                setSelectedBlockId(nested.id);
-                setInspectorTab("block");
-                if (!isLg) setBlockSettingsSheetOpen(true);
-              }}
-            />
-          ) : nested.type === "container" ? (
-            renderContainerInColumn(nested)
-          ) : null}
-        </div>
-      </div>
+        {nested.type === "richText" ? (
+          <StoryTipTapEditor
+            editorKey={`${sectionId}-${columnsBlock.id}-${nested.id}`}
+            content={nested.doc}
+            onChange={(json) => updateRichBlock(sectionId, nested.id, json)}
+            toolbarDensity={isLg ? "default" : "touch"}
+            surface="canvas"
+          />
+        ) : nested.type === "media" ? (
+          <MediaEmbedCanvasCard
+            compact
+            block={nested}
+            onConfigure={() => {
+              setSelectedBlockId(nested.id);
+              setInspectorTab("block");
+              if (!isLg) setBlockSettingsSheetOpen(true);
+            }}
+          />
+        ) : nested.type === "columns" ? (
+          <StoryNestedColumnsGrid
+            sectionId={sectionId}
+            columnsBlock={nested}
+            depth={depth + 1}
+            isSm={isSm}
+            isLg={isLg}
+            storySelection={storySelection}
+            insertColumnNested={insertColumnNested}
+            removeBlock={removeBlock}
+            setSelectedBlockId={setSelectedBlockId}
+            setInspectorTab={setInspectorTab}
+            setInspectorOpen={setInspectorOpen}
+            setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
+            updateRichBlock={updateRichBlock}
+            openBlockPlacement={openBlockPlacement}
+            moveBlock={moveBlock}
+            appendIntoContainer={appendIntoContainer}
+          />
+        ) : nested.type === "embed" ? (
+          <EmbedCanvasCard
+            block={nested}
+            compact
+            onConfigure={() => {
+              setSelectedBlockId(nested.id);
+              setInspectorTab("block");
+              if (!isLg) setBlockSettingsSheetOpen(true);
+            }}
+          />
+        ) : nested.type === "container" ? (
+          renderContainerInColumn(nested)
+        ) : null}
+      </StoryEditorBlockFrame>
     );
   }
 
@@ -644,20 +649,20 @@ function StoryNestedColumnsGrid({
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-visible" style={storyColumnStackStyle(slot)}>
               {slot.blocks.length === 0 ? (
-                <StoryColumnInsertAffordance
-                  mobile={!isLg}
-                  allowNestedColumns={allowNestedColumns}
-                  onInsert={(kind) => insertColumnNested(sectionId, columnsBlock.id, colIdx, 0, kind)}
-                />
+                <>
+                  <StoryColumnInsertAffordance
+                    mobile={!isLg}
+                    allowNestedColumns={allowNestedColumns}
+                    onInsert={(kind) => insertColumnNested(sectionId, columnsBlock.id, colIdx, 0, kind)}
+                  />
+                  <p className="mt-2 px-1 text-center text-xs leading-relaxed text-base-content/45">
+                    Or use a block’s floating toolbar to add above or below once this column has content.
+                  </p>
+                </>
               ) : (
                 <>
                   {groupColumnNestedBlocksForLayout(slot.blocks).map((grp) => (
                     <Fragment key={grp.kind === "single" ? grp.block.id : `${grp.float.id}-${grp.text.id}`}>
-                      <StoryColumnInsertAffordance
-                        mobile={!isLg}
-                        allowNestedColumns={allowNestedColumns}
-                        onInsert={(kind) => insertColumnNested(sectionId, columnsBlock.id, colIdx, grp.startIndex, kind)}
-                      />
                       {grp.kind === "float-wrap" ? (
                         <div className="flow-root min-w-0">
                           <StoryBlockRowDesignWrap block={grp.float as StoryBlock} floated>
@@ -674,18 +679,8 @@ function StoryNestedColumnsGrid({
                       )}
                     </Fragment>
                   ))}
-                  <StoryColumnInsertAffordance
-                    mobile={!isLg}
-                    allowNestedColumns={allowNestedColumns}
-                    onInsert={(kind) => insertColumnNested(sectionId, columnsBlock.id, colIdx, slot.blocks.length, kind)}
-                  />
                 </>
               )}
-              {slot.blocks.length === 0 ? (
-                <p className="mt-1 text-center text-xs leading-relaxed text-base-content/45">
-                  Use + to add text, media, embed, or columns. Add more + rows to stack blocks.
-                </p>
-              ) : null}
             </div>
           </div>
         );
@@ -710,6 +705,7 @@ type StoryEditorSectionBlockCardProps = {
   | "setBlockSettingsSheetOpen"
   | "updateRichBlock"
   | "openBlockPlacement"
+  | "moveBlock"
   | "appendIntoContainer"
 >;
 
@@ -727,277 +723,150 @@ function StoryEditorSectionBlockCard({
   setBlockSettingsSheetOpen,
   updateRichBlock,
   openBlockPlacement,
+  moveBlock,
   appendIntoContainer,
 }: StoryEditorSectionBlockCardProps) {
-  const columnsInnerSelected =
-    storySelection?.mode === "column" && storySelection.columnsBlock.id === block.id;
-  const topSelected = storySelection?.mode === "section" && storySelection.block.id === block.id;
-  const subtreeSelected =
-    storySelection?.mode === "section" && sectionBlockSubtreeContainsSelection(block, storySelection);
-  const blockSelected =
-    topSelected || subtreeSelected || (block.type === "columns" && columnsInnerSelected);
+  const selected = storySelection?.mode === "section" && storySelection.block.id === block.id;
   const header = blockCanvasHeaderLabel(block);
-  return (
-    <div
-      onClick={() => {
-        setSelectedBlockId(block.id);
-        setInspectorTab("block");
-      }}
-      className={cn(
-        "cursor-pointer rounded-2xl border bg-base-100/90 shadow-sm outline-none transition-[box-shadow,border-color,ring]",
-        blockSelected
-          ? "border-primary/45 shadow-md ring-1 ring-primary/22"
-          : "border-base-content/[0.09] hover:border-base-content/15 hover:shadow-md",
-      )}
-    >
-      <div className="flex min-h-12 shrink-0 items-center justify-between gap-2 border-b border-base-content/10 bg-base-200/25 px-3 py-2 lg:h-12 lg:gap-3 lg:px-4 lg:py-0">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <GripVertical className="size-4 shrink-0 text-base-content/25 lg:hidden" aria-hidden strokeWidth={2} />
-          <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide text-base-content/50">
-            {header}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {isLg ? (
-            blockSelected ? (
-              <span className="hidden whitespace-nowrap pr-1 text-[11px] font-medium text-primary sm:inline">
-                Inspector
-              </span>
-            ) : (
-              <span className="hidden whitespace-nowrap pr-1 text-[11px] text-base-content/45 sm:inline">Select</span>
-            )
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              type="button"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "h-11 w-11 shrink-0 rounded-xl p-0 text-base-content/50 hover:bg-base-content/[0.08] lg:h-8 lg:w-8 lg:rounded-lg",
-              )}
-              aria-label="Block menu"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[10rem]">
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedBlockId(block.id);
-                  setInspectorTab("block");
-                  if (isLg) {
-                    setInspectorOpen(true);
-                  } else {
-                    setBlockSettingsSheetOpen(true);
-                  }
-                }}
-              >
-                <PanelRight className="size-3.5 opacity-80" aria-hidden />
-                Open inspector
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBlockPlacement({
-                    flow: "add",
-                    targetBlockId: block.id,
-                    variant: "section",
-                    allowNestedColumns: true,
-                  });
-                }}
-              >
-                <Plus className="size-3.5 opacity-80" aria-hidden />
-                Add block
-              </DropdownMenuItem>
-              {block.type === "container" ? (
-                <DropdownMenuItem
-                  className="gap-2 font-medium"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openBlockPlacement({
-                      flow: "add",
-                      targetBlockId: block.children?.[0]?.id ?? block.id,
-                      variant: "container",
-                      allowNestedColumns: true,
-                    });
-                  }}
-                >
-                  <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
-                  Add block inside container
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBlockPlacement({
-                    flow: "duplicate",
-                    targetBlockId: block.id,
-                    variant: "section",
-                    allowNestedColumns: true,
-                  });
-                }}
-              >
-                <Copy className="size-3.5 opacity-80" aria-hidden />
-                Duplicate block
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="gap-2 font-medium text-error focus:text-error"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeBlock(sectionId, block.id);
-                }}
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-                Delete block
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      <div className={cn("p-4 lg:p-4", block.type === "richText" && "pb-3 pt-1")}>
-        {block.type === "richText" ? (
-          <div
-            className="max-w-full overflow-x-auto"
-            onPointerDownCapture={() => {
-              setSelectedBlockId(block.id);
-              setInspectorTab("block");
-            }}
-          >
-            <StoryTipTapEditor
-              editorKey={`${sectionId}-${block.id}`}
-              content={block.doc}
-              onChange={(json) => updateRichBlock(sectionId, block.id, json)}
-              placeholder="Start writing your story…"
-              toolbarDensity={isLg ? "default" : "touch"}
-            />
-          </div>
-        ) : block.type === "columns" ? (
-          <StoryNestedColumnsGrid
-            sectionId={sectionId}
-            columnsBlock={block}
-            depth={1}
-            isSm={isSm}
-            isLg={isLg}
-            storySelection={storySelection}
-            insertColumnNested={insertColumnNested}
-            removeBlock={removeBlock}
-            setSelectedBlockId={setSelectedBlockId}
-            setInspectorTab={setInspectorTab}
-            setInspectorOpen={setInspectorOpen}
-            setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
-            updateRichBlock={updateRichBlock}
-            openBlockPlacement={openBlockPlacement}
-            appendIntoContainer={appendIntoContainer}
-          />
-        ) : block.type === "divider" ? (
-          <div className="py-3">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-base-content/20 to-transparent" />
-          </div>
-        ) : block.type === "media" ? (
-          <div
-            onPointerDownCapture={() => {
-              setSelectedBlockId(block.id);
-              setInspectorTab("block");
-            }}
-          >
-            <MediaEmbedCanvasCard
-              block={block}
-              onConfigure={() => {
-                setSelectedBlockId(block.id);
-                setInspectorTab("block");
-                if (!isLg) setBlockSettingsSheetOpen(true);
-              }}
-            />
-          </div>
-        ) : block.type === "embed" ? (
-          <div
-            onPointerDownCapture={() => {
-              setSelectedBlockId(block.id);
-              setInspectorTab("block");
-            }}
-          >
-            <EmbedCanvasCard
-              block={block}
-              onConfigure={() => {
-                setSelectedBlockId(block.id);
-                setInspectorTab("block");
-                if (!isLg) setBlockSettingsSheetOpen(true);
-              }}
-            />
-          </div>
-        ) : block.type === "container" ? (
-          <StorySectionContainerInner
-            nest={block}
-            sectionId={sectionId}
-            isLg={isLg}
-            isSm={isSm}
-            storySelection={storySelection}
-            updateRichBlock={updateRichBlock}
-            insertColumnNested={insertColumnNested}
-            removeBlock={removeBlock}
-            setSelectedBlockId={setSelectedBlockId}
-            setInspectorTab={setInspectorTab}
-            setInspectorOpen={setInspectorOpen}
-            setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
-            openBlockPlacement={openBlockPlacement}
-            appendIntoContainer={appendIntoContainer}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
-}
+  const placementVariant: StoryBlockPlacementVariant = block.type === "container" ? "container" : "section";
+  const allowNested = true;
 
-function BlockInsertAffordance({ onInsert, mobile }: { onInsert: (kind: StoryInsertKind) => void; mobile?: boolean }) {
+  const onSelect = () => {
+    setSelectedBlockId(block.id);
+    setInspectorTab("block");
+  };
+
+  const openInspector = () => {
+    setSelectedBlockId(block.id);
+    setInspectorTab("block");
+    if (isLg) {
+      setInspectorOpen(true);
+    } else {
+      setBlockSettingsSheetOpen(true);
+    }
+  };
+
   return (
-    <div className={cn("group relative flex items-center justify-center", mobile ? "py-3" : "h-7 py-0.5")}>
-      <div className="pointer-events-none absolute inset-x-3 top-1/2 h-px -translate-y-1/2 border-t border-dashed border-base-content/[0.12] opacity-80 transition-opacity group-hover:opacity-100" />
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          type="button"
-          className={cn(
-            "relative z-10 flex items-center justify-center rounded-full border border-base-content/12 bg-base-100/95 text-primary shadow-md transition-[opacity,transform,box-shadow]",
-            mobile
-              ? "size-11 min-h-[44px] min-w-[44px] opacity-100 hover:scale-[1.02] active:scale-[0.98]"
-              : "size-8 opacity-35 hover:scale-105 hover:opacity-100 group-hover:opacity-80",
-          )}
-          aria-label="Insert block here"
-        >
-          <Plus className={cn(mobile ? "size-5" : "size-4")} strokeWidth={2.25} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="min-w-[11rem]">
-          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("richText")}>
-            Text
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("media")}>
-            <ImageIcon className="size-3.5 opacity-80" aria-hidden />
-            Media
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("embed")}>
-            <Layers className="size-3.5 opacity-80" aria-hidden />
-            Embed
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("columns")}>
-            <Columns2 className="size-3.5 opacity-80" aria-hidden />
-            Columns
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("container")}>
-            <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
-            Container
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("divider")}>
-            <Minus className="size-3.5 opacity-80" aria-hidden />
-            Divider
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <StoryEditorBlockFrame
+      block={block}
+      frameLabel={header}
+      selected={selected}
+      isLg={isLg}
+      visualQuietContainer={block.type === "container"}
+      onSelect={onSelect}
+      onAddAbove={() =>
+        openBlockPlacement({
+          flow: "add",
+          targetBlockId: block.id,
+          variant: placementVariant,
+          allowNestedColumns: allowNested,
+          initialAddPosition: "above",
+        })
+      }
+      onAddBelow={() =>
+        openBlockPlacement({
+          flow: "add",
+          targetBlockId: block.id,
+          variant: placementVariant,
+          allowNestedColumns: allowNested,
+          initialAddPosition: "below",
+        })
+      }
+      onAddInsideContainer={
+        block.type === "container"
+          ? () =>
+              openBlockPlacement({
+                flow: "add",
+                targetBlockId: block.children?.[0]?.id ?? block.id,
+                variant: "container",
+                allowNestedColumns: allowNested,
+              })
+          : undefined
+      }
+      onDuplicate={() =>
+        openBlockPlacement({
+          flow: "duplicate",
+          targetBlockId: block.id,
+          variant: placementVariant,
+          allowNestedColumns: allowNested,
+        })
+      }
+      onDelete={() => removeBlock(sectionId, block.id)}
+      onOpenInspector={openInspector}
+      onMove={(dir) => moveBlock(sectionId, block.id, dir)}
+      contentClassName={cn(block.type === "richText" && "pb-4 pt-5")}
+    >
+      {block.type === "richText" ? (
+        <div className="max-w-full overflow-x-auto">
+          <StoryTipTapEditor
+            editorKey={`${sectionId}-${block.id}`}
+            content={block.doc}
+            onChange={(json) => updateRichBlock(sectionId, block.id, json)}
+            toolbarDensity={isLg ? "default" : "touch"}
+            surface="canvas"
+          />
+        </div>
+      ) : block.type === "columns" ? (
+        <StoryNestedColumnsGrid
+          sectionId={sectionId}
+          columnsBlock={block}
+          depth={1}
+          isSm={isSm}
+          isLg={isLg}
+          storySelection={storySelection}
+          insertColumnNested={insertColumnNested}
+          removeBlock={removeBlock}
+          setSelectedBlockId={setSelectedBlockId}
+          setInspectorTab={setInspectorTab}
+          setInspectorOpen={setInspectorOpen}
+          setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
+          updateRichBlock={updateRichBlock}
+          openBlockPlacement={openBlockPlacement}
+          moveBlock={moveBlock}
+          appendIntoContainer={appendIntoContainer}
+        />
+      ) : block.type === "divider" ? (
+        <div className="py-3">
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-base-content/20 to-transparent" />
+        </div>
+      ) : block.type === "media" ? (
+        <MediaEmbedCanvasCard
+          block={block}
+          onConfigure={() => {
+            setSelectedBlockId(block.id);
+            setInspectorTab("block");
+            if (!isLg) setBlockSettingsSheetOpen(true);
+          }}
+        />
+      ) : block.type === "embed" ? (
+        <EmbedCanvasCard
+          block={block}
+          onConfigure={() => {
+            setSelectedBlockId(block.id);
+            setInspectorTab("block");
+            if (!isLg) setBlockSettingsSheetOpen(true);
+          }}
+        />
+      ) : block.type === "container" ? (
+        <StorySectionContainerInner
+          nest={block}
+          sectionId={sectionId}
+          isLg={isLg}
+          isSm={isSm}
+          storySelection={storySelection}
+          updateRichBlock={updateRichBlock}
+          insertColumnNested={insertColumnNested}
+          removeBlock={removeBlock}
+          setSelectedBlockId={setSelectedBlockId}
+          setInspectorTab={setInspectorTab}
+          setInspectorOpen={setInspectorOpen}
+          setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
+          openBlockPlacement={openBlockPlacement}
+          moveBlock={moveBlock}
+          appendIntoContainer={appendIntoContainer}
+        />
+      ) : null}
+    </StoryEditorBlockFrame>
   );
 }
 
@@ -1014,11 +883,16 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [inspectorTab, setInspectorTab] = useState<StoryInspectorTab>("block");
-  const [outlineOpen, setOutlineOpen] = useState(true);
+  const [isLeftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [leftPanelWidthPx, setLeftPanelWidthPx] = useState(STORY_LEFT_PANEL_DEFAULT);
+  const [isResizingLeftPanel, setIsResizingLeftPanel] = useState(false);
+  const [rightPanelWidthPx, setRightPanelWidthPx] = useState(STORY_RIGHT_PANEL_DEFAULT);
+  const [isResizingRightPanel, setIsResizingRightPanel] = useState(false);
   const [outlineRename, setOutlineRename] = useState<OutlineRenameTarget | null>(null);
   const [persistedSnapshot, setPersistedSnapshot] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<StorySaveStatus>("idle");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const docRef = useRef<StoryDocument | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLg = useMediaQueryMinLg();
@@ -1088,6 +962,137 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     }
   }, [isLg, mobileShellTab]);
 
+  useLayoutEffect(() => {
+    try {
+      const rawL = sessionStorage.getItem(STORY_LEFT_PANEL_WIDTH_KEY);
+      if (rawL) {
+        const n = Number.parseInt(rawL, 10);
+        if (Number.isFinite(n)) setLeftPanelWidthPx(clampStoryLeftPanelWidth(n));
+      }
+      const rawR = sessionStorage.getItem(STORY_RIGHT_PANEL_WIDTH_KEY);
+      if (rawR) {
+        const n = Number.parseInt(rawR, 10);
+        if (Number.isFinite(n)) setRightPanelWidthPx(clampStoryRightPanelWidth(n));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORY_LEFT_PANEL_WIDTH_KEY, String(leftPanelWidthPx));
+    } catch {
+      /* ignore */
+    }
+  }, [leftPanelWidthPx]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORY_RIGHT_PANEL_WIDTH_KEY, String(rightPanelWidthPx));
+    } catch {
+      /* ignore */
+    }
+  }, [rightPanelWidthPx]);
+
+  const onLeftPanelResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const el = e.currentTarget;
+      const pointerId = e.pointerId;
+      el.setPointerCapture(pointerId);
+      const startX = e.clientX;
+      const startW = leftPanelWidthPx;
+      setIsResizingLeftPanel(true);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      const onMove = (ev: PointerEvent) => {
+        const d = ev.clientX - startX;
+        setLeftPanelWidthPx(clampStoryLeftPanelWidth(startW + d));
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        try {
+          el.releasePointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        setIsResizingLeftPanel(false);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    },
+    [leftPanelWidthPx],
+  );
+
+  const onRightPanelResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const el = e.currentTarget;
+      const pointerId = e.pointerId;
+      el.setPointerCapture(pointerId);
+      const startX = e.clientX;
+      const startW = rightPanelWidthPx;
+      setIsResizingRightPanel(true);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      const onMove = (ev: PointerEvent) => {
+        const d = ev.clientX - startX;
+        setRightPanelWidthPx(clampStoryRightPanelWidth(startW + d));
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        try {
+          el.releasePointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        setIsResizingRightPanel(false);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    },
+    [rightPanelWidthPx],
+  );
+
+  useEffect(() => {
+    if (mode !== "edit") setIsFullscreen(false);
+  }, [mode]);
+
+  useEffect(() => {
+    setIsFullscreen(false);
+  }, [storyId]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFullscreen]);
+
   const activePair = useMemo(() => {
     if (!doc || !activeSectionId) return null;
     return findSectionPath(doc.sections ?? [], activeSectionId);
@@ -1099,6 +1104,25 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   }, [activePair, selectedBlockId]);
 
   const selectedBlock = storySelection?.block ?? null;
+
+  /** After doc edits, migrations, or deletes, keep outline + canvas pointing at a real section and block. */
+  useEffect(() => {
+    if (!doc) return;
+    const roots = doc.sections ?? [];
+    const path = activeSectionId ? findSectionPath(roots, activeSectionId) : null;
+    if (!path) {
+      const first = firstSectionInOrder(roots);
+      if (first) {
+        setActiveSectionId(first.id);
+        setSelectedBlockId(first.blocks[0]?.id ?? null);
+      }
+      return;
+    }
+    if (!selectedBlockId || !resolveStorySelection(path.section, selectedBlockId)) {
+      const fb = path.section.blocks[0]?.id ?? null;
+      if (fb !== selectedBlockId) setSelectedBlockId(fb);
+    }
+  }, [doc, activeSectionId, selectedBlockId]);
 
   const columnsLayoutBlock = useMemo((): StoryColumnsBlock | null => {
     if (!storySelection) return null;
@@ -1143,6 +1167,12 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   }, [clearAutosaveTimer]);
 
   docRef.current = doc;
+
+  const storySelectionRepairRef = useRef<{ doc: StoryDocument | null; activeSectionId: string | null }>({
+    doc: null,
+    activeSectionId: null,
+  });
+  storySelectionRepairRef.current = { doc, activeSectionId };
 
   useEffect(() => {
     if (!doc || persistedSnapshot == null) return;
@@ -1203,7 +1233,18 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
 
   const setTitle = useCallback(
     (title: string) => {
-      updateDoc((d) => ({ ...d, title }));
+      updateDoc((d) => {
+        const next = { ...d, title };
+        if (!d.slugManuallyEdited) {
+          if (!title.trim()) {
+            next.slug = undefined;
+          } else {
+            const auto = normalizeStorySlugInput(slugifyStoryTitle(title));
+            next.slug = auto.length > 0 ? auto : undefined;
+          }
+        }
+        return next;
+      });
     },
     [updateDoc],
   );
@@ -1290,6 +1331,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
           return next ?? sec;
         }),
       );
+      setActiveSectionId(sectionId);
       setSelectedBlockId(block.id);
       setInspectorTab("block");
     },
@@ -1422,8 +1464,10 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
 
   const selectSectionFromOutline = useCallback(
     (sectionId: string, firstBlockId: string | null) => {
+      const path = doc ? findSectionPath(doc.sections ?? [], sectionId) : null;
+      const fallback = path?.section.blocks[0]?.id ?? null;
       setActiveSectionId(sectionId);
-      setSelectedBlockId(firstBlockId);
+      setSelectedBlockId(firstBlockId ?? fallback);
       setInspectorTab("block");
       if (!isLg) {
         setMobileShellTab("add-block");
@@ -1431,13 +1475,14 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         setAddBlockSheetOpen(false);
       }
     },
-    [isLg],
+    [doc, isLg],
   );
 
   const insertBlock = useCallback(
     (sectionId: string, index: number, kind: StoryInsertKind) => {
       const block = createStoryBlock(kind);
       updateDoc((d) => mapDocSection(d, sectionId, (sec) => insertBlockAtIndex(sec, index, block)));
+      setActiveSectionId(sectionId);
       setSelectedBlockId(block.id);
       setInspectorTab("block");
     },
@@ -1463,6 +1508,29 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     [doc, updateDoc],
   );
 
+  const moveBlock = useCallback(
+    (sectionId: string, blockId: string, direction: -1 | 1) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (sec) => moveStoryBlockRelative(sec, blockId, direction)));
+    },
+    [updateDoc],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest(".ProseMirror") || t?.closest('[contenteditable="true"]')) return;
+      const { doc: d, activeSectionId: sid } = storySelectionRepairRef.current;
+      if (!d || !sid) return;
+      const path = findSectionPath(d.sections ?? [], sid);
+      if (!path) return;
+      const fb = path.section.blocks[0]?.id ?? null;
+      setSelectedBlockId(fb);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const deleteSelectedBlock = useCallback(() => {
     if (!activePair || !selectedBlockId) return;
     removeBlock(activePair.section.id, selectedBlockId);
@@ -1473,7 +1541,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     (tab: StoryMobileShellTab) => {
       if (isLg) {
         if (tab === "structure") {
-          setOutlineOpen(true);
+          setLeftPanelOpen(true);
         } else if (tab === "settings") {
           setInspectorOpen(true);
           setInspectorTab("story");
@@ -1533,6 +1601,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       updateDoc((d) =>
         mapDocSection(d, sectionId, (sec) => insertColumnNestedAt(sec, columnsBlockId, columnIndex, atIndex, nested)),
       );
+      setActiveSectionId(sectionId);
       setSelectedBlockId(nested.id);
       setInspectorTab("block");
     },
@@ -1608,8 +1677,11 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         doc={doc}
         activeSectionId={activeSectionId}
         onSelectSection={selectSectionFromOutline}
-        outlineOpen={mobileOverlay ? true : outlineOpen}
-        onOutlineOpenChange={mobileOverlay ? () => {} : setOutlineOpen}
+        outlineOpen
+        onOutlineOpenChange={(open) => {
+          if (mobileOverlay) return;
+          if (!open) setLeftPanelOpen(false);
+        }}
         renameTarget={outlineRename}
         onRenameTargetChange={setOutlineRename}
         onRenameSection={renameSectionTitle}
@@ -1622,6 +1694,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         isCompact={!isLg}
         mobileOverlay={mobileOverlay}
         onCloseMobileOverlay={mobileOverlay ? () => setMobileShellTab("add-block") : undefined}
+        showCollapsedRail={Boolean(mobileOverlay)}
       />
     ) : null;
 
@@ -1648,53 +1721,148 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
 
   const editorPanel =
     doc && activePair ? (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-base-300/20 to-base-300/35">
-        <div className="shrink-0 border-b border-base-content/10 bg-base-100/50 px-4 py-3 backdrop-blur-sm lg:px-8 lg:py-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Section</p>
-          {outlineRename?.kind === "section" && outlineRename.id === activePair.section.id ? (
-            <div className="mt-2 max-w-xl" onClick={(e) => e.stopPropagation()}>
-              <OutlineRenameInput
-                initial={activePair.section.title}
-                onCommit={(v) => {
-                  renameSectionTitle(activePair.section.id, v);
-                  setOutlineRename(null);
-                }}
-                onCancel={() => setOutlineRename(null)}
-              />
-            </div>
-          ) : (
-            <div className="mt-1 flex items-center gap-2">
-              <div className="min-w-0 flex-1">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-hidden",
+          isFullscreen ? "bg-base-300" : "bg-gradient-to-b from-base-300/20 to-base-300/40",
+        )}
+      >
+        {isFullscreen ? (
+          <div className="sticky top-0 z-20 shrink-0 border-b border-base-content/10 bg-base-300/95 px-3 py-2.5 shadow-sm backdrop-blur-md lg:px-4">
+            <div className="flex flex-wrap items-center gap-2 gap-y-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-10 shrink-0 gap-1.5 rounded-xl border-base-content/15 px-3 font-medium sm:h-9 sm:rounded-lg"
+                title="Exit fullscreen (Esc)"
+                aria-label="Exit fullscreen writing mode"
+                onClick={() => setIsFullscreen(false)}
+              >
+                <Minimize2 className="size-4 shrink-0 opacity-90" aria-hidden />
+                <span className="hidden sm:inline">Exit fullscreen</span>
+              </Button>
+              {!isLg ? (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-10 shrink-0 gap-1.5 rounded-xl border-base-content/15 px-3 font-medium sm:h-9 sm:rounded-lg"
+                    aria-label="Add block"
+                    onClick={() => setAddBlockSheetOpen(true)}
+                  >
+                    <Plus className="size-4 shrink-0 opacity-90" aria-hidden />
+                    Add
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-10 shrink-0 gap-1.5 rounded-xl border-base-content/15 px-3 font-medium sm:h-9 sm:rounded-lg"
+                    aria-label="Open block inspector"
+                    onClick={() => {
+                      setInspectorTab("block");
+                      setBlockSettingsSheetOpen(true);
+                    }}
+                  >
+                    <PanelRight className="size-4 shrink-0 opacity-90" aria-hidden />
+                    Inspect
+                  </Button>
+                </>
+              ) : null}
+              <div className="min-w-0 flex-1 basis-full sm:basis-[min(100%,14rem)] sm:flex-1">
+                <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-base-content/45">
+                  {doc.title}
+                </p>
                 {activePair.breadcrumb.length > 0 ? (
                   <p className="truncate text-xs text-base-content/50">
                     {activePair.breadcrumb.map((b) => b.title).join(" · ")}
                   </p>
                 ) : null}
-                <p className="truncate font-heading text-lg font-semibold leading-snug tracking-tight text-base-content">
+                <p className="truncate font-heading text-base font-semibold leading-snug text-base-content lg:text-lg">
                   {activePair.section.title}
                 </p>
               </div>
-              <button
-                type="button"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "h-11 w-11 shrink-0 rounded-xl p-0 text-base-content/55 hover:bg-base-content/[0.08] lg:h-9 lg:w-9 lg:rounded-lg",
-                )}
-                aria-label="Rename section"
-                onClick={() => setOutlineRename({ kind: "section", id: activePair.section.id })}
-              >
-                <Pencil className="size-4" />
-              </button>
+              {isLg ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 shrink-0 gap-1.5 rounded-lg border-base-content/12 px-3 font-medium"
+                  title={inspectorOpen ? "Hide inspector" : "Show inspector"}
+                  aria-label={inspectorOpen ? "Hide inspector panel" : "Show inspector panel"}
+                  onClick={() => setInspectorOpen((o) => !o)}
+                >
+                  {inspectorOpen ? (
+                    <PanelRightClose className="size-4 opacity-90" aria-hidden />
+                  ) : (
+                    <PanelRight className="size-4 opacity-90" aria-hidden />
+                  )}
+                  <span className="hidden md:inline">{inspectorOpen ? "Hide panel" : "Inspector"}</span>
+                </Button>
+              ) : null}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="shrink-0 border-b border-base-content/10 bg-base-100/50 px-4 py-3 backdrop-blur-sm lg:px-8 lg:py-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Section</p>
+            {outlineRename?.kind === "section" && outlineRename.id === activePair.section.id ? (
+              <div className="mt-2 max-w-xl" onClick={(e) => e.stopPropagation()}>
+                <OutlineRenameInput
+                  initial={activePair.section.title}
+                  onCommit={(v) => {
+                    renameSectionTitle(activePair.section.id, v);
+                    setOutlineRename(null);
+                  }}
+                  onCancel={() => setOutlineRename(null)}
+                />
+              </div>
+            ) : (
+              <div className="mt-1 flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  {activePair.breadcrumb.length > 0 ? (
+                    <p className="truncate text-xs text-base-content/50">
+                      {activePair.breadcrumb.map((b) => b.title).join(" · ")}
+                    </p>
+                  ) : null}
+                  <p className="truncate font-heading text-lg font-semibold leading-snug tracking-tight text-base-content">
+                    {activePair.section.title}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "sm" }),
+                    "h-11 w-11 shrink-0 rounded-xl p-0 text-base-content/55 hover:bg-base-content/[0.08] lg:h-9 lg:w-9 lg:rounded-lg",
+                  )}
+                  aria-label="Rename section"
+                  onClick={() => setOutlineRename({ kind: "section", id: activePair.section.id })}
+                >
+                  <Pencil className="size-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        <StoryGlobalTipTapToolbar
+          toolbarDensity={isLg ? "default" : "touch"}
+          className={cn(isFullscreen && "px-2 pb-2 pt-1 lg:px-4")}
+          frameClassName={isFullscreen ? "rounded-lg border-base-content/10 bg-base-200/70" : undefined}
+        />
         <div
           className={cn(
             "min-h-0 flex-1 overflow-y-auto px-4 pt-5 lg:px-10 lg:pt-8",
-            mode === "edit" ? "pb-24 lg:pb-20" : "pb-8 lg:pb-8",
+            isFullscreen && "px-4 pb-8 pt-6 sm:px-8 sm:pb-10 sm:pt-8 lg:px-12 lg:pb-14 lg:pt-10",
+            !isFullscreen && mode === "edit" ? "pb-24 lg:pb-20" : !isFullscreen ? "pb-8 lg:pb-8" : "pb-8",
           )}
         >
-          <div className="w-full min-w-0 space-y-4 pb-2 lg:space-y-2">
+          <div
+            className={cn(
+              "w-full min-w-0 space-y-4 pb-2 lg:space-y-2",
+              isFullscreen && "mx-auto max-w-[min(1100px,100%)]",
+            )}
+          >
             {groupStoryBlocksForLayout(activePair.section.blocks).map((group) => {
               const sectionId = activePair.section.id;
               const shared: Pick<
@@ -1710,6 +1878,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 | "setBlockSettingsSheetOpen"
                 | "updateRichBlock"
                 | "openBlockPlacement"
+                | "moveBlock"
                 | "appendIntoContainer"
               > = {
                 storySelection,
@@ -1723,15 +1892,12 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 setBlockSettingsSheetOpen,
                 updateRichBlock,
                 openBlockPlacement,
+                moveBlock,
                 appendIntoContainer,
               };
               if (group.kind === "float-wrap") {
                 return (
                   <Fragment key={`${group.float.id}-${group.text.id}`}>
-                    <BlockInsertAffordance
-                      mobile={!isLg}
-                      onInsert={(kind) => insertBlock(sectionId, group.startIndex, kind)}
-                    />
                     <div className="flow-root min-w-0">
                       <StoryBlockRowDesignWrap block={group.float} floated>
                         <StoryEditorSectionBlockCard sectionId={sectionId} block={group.float} {...shared} />
@@ -1746,97 +1912,12 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
               const block = group.block;
               return (
                 <Fragment key={block.id}>
-                  <BlockInsertAffordance
-                    mobile={!isLg}
-                    onInsert={(kind) => insertBlock(sectionId, group.startIndex, kind)}
-                  />
                   <StoryBlockRowDesignWrap block={block} floated={false}>
                     <StoryEditorSectionBlockCard sectionId={sectionId} block={block} {...shared} />
                   </StoryBlockRowDesignWrap>
                 </Fragment>
               );
             })}
-            <BlockInsertAffordance
-              mobile={!isLg}
-              onInsert={(kind) => insertBlock(activePair.section.id, activePair.section.blocks.length, kind)}
-            />
-            <div className="mt-5 rounded-2xl border border-dashed border-base-content/18 bg-base-200/25 px-4 py-6 shadow-inner lg:mt-4">
-              <p className="text-center text-xs font-semibold uppercase tracking-wide text-base-content/50">Add block</p>
-              <p className="mt-2 w-full text-center text-[13px] leading-snug text-base-content/45">
-                {isLg ? (
-                  <>
-                    Click the + buttons above to insert a block between existing content. Tables belong in a Text block
-                    (Insert table in the editor toolbar).
-                  </>
-                ) : (
-                  <>
-                    Use the + between blocks or pick a type below. Tables live inside a Text block (toolbar → More →
-                    table).
-                  </>
-                )}
-              </p>
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-11 h-11 rounded-xl border-base-content/12 px-3 text-sm font-medium sm:h-9 sm:min-h-0 sm:min-w-[5.5rem] sm:rounded-lg"
-                  onClick={() => insertBlock(activePair.section.id, activePair.section.blocks.length, "richText")}
-                >
-                  Text
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-11 h-11 gap-1.5 rounded-xl border-base-content/12 px-3 text-sm font-medium sm:h-9 sm:min-h-0 sm:min-w-[5.5rem] sm:rounded-lg"
-                  onClick={() => insertBlock(activePair.section.id, activePair.section.blocks.length, "media")}
-                >
-                  <ImageIcon className="size-3.5 opacity-80" />
-                  Media
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-11 h-11 gap-1.5 rounded-xl border-base-content/12 px-3 text-sm font-medium sm:h-9 sm:min-h-0 sm:min-w-[5.5rem] sm:rounded-lg"
-                  onClick={() => insertBlock(activePair.section.id, activePair.section.blocks.length, "embed")}
-                >
-                  <Layers className="size-3.5 opacity-80" />
-                  Embed
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-11 h-11 gap-1.5 rounded-xl border-base-content/12 px-3 text-sm font-medium sm:h-9 sm:min-h-0 sm:min-w-[5.5rem] sm:rounded-lg"
-                  onClick={() => insertBlock(activePair.section.id, activePair.section.blocks.length, "columns")}
-                >
-                  <Columns2 className="size-3.5 opacity-80" />
-                  Columns
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-11 h-11 gap-1.5 rounded-xl border-base-content/12 px-3 text-sm font-medium sm:h-9 sm:min-h-0 sm:min-w-[5.5rem] sm:rounded-lg"
-                  onClick={() => insertBlock(activePair.section.id, activePair.section.blocks.length, "container")}
-                >
-                  <LayoutTemplate className="size-3.5 opacity-80" />
-                  Container
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-11 h-11 gap-1.5 rounded-xl border-base-content/12 px-3 text-sm font-medium sm:h-9 sm:min-h-0 sm:min-w-[5.5rem] sm:rounded-lg"
-                  onClick={() => insertBlock(activePair.section.id, activePair.section.blocks.length, "divider")}
-                >
-                  <Minus className="size-3.5 opacity-80" />
-                  Divider
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -1889,13 +1970,25 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onExcerptChange={setExcerpt}
         onStoryMetaChange={patchStoryMeta}
         onDeleteBlock={deleteSelectedBlock}
-        className={cn(!isLg && "w-full min-h-0 flex-1 border-l-0 border-t")}
+        className={cn(
+          !isLg && "w-full min-h-0 flex-1 border-l-0 border-t",
+          isLg && "h-full min-h-0 w-full min-w-0 border-primary/20 shadow-[inset_1px_0_0_0] shadow-black/10",
+        )}
       />
     ) : null;
 
   return (
     <StoryTipTapStoryDocProvider doc={doc}>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-base-100">
+      <StoryTiptapActiveEditorProvider toolbarDensity={isLg ? "default" : "touch"}>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-hidden bg-base-100",
+          isFullscreen &&
+            mode === "edit" &&
+            "fixed inset-0 z-[100] h-[100dvh] max-h-[100dvh] w-screen max-w-[100vw] overflow-hidden bg-base-300",
+        )}
+      >
+      {!isFullscreen ? (
       <header className="flex shrink-0 flex-col gap-2 border-b border-base-content/10 bg-base-100/95 px-3 py-3 backdrop-blur-md lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-4 lg:gap-y-2 lg:px-5 lg:py-3.5">
         {!isLg ? (
           <>
@@ -1940,6 +2033,22 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {mode === "edit" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-11 w-11 shrink-0 rounded-xl border-base-content/12 p-0"
+                  title="Fullscreen writing (Esc to exit)"
+                  aria-label="Enter fullscreen writing mode"
+                  onClick={() => {
+                    setMobileShellTab("add-block");
+                    setIsFullscreen(true);
+                  }}
+                >
+                  <Expand className="size-5 opacity-90" aria-hidden />
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="sm"
@@ -2033,6 +2142,23 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   size="sm"
                   variant="outline"
                   className="h-9 gap-1.5 rounded-lg border-base-content/12 px-3 font-medium"
+                  title="Fullscreen writing (Esc to exit)"
+                  aria-label="Enter fullscreen writing mode"
+                  onClick={() => {
+                    setMobileShellTab("add-block");
+                    setIsFullscreen(true);
+                  }}
+                >
+                  <Expand className="size-4 opacity-90" aria-hidden />
+                  <span className="hidden lg:inline">Fullscreen</span>
+                </Button>
+              ) : null}
+              {mode === "edit" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1.5 rounded-lg border-base-content/12 px-3 font-medium"
                   title={inspectorOpen ? "Hide inspector" : "Show inspector"}
                   onClick={() => setInspectorOpen((o) => !o)}
                 >
@@ -2069,15 +2195,149 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
           </>
         )}
       </header>
+      ) : null}
 
       {isLg ? (
         mode === "preview" ? (
           <StoryCreatorPreview doc={doc} activeSectionId={activeSectionId} onPickSection={setActiveSectionId} />
         ) : (
-          <div className="flex min-h-0 flex-1 pb-16">
-            {structurePanel}
-            {editorPanel}
-            {inspectorOpen ? inspectorEl : null}
+          <div
+            className={cn(
+              "relative flex min-h-0 flex-1",
+              !isFullscreen && "pb-16",
+              isFullscreen && "min-h-0 flex-1 overflow-hidden pb-0",
+              (isResizingLeftPanel || isResizingRightPanel) && "select-none",
+            )}
+          >
+            <>
+              <div
+                className={cn(
+                  "relative flex shrink-0 overflow-hidden border-r border-primary/20 bg-base-200/40 shadow-[inset_-1px_0_0_0] shadow-black/10",
+                  STORY_PANEL_TRANSITION,
+                )}
+                style={{
+                  width: isLeftPanelOpen ? leftPanelWidthPx + 6 : 0,
+                }}
+              >
+                <div
+                  className="flex h-full min-h-0"
+                  style={{ width: isLeftPanelOpen ? leftPanelWidthPx + 6 : 0 }}
+                >
+                  <div className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden" style={{ width: leftPanelWidthPx }}>
+                    {structurePanel}
+                  </div>
+                  {isLeftPanelOpen ? (
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label="Resize structure panel"
+                      aria-valuemin={STORY_LEFT_PANEL_MIN}
+                      aria-valuemax={STORY_LEFT_PANEL_MAX}
+                      aria-valuenow={leftPanelWidthPx}
+                      tabIndex={0}
+                      className={cn(
+                        "flex w-1.5 shrink-0 cursor-col-resize items-center justify-center border-l border-primary/25 bg-gradient-to-b from-base-300/80 via-primary/15 to-base-300/80 hover:from-primary/25 hover:via-primary/35 hover:to-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      )}
+                      onPointerDown={onLeftPanelResizePointerDown}
+                      onKeyDown={(ke) => {
+                        if (ke.key === "ArrowLeft") {
+                          ke.preventDefault();
+                          setLeftPanelWidthPx((w) => clampStoryLeftPanelWidth(w - 12));
+                        } else if (ke.key === "ArrowRight") {
+                          ke.preventDefault();
+                          setLeftPanelWidthPx((w) => clampStoryLeftPanelWidth(w + 12));
+                        }
+                      }}
+                    >
+                      <GripVertical className="pointer-events-none size-3 text-primary/50" aria-hidden />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              {!isLeftPanelOpen ? (
+                <button
+                  type="button"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "absolute left-0 top-1/2 z-20 h-24 w-8 -translate-y-1/2 rounded-r-2xl border-primary/30 bg-base-200/90 px-0 text-primary shadow-md backdrop-blur-sm hover:border-primary/50 hover:bg-primary/10",
+                  )}
+                  aria-label="Open story structure panel"
+                  title="Open structure"
+                  onClick={() => setLeftPanelOpen(true)}
+                >
+                  <ChevronRight className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                </button>
+              ) : null}
+            </>
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-base-300/30",
+                isFullscreen && "min-h-0 min-w-0 flex-1",
+              )}
+            >
+              {editorPanel}
+            </div>
+            <>
+              <div
+                className={cn(
+                  "relative shrink-0 overflow-hidden border-l border-primary/20 bg-base-200/40 shadow-[inset_1px_0_0_0] shadow-black/10",
+                  STORY_PANEL_TRANSITION,
+                )}
+                style={{ width: inspectorOpen ? rightPanelWidthPx + 6 : 0 }}
+              >
+                <div
+                  className="flex h-full min-h-0 flex-row"
+                  style={{ width: inspectorOpen ? rightPanelWidthPx + 6 : 0 }}
+                >
+                  {inspectorOpen ? (
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label="Resize inspector panel"
+                      aria-valuemin={STORY_RIGHT_PANEL_MIN}
+                      aria-valuemax={STORY_RIGHT_PANEL_MAX}
+                      aria-valuenow={rightPanelWidthPx}
+                      tabIndex={0}
+                      className={cn(
+                        "flex w-1.5 shrink-0 cursor-col-resize items-center justify-center border-r border-primary/25 bg-gradient-to-b from-base-300/80 via-primary/15 to-base-300/80 hover:from-primary/25 hover:via-primary/35 hover:to-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      )}
+                      onPointerDown={onRightPanelResizePointerDown}
+                      onKeyDown={(ke) => {
+                        if (ke.key === "ArrowLeft") {
+                          ke.preventDefault();
+                          setRightPanelWidthPx((w) => clampStoryRightPanelWidth(w + 12));
+                        } else if (ke.key === "ArrowRight") {
+                          ke.preventDefault();
+                          setRightPanelWidthPx((w) => clampStoryRightPanelWidth(w - 12));
+                        }
+                      }}
+                    >
+                      <GripVertical className="pointer-events-none size-3 text-primary/50" aria-hidden />
+                    </div>
+                  ) : null}
+                  <div
+                    className="h-full min-h-0 flex-1 overflow-hidden"
+                    style={{ width: rightPanelWidthPx, minWidth: rightPanelWidthPx }}
+                  >
+                    {inspectorEl}
+                  </div>
+                </div>
+              </div>
+              {!inspectorOpen ? (
+                <button
+                  type="button"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "absolute right-0 top-1/2 z-20 h-24 w-8 -translate-y-1/2 rounded-l-2xl border-primary/30 bg-base-200/90 px-0 text-primary shadow-md backdrop-blur-sm hover:border-primary/50 hover:bg-primary/10",
+                  )}
+                  aria-label="Open inspector panel"
+                  title="Open inspector"
+                  onClick={() => setInspectorOpen(true)}
+                >
+                  <ChevronLeft className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                </button>
+              ) : null}
+            </>
           </div>
         )
       ) : (
@@ -2210,11 +2470,11 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
             </button>
           </div>
           <p className="mt-4 text-center text-xs leading-relaxed text-base-content/45">
-            Tables: add a Text block, then use the editor toolbar (More → table).
+            Tables: add a Text block, then use the global formatting toolbar (More → table).
           </p>
         </StoryAddBlockBottomSheet>
       ) : null}
-      {mode === "edit" ? (
+      {mode === "edit" && !isFullscreen ? (
         <StoryEditorBottomDock
           active={isLg ? null : mobileShellTab}
           emphasizeAddBlockFab={isLg}
@@ -2227,10 +2487,12 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         flow={blockPlacementModal?.flow ?? null}
         variant={blockPlacementModal?.variant ?? "section"}
         allowNestedColumns={blockPlacementModal?.allowNestedColumns ?? true}
+        initialAddPosition={blockPlacementModal?.initialAddPosition ?? null}
         onAddComplete={applyPlacementAdd}
         onDuplicateComplete={applyPlacementDuplicate}
       />
       </div>
+      </StoryTiptapActiveEditorProvider>
     </StoryTipTapStoryDocProvider>
   );
 }
@@ -2255,6 +2517,7 @@ type StorySectionContainerInnerProps = {
   setInspectorOpen: (open: boolean | ((o: boolean) => boolean)) => void;
   setBlockSettingsSheetOpen: (open: boolean) => void;
   openBlockPlacement: (args: StoryBlockPlacementModalArgs) => void;
+  moveBlock: (sectionId: string, blockId: string, direction: -1 | 1) => void;
   appendIntoContainer: (sectionId: string, containerId: string, block: StoryBlock) => void;
 };
 
@@ -2273,6 +2536,7 @@ function StorySectionContainerInner({
   setInspectorOpen,
   setBlockSettingsSheetOpen,
   openBlockPlacement,
+  moveBlock,
   appendIntoContainer,
 }: StorySectionContainerInnerProps) {
   function renderContainerChildBody(child: StoryBlock) {
@@ -2282,8 +2546,8 @@ function StorySectionContainerInner({
           editorKey={`${sectionId}-${nest.id}-${child.id}`}
           content={child.doc}
           onChange={(json) => updateRichBlock(sectionId, child.id, json)}
-          placeholder="Start writing…"
           toolbarDensity={isLg ? "default" : "touch"}
+          surface="canvas"
         />
       );
     }
@@ -2335,6 +2599,7 @@ function StorySectionContainerInner({
           setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
           updateRichBlock={updateRichBlock}
           openBlockPlacement={openBlockPlacement}
+          moveBlock={moveBlock}
           appendIntoContainer={appendIntoContainer}
         />
       );
@@ -2354,6 +2619,7 @@ function StorySectionContainerInner({
         setInspectorOpen={setInspectorOpen}
         setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
         openBlockPlacement={openBlockPlacement}
+        moveBlock={moveBlock}
         appendIntoContainer={appendIntoContainer}
       />
     );
@@ -2361,125 +2627,158 @@ function StorySectionContainerInner({
 
   function renderContainerChildCard(child: StoryBlock) {
     const sel = storySelection?.mode === "section" && storySelection.block.id === child.id;
+    const placementVariant: StoryBlockPlacementVariant = child.type === "container" ? "container" : "section";
+    const openInspector = () => {
+      setSelectedBlockId(child.id);
+      setInspectorTab("block");
+      if (isLg) setInspectorOpen(true);
+      else setBlockSettingsSheetOpen(true);
+    };
     return (
-      <div
-        className={cn(
-          "rounded-xl border bg-base-100/60 p-3 shadow-sm",
-          sel ? "border-primary/40 ring-1 ring-primary/14" : "border-base-content/[0.08]",
-        )}
-        onPointerDownCapture={() => {
+      <StoryEditorBlockFrame
+        block={child}
+        frameLabel={blockCanvasHeaderLabel(child)}
+        selected={sel}
+        isLg={isLg}
+        visualQuietContainer={child.type === "container"}
+        onSelect={() => {
           setSelectedBlockId(child.id);
           setInspectorTab("block");
         }}
+        onAddAbove={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: child.id,
+            variant: placementVariant,
+            allowNestedColumns: true,
+            initialAddPosition: "above",
+          })
+        }
+        onAddBelow={() =>
+          openBlockPlacement({
+            flow: "add",
+            targetBlockId: child.id,
+            variant: placementVariant,
+            allowNestedColumns: true,
+            initialAddPosition: "below",
+          })
+        }
+        onAddInsideContainer={
+          child.type === "container"
+            ? () =>
+                openBlockPlacement({
+                  flow: "add",
+                  targetBlockId: child.children?.[0]?.id ?? child.id,
+                  variant: "container",
+                  allowNestedColumns: true,
+                })
+            : undefined
+        }
+        onDuplicate={() =>
+          openBlockPlacement({
+            flow: "duplicate",
+            targetBlockId: child.id,
+            variant: placementVariant,
+            allowNestedColumns: true,
+          })
+        }
+        onDelete={() => removeBlock(sectionId, child.id)}
+        onOpenInspector={openInspector}
+        onMove={(dir) => moveBlock(sectionId, child.id, dir)}
+        contentClassName={cn(child.type === "richText" && "pb-4 pt-5")}
       >
         {renderContainerChildBody(child)}
-      </div>
+      </StoryEditorBlockFrame>
     );
   }
 
-  return (
-    <div
-      className="space-y-3 rounded-xl border border-primary/25 bg-primary/[0.04] p-4"
-      onPointerDownCapture={() => {
-        setSelectedBlockId(nest.id);
-        setInspectorTab("block");
-      }}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/80">
-        {nest.props.label?.trim() || "Container"}
-      </p>
-      {nest.children.length === 0 ? (
-        <>
-          <p className="text-center text-sm leading-relaxed text-base-content/55">This container is empty. Add a block.</p>
-          <BlockInsertAffordance
-            mobile={!isLg}
-            onInsert={(kind) => {
-              const b = createStoryBlock(kind);
-              appendIntoContainer(sectionId, nest.id, b);
-            }}
-          />
-        </>
-      ) : (
-        <div className="space-y-3">
-          {groupStoryBlocksForLayout(nest.children).map((group) => {
-            if (group.kind === "float-wrap") {
-              return (
-                <div key={`${group.float.id}-${group.text.id}`} className="flow-root min-w-0">
-                  <StoryBlockRowDesignWrap block={group.float} floated>
-                    {renderContainerChildCard(group.float)}
-                  </StoryBlockRowDesignWrap>
-                  <StoryBlockRowDesignWrap block={group.text} floated={false} wrapperClassName="min-w-0">
-                    {renderContainerChildCard(group.text)}
-                  </StoryBlockRowDesignWrap>
-                </div>
-              );
-            }
-            const child = group.block;
-            return (
-              <StoryBlockRowDesignWrap key={child.id} block={child} floated={false}>
-                {renderContainerChildCard(child)}
-              </StoryBlockRowDesignWrap>
-            );
-          })}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              type="button"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "w-full justify-center gap-2 border-dashed border-primary/30 text-sm font-medium text-primary/90",
-              )}
-              onClick={(e) => e.stopPropagation()}
+  return nest.children.length === 0 ? (
+    <>
+      <p className="text-center text-sm leading-relaxed text-base-content/55">This container is empty. Add a block.</p>
+      <div className={cn("flex justify-center", !isLg ? "py-3" : "py-2")}>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            type="button"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "gap-2 border-base-content/15 font-medium text-base-content/80 shadow-sm",
+              !isLg ? "min-h-11 rounded-xl px-4 text-sm" : "rounded-lg",
+            )}
+            aria-label="Add block"
+          >
+            Add block
+            <ChevronDown className="size-3.5 opacity-70" aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[11rem]">
+            <DropdownMenuItem
+              className="gap-2 font-medium"
+              onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("richText"))}
             >
-              <Plus className="size-3.5 opacity-80" aria-hidden />
-              Add block inside container
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="min-w-[11rem]">
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("richText"))}
-              >
-                <Type className="size-3.5 opacity-80" aria-hidden />
-                Text
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("media"))}
-              >
-                <ImageIcon className="size-3.5 opacity-80" aria-hidden />
-                Media
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("embed"))}
-              >
-                <Layers className="size-3.5 opacity-80" aria-hidden />
-                Embed
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("divider"))}
-              >
-                <Minus className="size-3.5 opacity-80" aria-hidden />
-                Divider
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("container"))}
-              >
-                <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
-                Container
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 font-medium"
-                onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("columns"))}
-              >
-                <Columns2 className="size-3.5 opacity-80" aria-hidden />
-                Columns
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
+              <Type className="size-3.5 opacity-80" aria-hidden />
+              Text
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 font-medium"
+              onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("media"))}
+            >
+              <ImageIcon className="size-3.5 opacity-80" aria-hidden />
+              Media
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 font-medium"
+              onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("embed"))}
+            >
+              <Layers className="size-3.5 opacity-80" aria-hidden />
+              Embed
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 font-medium"
+              onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("columns"))}
+            >
+              <Columns2 className="size-3.5 opacity-80" aria-hidden />
+              Columns
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 font-medium"
+              onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("container"))}
+            >
+              <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
+              Container
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="gap-2 font-medium"
+              onClick={() => appendIntoContainer(sectionId, nest.id, createStoryBlock("divider"))}
+            >
+              <Minus className="size-3.5 opacity-80" aria-hidden />
+              Divider
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
+  ) : (
+    <div className="space-y-3">
+      {groupStoryBlocksForLayout(nest.children).map((group) => {
+        if (group.kind === "float-wrap") {
+          return (
+            <div key={`${group.float.id}-${group.text.id}`} className="flow-root min-w-0">
+              <StoryBlockRowDesignWrap block={group.float} floated>
+                {renderContainerChildCard(group.float)}
+              </StoryBlockRowDesignWrap>
+              <StoryBlockRowDesignWrap block={group.text} floated={false} wrapperClassName="min-w-0">
+                {renderContainerChildCard(group.text)}
+              </StoryBlockRowDesignWrap>
+            </div>
+          );
+        }
+        const child = group.block;
+        return (
+          <StoryBlockRowDesignWrap key={child.id} block={child} floated={false}>
+            {renderContainerChildCard(child)}
+          </StoryBlockRowDesignWrap>
+        );
+      })}
     </div>
   );
 }

@@ -62,19 +62,16 @@ import {
 
 const FORM_ID = "admin-event-editor-form";
 
-const HUMAN_PRESET_TYPES = [
-  { value: "BIRT", label: "Birth" },
-  { value: "DEAT", label: "Death" },
-  { value: "MARR", label: "Marriage" },
-  { value: "DIV", label: "Divorce" },
-  { value: "RESI", label: "Residence" },
-  { value: "OCCU", label: "Occupation" },
+/** Same tags as the GEDCOM dropdown; labels match `GEDCOM_EVENT_TYPE_LABELS`. */
+const HUMAN_FRIENDLY_EVENT_TYPE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  ...EVENT_TYPE_TAG_LIST.map((tag) => ({
+    value: tag,
+    label: GEDCOM_EVENT_TYPE_LABELS[tag] ?? tag,
+  })),
   { value: EVENT_FORM_CUSTOM_TAG, label: "Custom" },
-] as const;
+];
 
-const SIMPLE_TAG_SET: Set<string> = new Set(
-  HUMAN_PRESET_TYPES.filter((o) => o.value !== EVENT_FORM_CUSTOM_TAG).map((o) => o.value),
-);
+const SIMPLE_TAG_SET: Set<string> = new Set(EVENT_TYPE_TAG_LIST);
 
 function parseYm(v: string): number | null {
   const t = v.trim();
@@ -444,7 +441,7 @@ export function EventForm({
           value={humanTypeSelectValue}
           onChange={(e) => onHumanTypeChange(e.target.value)}
         >
-          {HUMAN_PRESET_TYPES.map((o) => (
+          {HUMAN_FRIENDLY_EVENT_TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

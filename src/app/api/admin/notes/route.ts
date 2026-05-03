@@ -38,7 +38,7 @@ const NOTE_LIST_INCLUDE = {
   },
   eventNotes: {
     include: {
-      event: { select: { id: true, eventType: true } },
+      event: { select: { id: true, eventType: true, customType: true } },
     },
   },
   sourceNotes: {

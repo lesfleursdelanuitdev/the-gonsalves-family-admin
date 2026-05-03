@@ -210,9 +210,9 @@ function useIndividualEditorDerivedState(seed: IndividualEditorFormSeed, individ
   const spouseSlotHelp = useMemo(() => {
     const s = seed.sex.trim().toUpperCase();
     if (s === "M")
-      return `With sex set to Male, this person is stored in the ${FAMILY_PARTNER_1_LABEL} (GEDCOM HUSB) column for each family below when the API assigns that slot from M/F.`;
+      return `With sex set to Male, this person is listed as ${FAMILY_PARTNER_1_LABEL} on each family below when the tree assigns partners from a male/female pair.`;
     if (s === "F")
-      return `With sex set to Female, this person is stored in the ${FAMILY_PARTNER_2_LABEL} (GEDCOM WIFE) column for each family below when the API assigns that slot from M/F.`;
+      return `With sex set to Female, this person is listed as ${FAMILY_PARTNER_2_LABEL} on each family below when the tree assigns partners from a male/female pair.`;
     return null;
   }, [seed.sex]);
 

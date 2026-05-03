@@ -11,7 +11,6 @@ import {
   type ColumnFiltersState,
   type OnChangeFn,
   type PaginationState,
-  type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table";
 import {
@@ -41,12 +40,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { DataViewerConfig } from "./types";
+import type { DataViewerConfig, DataViewerTableSelectionProps } from "./types";
 import { DataViewerPagination } from "./DataViewerPagination";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 
 interface DataViewerTableProps<TRecord> {
   config: DataViewerConfig<TRecord>;
@@ -61,6 +59,8 @@ interface DataViewerTableProps<TRecord> {
   manualRowCount?: number;
   /** Indicates a background fetch is in flight. */
   isFetching?: boolean;
+  /** Parent-owned selection (cross-page). Required when {@link DataViewerConfig.enableRowSelection} is true. */
+  selection?: DataViewerTableSelectionProps;
 }
 
 export function DataViewerTable<TRecord>({
@@ -72,10 +72,10 @@ export function DataViewerTable<TRecord>({
   manualPageCount,
   manualRowCount,
   isFetching = false,
+  selection,
 }: DataViewerTableProps<TRecord>) {
   const [sorting, setSorting] = useState<SortingState>(config.defaultSorting ?? []);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const { actions } = config;
   const hasRowActions = !!(actions.view || actions.edit || actions.delete);
@@ -83,24 +83,42 @@ export function DataViewerTable<TRecord>({
   const columns = useMemo<ColumnDef<TRecord, unknown>[]>(() => {
     const cols: ColumnDef<TRecord, unknown>[] = [];
 
-    if (config.enableRowSelection) {
+    if (config.enableRowSelection && selection) {
+      const sel = selection;
       cols.push({
         id: "_select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()}
-            onCheckedChange={(checked) => table.toggleAllPageRowsSelected(!!checked)}
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(checked) => row.toggleSelected(!!checked)}
-            aria-label="Select row"
-          />
-        ),
+        header: () => {
+          const pageIds = sel.pageRowIds;
+          const allSelected = pageIds.length > 0 && pageIds.every((id) => sel.selectedIds.has(id));
+          const someSelected = pageIds.some((id) => sel.selectedIds.has(id)) && !allSelected;
+          return (
+            <Checkbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onCheckedChange={() => sel.onToggleSelectPage()}
+              aria-label="Select all on page"
+            />
+          );
+        },
+        cell: ({ row, table }) => {
+          const pageIndex = table.getRowModel().rows.findIndex((r) => r.id === row.id);
+          return (
+            <div
+              className="flex items-center justify-center py-0.5"
+              onMouseDown={(e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
+                sel.onToggleRow(row.id, Math.max(0, pageIndex), e);
+              }}
+            >
+              <Checkbox
+                checked={sel.selectedIds.has(row.id)}
+                className="pointer-events-none"
+                aria-label="Select row"
+              />
+            </div>
+          );
+        },
         enableSorting: false,
         enableHiding: false,
       });
@@ -119,7 +137,7 @@ export function DataViewerTable<TRecord>({
     }
 
     return cols;
-  }, [config, hasRowActions]);
+  }, [config, hasRowActions, selection]);
 
   const table = useReactTable({
     data,
@@ -127,7 +145,6 @@ export function DataViewerTable<TRecord>({
     getRowId: (row) => config.getRowId(row),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -139,53 +156,15 @@ export function DataViewerTable<TRecord>({
         }
       : { getPaginationRowModel: getPaginationRowModel() }),
     onPaginationChange,
-    state: { sorting, columnFilters, rowSelection, pagination },
+    state: { sorting, columnFilters, pagination },
   });
 
-  const selectedCount = table.getFilteredSelectedRowModel().rows.length;
   const totalCount = manualPagination
     ? (manualRowCount ?? data.length)
     : table.getFilteredRowModel().rows.length;
 
-  const handleBulkDelete = useCallback(() => {
-    if (!actions.delete?.bulkHandler) return;
-    const ids = table
-      .getFilteredSelectedRowModel()
-      .rows.map((r) => config.getRowId(r.original));
-    actions.delete.bulkHandler(ids);
-  }, [actions.delete, table, config]);
-
   return (
     <div className="space-y-3">
-      {/* Bulk selection bar */}
-      {config.enableRowSelection && selectedCount > 0 && (
-        <div className="flex items-center gap-3 rounded-box bg-primary px-4 py-2.5 text-primary-content shadow-md shadow-primary/25">
-          <span className="text-sm font-semibold">
-            {selectedCount} of {totalCount} selected
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            {actions.delete?.bulkHandler && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 border border-white/20 bg-white/15 text-white hover:bg-white/25"
-                onClick={handleBulkDelete}
-              >
-                <Trash2 className="size-3.5" />
-                Delete selected
-              </Button>
-            )}
-            <button
-              type="button"
-              onClick={() => table.toggleAllRowsSelected(false)}
-              className="text-xs font-medium text-white/70 hover:text-white"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
       <div
         className={cn(
           "overflow-hidden rounded-box border border-base-content/[0.08] bg-base-100 shadow-md shadow-black/15 transition-opacity",
@@ -228,7 +207,7 @@ export function DataViewerTable<TRecord>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  data-state={selection?.selectedIds.has(row.id) ? "selected" : undefined}
                   className="group"
                 >
                   {row.getVisibleCells().map((cell) => (

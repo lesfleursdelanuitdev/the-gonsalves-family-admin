@@ -9,6 +9,9 @@ import type { StoryFieldKey } from "@/lib/admin/story-creator/story-field-resolv
 import { StoryField } from "@/lib/admin/story-creator/story-tiptap-story-field-extension";
 import { StoryTable } from "@/lib/admin/story-creator/story-tiptap-story-table";
 
+/** Empty rich-text hint in the Story Creator canvas (TipTap placeholder). */
+export const STORY_RICH_TEXT_DEFAULT_PLACEHOLDER = "enter text or insert a table";
+
 export type CreateStoryTipTapExtensionsOptions = {
   /** For `generateHTML` / preview: resolve inline story fields to text. Ignored when `storyFieldExtension` is set. */
   storyFieldHtml?: (field: StoryFieldKey) => string;
@@ -21,7 +24,7 @@ export type CreateStoryTipTapExtensionsOptions = {
  * Pass `null` for `placeholder` when extensions are only used for static HTML export (no Placeholder plugin).
  */
 export function createStoryTipTapExtensions(
-  placeholder: string | null = "Write this section…",
+  placeholder: string | null = STORY_RICH_TEXT_DEFAULT_PLACEHOLDER,
   opts?: CreateStoryTipTapExtensionsOptions,
 ): AnyExtension[] {
   const exts: AnyExtension[] = [

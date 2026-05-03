@@ -31,7 +31,12 @@ export function MediaEditorFormActions({
     >
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <p className="order-3 w-full text-center text-xs text-muted-foreground sm:order-none sm:w-auto sm:text-left">
-          {pendingHint ?? (submitting ? "Saving your changes…" : "Changes apply when you save.")}
+          {pendingHint ??
+            (saveDisabled && mode === "create"
+              ? "Upload a file or add a file reference before creating."
+              : submitting
+                ? "Saving your changes…"
+                : "Changes apply when you save.")}
         </p>
         <div className="flex w-full flex-1 justify-end gap-2 sm:w-auto">
           <Link

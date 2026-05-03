@@ -2,6 +2,7 @@ export type MediaPickerTargetType =
   | "individual"
   | "family"
   | "event"
+  | "tag"
   | "story"
   | "album"
   | "place"

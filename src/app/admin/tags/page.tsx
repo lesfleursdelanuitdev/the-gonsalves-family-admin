@@ -24,6 +24,7 @@ interface TagRow {
   name: string;
   color: string | null;
   scopeLabel: string;
+  canEdit: boolean;
   canDelete: boolean;
 }
 
@@ -36,6 +37,9 @@ function mapApiToRows(
     name: displayTagName(t.name),
     color: t.color,
     scopeLabel: t.isGlobal ? "Global" : "Yours",
+    canEdit: Boolean(
+      me && ((!t.isGlobal && t.userId === me.id) || (t.isGlobal && me.isWebsiteOwner)),
+    ),
     canDelete: Boolean(
       me && ((!t.isGlobal && t.userId === me.id) || (t.isGlobal && me.isWebsiteOwner)),
     ),
@@ -75,7 +79,7 @@ function buildTagsConfig(
       { accessorKey: "name", header: "Name", enableSorting: true },
       { accessorKey: "scopeLabel", header: "Scope", enableSorting: true },
     ],
-    renderCard: ({ record }) => (
+    renderCard: ({ record, onView, onEdit }) => (
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
@@ -105,11 +109,23 @@ function buildTagsConfig(
             includeCount
           />
         </CardContent>
-        <CardActionFooter onDelete={record.canDelete ? () => onDelete(record) : undefined} />
+        <CardActionFooter
+          onView={onView}
+          onEdit={record.canEdit ? onEdit : undefined}
+          onDelete={record.canDelete ? () => onDelete(record) : undefined}
+        />
       </Card>
     ),
     actions: {
       add: { label: "New tag", handler: () => router.push("/admin/tags/new") },
+      view: {
+        label: "Open",
+        handler: (r) => router.push(`/admin/tags/${r.id}/edit`),
+      },
+      edit: {
+        label: "Edit",
+        handler: (r) => router.push(`/admin/tags/${r.id}/edit`),
+      },
       delete: { label: "Delete", handler: onDelete },
     },
   };

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
+import { ensureMediaDatePlaceFromLinkedEvent } from "@/lib/admin/ensure-media-date-place-from-event";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 
@@ -82,6 +83,11 @@ export const POST = withAdminAuth(async (request, user, ctx) => {
       });
       const et = created.event.eventType?.trim() || "event";
       await commitMediaJunctionLink(changeCtx, "event_media", created, `Linked media to event (${et})`);
+      await ensureMediaDatePlaceFromLinkedEvent(tx, changeCtx, {
+        mediaId,
+        fileUuid,
+        eventId,
+      });
       return created;
     });
     return NextResponse.json({ eventMedia: row }, { status: 201 });

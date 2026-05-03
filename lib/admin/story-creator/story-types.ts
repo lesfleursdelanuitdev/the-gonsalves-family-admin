@@ -6,6 +6,15 @@ export type StoryLifecycleStatus = "draft" | "published";
 /** How to introduce the story author name in preview and public views. */
 export type StoryAuthorPrefixMode = "by" | "author_label" | "custom" | "none";
 
+/** One byline credit (name + how the line is prefixed). Persisted in `stories.body` JSON. */
+export type StoryAuthorCredit = {
+  id: string;
+  name: string;
+  authorPrefixMode?: StoryAuthorPrefixMode;
+  /** When `authorPrefixMode` is `custom`, text before the name (spaces optional). */
+  authorPrefixCustom?: string;
+};
+
 /** Row-level width and float behavior for story blocks (editor + preview). */
 export type StoryBlockWidthMode = "full" | "wide" | "medium" | "narrow" | "custom";
 
@@ -253,11 +262,21 @@ export type StoryDocument = {
   title: string;
   /** Per-tree URL slug (`stories.slug`); lowercase hyphenated. */
   slug?: string;
-  /** Optional byline (person or organization). Shown in preview and when synced to public pages. */
+  /**
+   * When true, title edits do not rewrite `slug`. Set when the user edits the slug field; cleared when the field is emptied.
+   * Omitted on older drafts; migration treats a non-empty slug as locked.
+   */
+  slugManuallyEdited?: boolean;
+  /**
+   * Byline credits (each with its own prefix), e.g. “Written by …” / “Narrated by …”.
+   * Preferred over legacy `author` / `authorPrefix*` when non-empty.
+   */
+  authors?: StoryAuthorCredit[];
+  /** @deprecated Use `authors`; retained for older drafts until `migrateStoryDocument` runs. */
   author?: string;
-  /** Label before `author` (default: word “By”). Ignored when `author` is empty. */
+  /** @deprecated Per-credit `authorPrefixMode` on each `StoryAuthorCredit`. */
   authorPrefixMode?: StoryAuthorPrefixMode;
-  /** When `authorPrefixMode` is `custom`, text shown immediately before the author name (spaces optional). */
+  /** @deprecated Per-credit `authorPrefixCustom` on each `StoryAuthorCredit`. */
   authorPrefixCustom?: string;
   excerpt?: string;
   status: StoryLifecycleStatus;
@@ -298,6 +317,8 @@ export type StoryDocumentMetaPatch = Partial<
     | "kind"
     | "status"
     | "slug"
+    | "slugManuallyEdited"
+    | "authors"
     | "author"
     | "authorPrefixMode"
     | "authorPrefixCustom"

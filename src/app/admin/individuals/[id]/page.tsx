@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
@@ -593,6 +594,8 @@ export default function AdminIndividualViewPage() {
           )}
         </CardContent>
       </Card>
+
+      <EntityOpenQuestionsSection entityType="individual" entityId={id} variant="view" />
 
       <Card>
         <CardHeader className="pb-2">

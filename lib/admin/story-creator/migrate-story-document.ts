@@ -6,6 +6,7 @@ import type {
   StoryColumnSlot,
   StoryColumnsBlock,
   StoryContainerBlockProps,
+  StoryAuthorCredit,
   StoryAuthorPrefixMode,
   StoryDocument,
   StoryDocumentKind,
@@ -18,12 +19,14 @@ import type {
 } from "@/lib/admin/story-creator/story-types";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
+import { parseStoryAuthorsFromMetaArray } from "@/lib/admin/story-creator/story-author-display";
 import { MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import { withColumnSlotDefaults } from "@/lib/admin/story-creator/story-columns-layout";
 import { ensureMediaEmbedRowLayoutMigrated } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
 import { normalizeRootSections, normalizeStorySection } from "@/lib/admin/story-creator/story-section-tree";
 import { createDefaultSectionBlocks } from "@/lib/admin/story-creator/story-block-factory";
 import { legacyCoverImageRef } from "@/lib/admin/story-creator/story-images-resolve";
+import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
 
 const GENERAL_EMBED_KINDS: readonly StoryGeneralEmbedKind[] = ["document", "timeline", "map", "tree", "graph"];
 
@@ -509,6 +512,16 @@ export function migrateStoryDocument(doc: StoryDocument): StoryDocument {
   const authorPrefixCustom = typeof rawPrefixCustom === "string" ? rawPrefixCustom : undefined;
 
   const rawRec = doc as unknown as Record<string, unknown>;
+  const fromAuthorsJson = parseStoryAuthorsFromMetaArray(rawRec.authors);
+  let authors: StoryAuthorCredit[];
+  if (fromAuthorsJson.length > 0) {
+    authors = fromAuthorsJson;
+  } else if (author) {
+    authors = [{ id: newStoryId(), name: author, authorPrefixMode, authorPrefixCustom }];
+  } else {
+    authors = [];
+  }
+
   let sections: StorySection[];
   if (Array.isArray(rawRec.sections)) {
     sections = migrateStorySectionTree(normalizeRootSections(rawRec.sections as StorySection[]));
@@ -540,9 +553,10 @@ export function migrateStoryDocument(doc: StoryDocument): StoryDocument {
 
   const next: StoryDocument = {
     ...(merged as StoryDocument),
-    author,
-    authorPrefixMode,
-    authorPrefixCustom,
+    authors,
+    author: undefined,
+    authorPrefixMode: undefined,
+    authorPrefixCustom: undefined,
     kind: normalizeStoryKind(doc.kind),
     linkedAlbums: linkedAlbums ?? [],
     linkedRecords: normalizeStoryLinkedRecords(doc.linkedRecords),
@@ -550,5 +564,10 @@ export function migrateStoryDocument(doc: StoryDocument): StoryDocument {
     sections,
   };
   const coverImage = next.coverImage ?? legacyCoverImageRef(next) ?? undefined;
-  return { ...next, coverImage };
+  let out: StoryDocument = { ...next, coverImage };
+  const slugNorm = normalizeStorySlugInput(out.slug ?? "");
+  if (slugNorm.length > 0 && !out.slugManuallyEdited) {
+    out = { ...out, slug: slugNorm, slugManuallyEdited: true };
+  }
+  return out;
 }

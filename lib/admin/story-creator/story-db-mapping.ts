@@ -10,6 +10,8 @@ import type {
   StoryLifecycleStatus,
   StorySection,
 } from "@/lib/admin/story-creator/story-types";
+import { getStoryAuthorCredits, parseStoryAuthorsFromMetaArray } from "@/lib/admin/story-creator/story-author-display";
+import { newStoryId } from "@/lib/admin/story-creator/story-types";
 import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions";
@@ -114,25 +116,34 @@ function parseSectionContentJson(json: unknown): StoryBlock[] {
 
 const STORY_META_BODY_V = "ligneous-story-meta/1" as const;
 
-/** Persists author / prefix fields (no dedicated columns yet). */
+/** Persists author credits (no dedicated columns yet). */
 function serializeStoryBodyMeta(doc: StoryDocument): string {
+  const authors = getStoryAuthorCredits(doc).filter((c) => c.name.trim().length > 0);
   return JSON.stringify({
     v: STORY_META_BODY_V,
-    author: doc.author ?? null,
-    authorPrefixMode: doc.authorPrefixMode ?? null,
-    authorPrefixCustom: doc.authorPrefixCustom ?? null,
+    authors: authors.map((c) => ({
+      id: c.id,
+      name: c.name.trim(),
+      authorPrefixMode: c.authorPrefixMode ?? null,
+      authorPrefixCustom: c.authorPrefixCustom ?? null,
+    })),
+    author: null,
+    authorPrefixMode: null,
+    authorPrefixCustom: null,
   });
 }
 
-function parseStoryBodyMeta(body: string): Partial<
-  Pick<StoryDocument, "author" | "authorPrefixMode" | "authorPrefixCustom">
-> {
+function parseStoryBodyMeta(body: string): Partial<Pick<StoryDocument, "authors" | "author" | "authorPrefixMode" | "authorPrefixCustom">> {
   const t = (body ?? "").trim();
   if (!t.startsWith("{")) return {};
   try {
     const o = JSON.parse(t) as Record<string, unknown>;
     if (o.v !== STORY_META_BODY_V) return {};
-    const out: Partial<Pick<StoryDocument, "author" | "authorPrefixMode" | "authorPrefixCustom">> = {};
+    const fromArr = parseStoryAuthorsFromMetaArray(o.authors);
+    if (fromArr.length > 0) {
+      return { authors: fromArr, author: undefined, authorPrefixMode: undefined, authorPrefixCustom: undefined };
+    }
+    const out: Partial<Pick<StoryDocument, "authors" | "author" | "authorPrefixMode" | "authorPrefixCustom">> = {};
     if (typeof o.author === "string") out.author = o.author;
     if (
       o.authorPrefixMode === "by" ||
@@ -390,14 +401,26 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
 
   const meta = parseStoryBodyMeta(story.body ?? "");
   const authorFallback = story.author?.name?.trim() || story.author?.username?.trim();
-  const authorResolved =
-    typeof meta.author === "string" && meta.author.trim().length > 0 ? meta.author.trim() : authorFallback || undefined;
+  let authors = meta.authors ?? [];
+  if (authors.length === 0 && typeof meta.author === "string" && meta.author.trim().length > 0) {
+    authors = [
+      {
+        id: newStoryId(),
+        name: meta.author.trim(),
+        authorPrefixMode: meta.authorPrefixMode,
+        authorPrefixCustom: meta.authorPrefixCustom,
+      },
+    ];
+  } else if (authors.length === 0 && authorFallback) {
+    authors = [{ id: newStoryId(), name: authorFallback, authorPrefixMode: "by" }];
+  }
 
   const doc: StoryDocument = {
     version: 1,
     id: story.id,
     title: story.title,
     slug: story.slug ?? undefined,
+    slugManuallyEdited: normalizeStorySlugInput(story.slug ?? "").length > 0 ? true : undefined,
     excerpt: story.excerpt ?? undefined,
     status: prismaStatusToDoc(story.status),
     kind: prismaKindToDoc(story.kind),
@@ -412,9 +435,7 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
     sections: roots,
     updatedAt: story.updatedAt.toISOString(),
     contentVersion: story.contentVersion,
-    author: authorResolved,
-    authorPrefixMode: meta.authorPrefixMode,
-    authorPrefixCustom: meta.authorPrefixCustom,
+    authors,
   };
 
   return doc;

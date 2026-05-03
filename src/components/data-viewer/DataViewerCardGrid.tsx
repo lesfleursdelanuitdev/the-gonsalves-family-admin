@@ -1,10 +1,13 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { Inbox } from "lucide-react";
 import type { PaginationState, Updater } from "@tanstack/react-table";
 import type { DataViewerConfig } from "./types";
 import { DataViewerPagination } from "./DataViewerPagination";
 import { cn } from "@/lib/utils";
+import type { DataViewerTableSelectionProps } from "./types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface DataViewerCardGridProps<TRecord> {
   config: DataViewerConfig<TRecord>;
@@ -17,6 +20,7 @@ interface DataViewerCardGridProps<TRecord> {
   onPaginationChange: (updater: Updater<PaginationState>) => void;
   /** Visual hint that a background fetch is in flight. */
   isFetching?: boolean;
+  selection?: Pick<DataViewerTableSelectionProps, "selectedIds" | "onToggleRow">;
 }
 
 export function DataViewerCardGrid<TRecord>({
@@ -27,6 +31,7 @@ export function DataViewerCardGrid<TRecord>({
   pageCount,
   onPaginationChange,
   isFetching = false,
+  selection,
 }: DataViewerCardGridProps<TRecord>) {
   const { actions, getRowId, renderCard, labels } = config;
 
@@ -54,16 +59,43 @@ export function DataViewerCardGrid<TRecord>({
             isFetching && "opacity-80",
           )}
         >
-          {data.map((record) => {
+          {data.map((record, pageIndex) => {
             const id = getRowId(record);
+            const isSelected = selection?.selectedIds.has(id) ?? false;
             return (
-              <div key={id} className="h-full min-h-0">
-                {renderCard({
-                  record,
-                  onView: actions.view ? () => actions.view!.handler(record) : undefined,
-                  onEdit: actions.edit ? () => actions.edit!.handler(record) : undefined,
-                  onDelete: actions.delete ? () => actions.delete!.handler(record) : undefined,
-                })}
+              <div
+                key={id}
+                className={cn(
+                  "relative h-full min-h-0 rounded-box",
+                  selection && isSelected && "ring-2 ring-primary/80 ring-offset-2 ring-offset-base-100",
+                )}
+              >
+                {selection ? (
+                  <div
+                    className="absolute left-2 top-2 z-10 flex size-9 items-center justify-center rounded-md border border-base-content/10 bg-base-100/95 shadow-sm backdrop-blur-sm"
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selection.onToggleRow(id, pageIndex, e as unknown as MouseEvent);
+                    }}
+                    role="presentation"
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      className="pointer-events-none"
+                      aria-label="Select row"
+                    />
+                  </div>
+                ) : null}
+                <div className="relative z-0 h-full min-h-0">
+                  {renderCard({
+                    record,
+                    onView: actions.view ? () => actions.view!.handler(record) : undefined,
+                    onEdit: actions.edit ? () => actions.edit!.handler(record) : undefined,
+                    onDelete: actions.delete ? () => actions.delete!.handler(record) : undefined,
+                  })}
+                </div>
               </div>
             );
           })}

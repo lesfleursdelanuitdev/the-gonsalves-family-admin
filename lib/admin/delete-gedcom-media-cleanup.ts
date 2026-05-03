@@ -12,6 +12,14 @@ export async function cleanupNonFkReferencesToGedcomMedia(
   mediaId: string,
   fileUuid: string,
 ): Promise<void> {
+  // FK onDelete: Restrict — must clear before deleting `gedcom_media_v2`.
+  await tx.storyGedcomMedia.deleteMany({
+    where: { gedcomMediaId: mediaId },
+  });
+  await tx.compoundMediaGedcomMedia.deleteMany({
+    where: { gedcomMediaId: mediaId },
+  });
+
   await tx.gedcomFileObject.deleteMany({
     where: { fileUuid, objectUuid: mediaId },
   });

@@ -31,8 +31,9 @@ export function useLogin() {
   return useMutation({
     mutationFn: (body: { username: string; password: string }) =>
       postJson<{ user: AuthUser }>("/api/auth/login", body),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       qc.setQueryData(AUTH_KEYS.me, data.user);
+      await qc.invalidateQueries({ queryKey: AUTH_KEYS.me });
       router.push("/admin");
     },
   });

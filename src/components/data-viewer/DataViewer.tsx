@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import type { MouseEvent } from "react";
+import { toast } from "sonner";
 import type { PaginationState, Updater } from "@tanstack/react-table";
-import type { DataViewerProps, ViewMode } from "./types";
+import type { DataViewerProps, DataViewerSelectionChangeDetail, ViewMode } from "./types";
 import { DATA_VIEWER_PAGE_SIZE } from "./constants";
 import { filterRowsByGlobalSearch } from "./filterRows";
 import { DataViewerToolbar } from "./DataViewerToolbar";
 import { DataViewerTable } from "./DataViewerTable";
 import { DataViewerCardGrid } from "./DataViewerCardGrid";
+import { DataViewerSelectionBar } from "./DataViewerSelectionBar";
+import { DataViewerBulkDeleteDialog } from "./DataViewerBulkDeleteDialog";
 import {
   APP_SETTINGS_CHANGED_EVENT,
   DATA_VIEWER_MOBILE_MEDIA,
@@ -54,6 +58,11 @@ export function DataViewer<TRecord>({
   onPaginationChange: controlledOnPaginationChange,
   pageCount: controlledPageCount,
   isFetching = false,
+  selectedRowIds: controlledSelectedRowIds,
+  onSelectedRowIdsChange: controlledOnSelectedRowIdsChange,
+  onSelectionDetailChange,
+  batchApplyKey,
+  onBulkDeleteFinished,
 }: DataViewerProps<TRecord>) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return defaultViewMode;
@@ -127,12 +136,130 @@ export function DataViewer<TRecord>({
 
   const onPaginationChange = setPagination;
 
-  const paginatedCardData = useMemo(() => {
+  /** Rows on the current page (matches table body and card grid). */
+  const pageData = useMemo(() => {
     if (serverPagination) return filteredData;
     const { pageIndex, pageSize } = pagination;
     const start = pageIndex * pageSize;
     return filteredData.slice(start, start + pageSize);
   }, [filteredData, pagination, serverPagination]);
+
+  const pageRowIds = useMemo(() => pageData.map((row) => config.getRowId(row)), [pageData, config]);
+
+  const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectionControlled =
+    controlledSelectedRowIds != null && controlledOnSelectedRowIdsChange != null;
+  const selectedIds = selectionControlled ? controlledSelectedRowIds! : internalSelectedIds;
+
+  const setSelectedIds = useCallback(
+    (updater: (prev: Set<string>) => Set<string>) => {
+      if (selectionControlled) {
+        controlledOnSelectedRowIdsChange!(updater(controlledSelectedRowIds!));
+      } else {
+        setInternalSelectedIds((prev) => updater(prev));
+      }
+    },
+    [selectionControlled, controlledOnSelectedRowIdsChange, controlledSelectedRowIds],
+  );
+
+  const selectionAnchorRef = useRef<number | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteCount, setBulkDeleteCount] = useState(0);
+  const bulkDeleteIdsRef = useRef<string[]>([]);
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState<{ completed: number; total: number } | null>(null);
+  const batchApplyKeyRef = useRef(batchApplyKey);
+
+  const emitSelectionDetail = useCallback(
+    (detail: DataViewerSelectionChangeDetail<TRecord>) => {
+      onSelectionDetailChange?.(detail);
+    },
+    [onSelectionDetailChange],
+  );
+
+  const selectionResetRef = useRef({ setSelectedIds, emitSelectionDetail });
+  selectionResetRef.current = { setSelectedIds, emitSelectionDetail };
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(() => new Set());
+    selectionAnchorRef.current = null;
+    emitSelectionDetail({ selectedIds: new Set(), kind: "clear" });
+  }, [setSelectedIds, emitSelectionDetail]);
+
+  useEffect(() => {
+    if (batchApplyKey === undefined) return;
+    if (batchApplyKeyRef.current === batchApplyKey) return;
+    batchApplyKeyRef.current = batchApplyKey;
+    handleClearSelection();
+  }, [batchApplyKey, handleClearSelection]);
+
+  const handleToggleRow = useCallback(
+    (rowId: string, pageIndex: number, event: MouseEvent) => {
+      const orderedIds = pageRowIds;
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        let kind: "toggle" | "range" = "toggle";
+        let affected: TRecord[] | undefined;
+        let anchorUpdate: number | null | "keep" = "keep";
+
+        if (event.shiftKey && selectionAnchorRef.current != null) {
+          kind = "range";
+          const a = Math.min(selectionAnchorRef.current, pageIndex);
+          const b = Math.max(selectionAnchorRef.current, pageIndex);
+          affected = [];
+          for (let i = a; i <= b; i++) {
+            const id = orderedIds[i];
+            if (id) next.add(id);
+            if (pageData[i]) affected.push(pageData[i]!);
+          }
+        } else {
+          if (next.has(rowId)) next.delete(rowId);
+          else next.add(rowId);
+          anchorUpdate = pageIndex;
+          affected = pageData[pageIndex] != null ? [pageData[pageIndex]!] : [];
+        }
+
+        queueMicrotask(() => {
+          if (anchorUpdate !== "keep") {
+            selectionAnchorRef.current = anchorUpdate;
+          }
+          emitSelectionDetail({ selectedIds: next, kind, affectedRecords: affected });
+        });
+        return next;
+      });
+    },
+    [pageRowIds, pageData, setSelectedIds, emitSelectionDetail],
+  );
+
+  const handleToggleSelectPage = useCallback(() => {
+    setSelectedIds((prev) => {
+      const ids = pageRowIds;
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) {
+        for (const id of ids) next.delete(id);
+      } else {
+        for (const id of ids) next.add(id);
+      }
+      queueMicrotask(() => {
+        selectionAnchorRef.current = allSelected ? null : 0;
+        emitSelectionDetail({
+          selectedIds: next,
+          kind: "page",
+          affectedRecords: pageData,
+        });
+      });
+      return next;
+    });
+  }, [pageRowIds, pageData, setSelectedIds, emitSelectionDetail]);
+
+  useEffect(() => {
+    if (!config.enableRowSelection) return;
+    if (paginationResetKey === undefined) return;
+    const { setSelectedIds: setSel, emitSelectionDetail: emit } = selectionResetRef.current;
+    setSel(() => new Set());
+    selectionAnchorRef.current = null;
+    emit({ selectedIds: new Set(), kind: "clear" });
+  }, [paginationResetKey, config.enableRowSelection]);
 
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
@@ -151,6 +278,58 @@ export function DataViewer<TRecord>({
   const filteredCount = serverPagination ? (totalCount ?? data.length) : filteredData.length;
   const cardFilteredTotal = serverPagination ? (totalCount ?? data.length) : filteredData.length;
 
+  const selectionEnabled = !!config.enableRowSelection;
+  const selectedCount = selectedIds.size;
+
+  const bulkDeleteOne = config.actions.delete?.bulkDeleteOne;
+  const bulkDeleteMany =
+    config.actions.delete?.bulkDeleteIds ?? config.actions.delete?.bulkHandler ?? null;
+  const canBulkDelete =
+    selectionEnabled && !!config.actions.delete && (!!bulkDeleteOne || !!bulkDeleteMany);
+
+  const openBulkDeleteDialog = () => {
+    bulkDeleteIdsRef.current = Array.from(selectedIds);
+    setBulkDeleteCount(bulkDeleteIdsRef.current.length);
+    setBulkDeleteProgress(null);
+    setBulkDeleteOpen(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    const ids = [...bulkDeleteIdsRef.current];
+    if (ids.length === 0) return;
+
+    if (bulkDeleteOne) {
+      const errors: string[] = [];
+      setBulkDeleteProgress({ completed: 0, total: ids.length });
+      for (let i = 0; i < ids.length; i++) {
+        try {
+          await bulkDeleteOne(ids[i]!);
+        } catch (e) {
+          errors.push(e instanceof Error ? e.message : String(e));
+        }
+        setBulkDeleteProgress({ completed: i + 1, total: ids.length });
+      }
+      if (errors.length > 0) {
+        const ok = ids.length - errors.length;
+        if (ok > 0) {
+          toast.error(`Deleted ${ok} of ${ids.length}. ${errors.slice(0, 2).join(" · ")}`);
+        } else {
+          throw new Error(errors[0] ?? "Delete failed");
+        }
+      } else {
+        toast.success(
+          `Deleted ${ids.length} ${ids.length === 1 ? config.labels.singular.toLowerCase() : config.labels.plural.toLowerCase()}.`,
+        );
+      }
+      await onBulkDeleteFinished?.();
+    } else if (bulkDeleteMany) {
+      setBulkDeleteProgress(null);
+      await bulkDeleteMany(ids);
+    }
+    setBulkDeleteProgress(null);
+    handleClearSelection();
+  };
+
   return (
     <div className="space-y-4">
       <DataViewerToolbar
@@ -166,6 +345,27 @@ export function DataViewer<TRecord>({
         showSearch={false}
       />
 
+      {selectionEnabled ? (
+        <DataViewerSelectionBar
+          selectedCount={selectedCount}
+          pageRowIds={pageRowIds}
+          selectedIds={selectedIds}
+          actions={config.actions}
+          onClear={handleClearSelection}
+          onToggleSelectPage={handleToggleSelectPage}
+          onBulkDelete={canBulkDelete ? openBulkDeleteDialog : undefined}
+        />
+      ) : null}
+
+      <DataViewerBulkDeleteDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        pluralEntityLabel={config.labels.plural.toLowerCase()}
+        selectedCount={bulkDeleteCount}
+        deleteProgress={bulkDeleteProgress}
+        onConfirm={confirmBulkDelete}
+      />
+
       {viewMode === "table" ? (
         <DataViewerTable
           config={config}
@@ -176,16 +376,34 @@ export function DataViewer<TRecord>({
           manualPageCount={serverPagination ? computedPageCount : undefined}
           manualRowCount={serverPagination ? (totalCount ?? data.length) : undefined}
           isFetching={isFetching}
+          selection={
+            selectionEnabled
+              ? {
+                  selectedIds,
+                  onToggleRow: handleToggleRow,
+                  onToggleSelectPage: handleToggleSelectPage,
+                  pageRowIds,
+                }
+              : undefined
+          }
         />
       ) : (
         <DataViewerCardGrid
           config={config}
-          data={paginatedCardData}
+          data={pageData}
           filteredTotal={cardFilteredTotal}
           pagination={pagination}
           pageCount={computedPageCount}
           onPaginationChange={onPaginationChange}
           isFetching={isFetching}
+          selection={
+            selectionEnabled
+              ? {
+                  selectedIds,
+                  onToggleRow: handleToggleRow,
+                }
+              : undefined
+          }
         />
       )}
     </div>

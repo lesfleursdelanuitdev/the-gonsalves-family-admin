@@ -4,8 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-const SESSION_COOKIE = "admin_session";
+import { ADMIN_SESSION_COOKIE } from "@/lib/infra/admin-session-cookie";
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/refresh"];
 
 /** Only run on real app/HTML routes — not on `/_next/*`, static files, or most `/api/*` (avoids dev redirect/HMR noise). */
@@ -19,7 +18,7 @@ export function proxy(request: NextRequest) {
   // Auth gating for /admin/* and /api/admin/* routes
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     if (!PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-      const token = request.cookies.get(SESSION_COOKIE)?.value;
+      const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
       if (!token) {
         if (pathname.startsWith("/api/")) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

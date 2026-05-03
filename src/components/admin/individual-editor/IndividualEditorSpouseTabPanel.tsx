@@ -110,8 +110,8 @@ export function IndividualEditorSpouseTabPanel({
           </CollapsibleFormSection>
           {spouseFamiliesNeedSex ? (
             <p className="text-sm text-destructive" role="alert">
-              Set sex to Male or Female to save spouse family links; unknown/other sex cannot be assigned to a husband
-              or wife slot automatically.
+              Set sex to Male or Female to save spouse family links; with other values the tree cannot choose between{" "}
+              {FAMILY_PARTNER_1_LABEL} and {FAMILY_PARTNER_2_LABEL} automatically.
             </p>
           ) : null}
           {familiesAsSpouse.length > 0 ? (

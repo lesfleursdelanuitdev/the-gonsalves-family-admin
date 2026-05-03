@@ -25,10 +25,13 @@ import { cn } from "@/lib/utils";
 import { EntityHistoryCard } from "@/components/admin/EntityHistoryCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import {
   FAMILY_PARTNER_1_LABEL,
+  FAMILY_PARTNER_1_SLOT_HINT,
   FAMILY_PARTNER_2_LABEL,
+  FAMILY_PARTNER_2_SLOT_HINT,
   FAMILY_PARTNER_ASSIGNMENT_RULES,
   FAMILY_PARTNER_SLOT_SUBTITLE,
 } from "@/lib/gedcom/family-partner-slots";
@@ -427,12 +430,12 @@ export default function AdminFamilyViewPage() {
             <PartnerRow
               partner={husband}
               title={FAMILY_PARTNER_1_LABEL}
-              slotHint="GEDCOM husband (HUSB)"
+              slotHint={FAMILY_PARTNER_1_SLOT_HINT}
             />
             <PartnerRow
               partner={wife}
               title={FAMILY_PARTNER_2_LABEL}
-              slotHint="GEDCOM wife (WIFE)"
+              slotHint={FAMILY_PARTNER_2_SLOT_HINT}
             />
           </div>
         </CardContent>
@@ -531,6 +534,8 @@ export default function AdminFamilyViewPage() {
           )}
         </CardContent>
       </Card>
+
+      <EntityOpenQuestionsSection entityType="family" entityId={id} variant="view" />
 
       <Card>
         <CardHeader className="pb-2">

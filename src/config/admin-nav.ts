@@ -20,6 +20,7 @@ import {
   FolderOpen,
   Download,
   ScrollText,
+  CircleHelp,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -50,6 +51,10 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/sources", label: "Sources", icon: BookOpen },
       { href: "/admin/export", label: "Export", icon: Download },
     ],
+  },
+  {
+    label: "Research",
+    items: [{ href: "/admin/open-questions", label: "Open Questions", icon: CircleHelp }],
   },
   {
     label: "Media & archive",

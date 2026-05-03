@@ -12,7 +12,7 @@ import {
   resolveMediaImageSrc,
 } from "@/lib/admin/mediaPreview";
 import { isStoryMediaUnconfigured } from "@/lib/admin/story-creator/story-block-config-status";
-import { storyRowInnerTextAlignClass } from "@/lib/admin/story-creator/story-block-layout";
+import { effectiveMediaEmbedInspectorRowLayout, storyRowInnerTextAlignClass } from "@/lib/admin/story-creator/story-block-layout";
 import { storyEmbedMediaFrameClassNames } from "@/lib/admin/story-creator/story-embed-frame-classes";
 import { StoryAssetWithTitleCaption } from "@/lib/admin/story-creator/story-block-text-layout";
 import type { StoryMediaBlock } from "@/lib/admin/story-creator/story-types";
@@ -40,7 +40,7 @@ export function MediaBlockContentRenderer({
   onConfigure?: () => void;
 }) {
   const { data, isLoading } = useStoryMediaById(block.mediaId);
-  const alignClass = storyRowInnerTextAlignClass(block.rowLayout);
+  const alignClass = storyRowInnerTextAlignClass(effectiveMediaEmbedInspectorRowLayout(block));
   const isEditor = variant === "editor";
   const thumbW = isEditor ? THUMB_W.editor : THUMB_W.preview;
 

@@ -35,9 +35,8 @@ export default function AdminPlaceDetailPage() {
           <span className="min-w-0 leading-tight">{place?.original ?? ""}</span>
         </h1>
         <p className="text-sm text-muted-foreground">
-          GEDCOM places are split on commas (most specific first).{" "}
-          <span className="font-medium text-base-content/85">First segment</span> is that leftmost piece; broader parts
-          map to county, state, and country when the parser can infer them.
+          Comma-separated place text is shown most specific first. Broader parts may also appear as region fields when
+          the parser can infer them.
         </p>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -45,7 +44,7 @@ export default function AdminPlaceDetailPage() {
             <dd className="break-all font-mono text-xs">{id}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">First segment</dt>
+            <dt className="text-muted-foreground">Primary name</dt>
             <dd>{place?.name ?? "—"}</dd>
           </div>
           <div>

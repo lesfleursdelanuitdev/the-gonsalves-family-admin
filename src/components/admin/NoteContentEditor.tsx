@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
@@ -203,14 +203,15 @@ export function NoteContentEditor({
   value,
   onChange,
   noteKey,
-  placeholder = "Write note content (Markdown). Use the toolbar for links, lists, and headings.",
+  placeholder = null,
   className,
 }: {
   value: string;
   onChange: (markdown: string) => void;
   /** Remount editor when switching notes (e.g. note UUID or \"new\"). */
   noteKey: string;
-  placeholder?: string;
+  /** Optional empty-state hint; keep short — editor shell is `relative` so this stays inside the box. */
+  placeholder?: ReactNode;
   className?: string;
 }) {
   const initialConfig = {
@@ -234,7 +235,7 @@ export function NoteContentEditor({
   return (
     <div
       className={cn(
-        "rounded-lg border border-[color-mix(in_oklch,var(--color-base-content)_34%,var(--color-base-300))] bg-base-100 overflow-hidden",
+        "relative rounded-lg border border-[color-mix(in_oklch,var(--color-base-content)_34%,var(--color-base-300))] bg-base-100 overflow-hidden",
         className,
       )}
     >
@@ -245,13 +246,15 @@ export function NoteContentEditor({
           contentEditable={
             <ContentEditable
               className="min-h-[280px] px-3 py-3 text-base-content outline-none [caret-color:var(--color-primary)]"
-              aria-label={placeholder}
+              aria-label="Note body"
             />
           }
           placeholder={
-            <div className="pointer-events-none absolute left-3 top-[52px] text-sm text-muted-foreground/60">
-              {placeholder}
-            </div>
+            placeholder ? (
+              <div className="pointer-events-none absolute left-3 top-[52px] z-0 text-sm text-muted-foreground/60">
+                {placeholder}
+              </div>
+            ) : null
           }
           ErrorBoundary={LexicalErrorBoundary}
         />

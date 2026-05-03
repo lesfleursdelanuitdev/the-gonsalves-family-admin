@@ -24,6 +24,7 @@ import {
 import { refreshIndividualKeyFactsDenorm } from "@/lib/admin/admin-individual-key-events";
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { refreshFamilyDivorceDenorm, refreshFamilyMarriageDenorm } from "@/lib/admin/admin-family-marriage";
+import { ensureMediaDatePlaceFromEventIds } from "@/lib/admin/ensure-media-date-place-from-event";
 
 const EVENT_LIST_INCLUDE = {
   date: true,
@@ -300,6 +301,12 @@ export const POST = withAdminAuth(async (req, user, _ctx) => {
       for (const mid of mediaIds) {
         await tx.gedcomEventMedia.create({
           data: { fileUuid, eventId: created.id, mediaId: mid },
+        });
+        await ensureMediaDatePlaceFromEventIds(tx, changeCtx, {
+          mediaId: mid,
+          fileUuid,
+          dateId,
+          placeId,
         });
       }
 

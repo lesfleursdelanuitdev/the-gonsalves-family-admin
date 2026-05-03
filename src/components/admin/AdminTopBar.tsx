@@ -84,7 +84,7 @@ export function AdminTopBar({
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-20 shrink-0 border-b border-base-content/[0.08] bg-base-100/90 shadow-sm shadow-black/10 backdrop-blur-md">
+    <header className="sticky top-0 z-50 shrink-0 border-b border-base-content/[0.08] bg-base-100/90 shadow-sm shadow-black/10 backdrop-blur-md">
       <div className="flex h-[52px] items-center gap-2 px-2 sm:px-3 lg:hidden">
         <label htmlFor={drawerId} className={cn(squareGhostBtn)} aria-label="Open menu">
           <Menu className="size-5" />

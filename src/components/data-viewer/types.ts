@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import type { ColumnDef, PaginationState, SortingState, Updater } from "@tanstack/react-table";
 
 export type ViewMode = "table" | "cards";
@@ -15,11 +16,34 @@ export interface DataViewerActions<TRecord> {
     label: string;
     handler: (record: TRecord) => void;
   };
+  /** Opens a bulk flow (e.g. batch media editor). Receives all selected row ids across pages. */
+  bulkEdit?: {
+    label: string;
+    handler: (ids: string[]) => void;
+  };
   delete?: {
     label: string;
     handler: (record: TRecord) => void;
-    bulkHandler?: (ids: string[]) => void;
+    /**
+     * Deletes one row by id. When set, the DataViewer bulk-delete dialog runs deletes **sequentially**
+     * and shows numeric progress. Prefer this over {@link bulkDeleteIds} for long bulk operations.
+     */
+    bulkDeleteOne?: (id: string) => void | Promise<void>;
+    /**
+     * Deletes every selected row id in one call. Used when {@link bulkDeleteOne} is omitted, or as a legacy hook.
+     * When {@link bulkDeleteOne} is set, the viewer uses it for bulk delete instead of this.
+     */
+    bulkDeleteIds?: (ids: string[]) => void | Promise<void>;
+    /** @deprecated Prefer {@link bulkDeleteIds} — same signature, same behavior in the UI. */
+    bulkHandler?: (ids: string[]) => void | Promise<void>;
   };
+}
+
+/** For custom card layouts outside {@link DataViewerCardGrid} (the grid supplies its own checkbox when selection is on). */
+export interface CardSelectionProps {
+  isSelected: boolean;
+  /** Toggle this card; `shiftKey` is read from the event for range selection. */
+  onToggle: (event: MouseEvent) => void;
 }
 
 export interface CardRenderProps<TRecord> {
@@ -27,6 +51,7 @@ export interface CardRenderProps<TRecord> {
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  selection?: CardSelectionProps;
 }
 
 export interface DataViewerConfig<TRecord> {
@@ -105,4 +130,44 @@ export interface DataViewerProps<TRecord> {
   pageCount?: number;
   /** Indicates a background fetch is in flight (e.g. when paging on the server). */
   isFetching?: boolean;
+
+  /**
+   * Controlled row selection (Set of {@link DataViewerConfig.getRowId} values).
+   * Pass both `selectedRowIds` and `onSelectedRowIdsChange`, or neither.
+   */
+  selectedRowIds?: Set<string>;
+  onSelectedRowIdsChange?: (next: Set<string>) => void;
+  /**
+   * Notified after selection changes so pages can sync auxiliary state (e.g. per-row scope).
+   */
+  onSelectionDetailChange?: (detail: DataViewerSelectionChangeDetail<TRecord>) => void;
+
+  /**
+   * When this value changes, clears row selection (e.g. after a bulk-edit modal applies).
+   */
+  batchApplyKey?: number;
+
+  /**
+   * Called once after a sequential bulk delete ({@link DataViewerActions.delete.bulkDeleteOne}) finishes
+   * without total failure — use to invalidate list queries (the viewer already shows toasts).
+   */
+  onBulkDeleteFinished?: () => void | Promise<void>;
+}
+
+/** Argument for {@link DataViewerProps.onSelectionDetailChange}. */
+export type DataViewerSelectionChangeKind = "clear" | "page" | "toggle" | "range";
+
+export interface DataViewerSelectionChangeDetail<TRecord> {
+  selectedIds: Set<string>;
+  kind: DataViewerSelectionChangeKind;
+  /** Rows on the current page affected by the last action (for range: all rows in the span). */
+  affectedRecords?: TRecord[];
+}
+
+/** Parent-owned row selection passed into {@link DataViewerTable}. */
+export interface DataViewerTableSelectionProps {
+  selectedIds: Set<string>;
+  pageRowIds: string[];
+  onToggleRow: (rowId: string, pageIndex: number, event: MouseEvent) => void;
+  onToggleSelectPage: () => void;
 }

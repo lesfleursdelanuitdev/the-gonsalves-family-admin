@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/database/prisma";
-import { createSession, setSessionCookie } from "@/lib/infra/auth";
+import { applySessionCookieToResponse, createSession } from "@/lib/infra/auth";
 
 export async function POST(req: Request) {
   try {
@@ -31,16 +31,18 @@ export async function POST(req: Request) {
     }
 
     const { token } = await createSession(user.id, req);
-    await setSessionCookie(token);
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         name: user.name,
+        isWebsiteOwner: user.isWebsiteOwner,
       },
     });
+    applySessionCookieToResponse(res, token);
+    return res;
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     console.error("Login error:", err.message, err.stack);

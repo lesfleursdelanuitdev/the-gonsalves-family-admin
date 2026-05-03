@@ -118,7 +118,8 @@ export function StoryEditorBottomDock({
 /** @deprecated Use {@link StoryEditorBottomDock} */
 export const StoryMobileBottomNav = StoryEditorBottomDock;
 
-function StoryMobileBottomSheetFrame({
+/** Bottom sheet shell (drag handle, title, close) — reusable for toolbar sheets, etc. */
+export function StoryEditorBottomSheet({
   open,
   onOpenChange,
   title,
@@ -143,8 +144,8 @@ function StoryMobileBottomSheetFrame({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
-        <DialogBackdrop />
-        <DialogViewport className="fixed inset-0 z-50 flex min-h-full w-full items-end justify-center p-0">
+        <DialogBackdrop className="z-[200]" />
+        <DialogViewport className="fixed inset-0 z-[200] flex min-h-full w-full items-end justify-center p-0">
           <DialogPopup
             className={cn(
               "flex max-h-[min(92dvh,920px)] w-full max-w-full flex-col overflow-hidden rounded-t-3xl rounded-b-none border border-base-content/12 border-b-0 bg-base-200/95 p-0 shadow-2xl ring-1 ring-base-content/[0.06]",
@@ -203,9 +204,9 @@ export function StoryBlockSettingsBottomSheet({
   children: React.ReactNode;
 }) {
   return (
-    <StoryMobileBottomSheetFrame open={open} onOpenChange={onOpenChange} title={title}>
+    <StoryEditorBottomSheet open={open} onOpenChange={onOpenChange} title={title}>
       {children}
-    </StoryMobileBottomSheetFrame>
+    </StoryEditorBottomSheet>
   );
 }
 
@@ -222,9 +223,9 @@ export function StoryAddBlockBottomSheet({
   children: React.ReactNode;
 }) {
   return (
-    <StoryMobileBottomSheetFrame open={open} onOpenChange={onOpenChange} title={title}>
+    <StoryEditorBottomSheet open={open} onOpenChange={onOpenChange} title={title}>
       {children}
-    </StoryMobileBottomSheetFrame>
+    </StoryEditorBottomSheet>
   );
 }
 
@@ -242,8 +243,8 @@ export function StoryMobileFullScreenPanel({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
-        <DialogBackdrop />
-        <DialogViewport className="fixed inset-0 z-50 flex min-h-full w-full items-stretch justify-center p-0">
+        <DialogBackdrop className="z-[200]" />
+        <DialogViewport className="fixed inset-0 z-[200] flex min-h-full w-full items-stretch justify-center p-0">
           <DialogPopup
             className={cn(
               "flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden rounded-none border-0 bg-base-100 p-0 shadow-none",

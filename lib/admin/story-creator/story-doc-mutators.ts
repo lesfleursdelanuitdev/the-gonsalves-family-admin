@@ -949,3 +949,5 @@ export function appendBlockIntoContainer(
   const next = appendBlockIntoContainerDeep(sec.blocks, containerId, block);
   return next ? { ...sec, blocks: next } : null;
 }
+
+export { moveStoryBlockRelative } from "./story-block-move-relative";

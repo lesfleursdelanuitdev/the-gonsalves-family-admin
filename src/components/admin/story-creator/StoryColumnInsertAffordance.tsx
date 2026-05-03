@@ -1,6 +1,7 @@
 "use client";
 
-import { Columns2, ImageIcon, Layers, LayoutTemplate, Plus } from "lucide-react";
+import { Columns2, ChevronDown, ImageIcon, Layers, LayoutTemplate, Type } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { StoryColumnNestedInsertKind } from "@/lib/admin/story-creator/story-block-factory";
 
+/** Centered “Add block” menu for empty column slots and empty nested containers (no dashed + row). */
 export function StoryColumnInsertAffordance({
   mobile,
   allowNestedColumns,
@@ -21,23 +23,23 @@ export function StoryColumnInsertAffordance({
   onInsert: (kind: StoryColumnNestedInsertKind) => void;
 }) {
   return (
-    <div className={cn("group relative flex items-center justify-center", mobile ? "py-2.5" : "h-6 py-0.5")}>
-      <div className="pointer-events-none absolute inset-x-3 top-1/2 h-px -translate-y-1/2 border-t border-dashed border-base-content/[0.12] opacity-80 transition-opacity group-hover:opacity-100" />
+    <div className={cn("flex justify-center", mobile ? "py-4" : "py-3")}>
       <DropdownMenu>
         <DropdownMenuTrigger
           type="button"
           className={cn(
-            "relative z-10 flex items-center justify-center rounded-full border border-base-content/12 bg-base-100/95 text-primary shadow-md transition-[opacity,transform,box-shadow]",
-            mobile
-              ? "size-10 min-h-[40px] min-w-[40px] opacity-100 hover:scale-[1.02] active:scale-[0.98]"
-              : "size-7 opacity-40 hover:scale-105 hover:opacity-100 group-hover:opacity-75",
+            buttonVariants({ variant: "outline", size: "sm" }),
+            "gap-2 border-base-content/15 font-medium text-base-content/80 shadow-sm",
+            mobile ? "min-h-11 rounded-xl px-4 text-sm" : "rounded-lg",
           )}
-          aria-label="Insert block in column"
+          aria-label="Add block"
         >
-          <Plus className={cn(mobile ? "size-4" : "size-3.5")} strokeWidth={2.25} />
+          Add block
+          <ChevronDown className="size-3.5 opacity-70" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="min-w-[10rem]">
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("richText")}>
+            <Type className="size-3.5 opacity-80" aria-hidden />
             Text
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("media")}>

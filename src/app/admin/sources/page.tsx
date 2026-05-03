@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { SourceCard, type SourceCardRecord } from "@/components/admin/SourceCard";
-import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
+import {
+  DataViewer,
+  DataViewerGedcomBatchEditModal,
+  type DataViewerConfig,
+} from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminSources, useDeleteSource, type AdminSourcesListResponse } from "@/hooks/useAdminSources";
+import { deleteJson } from "@/lib/infra/api";
 import { adminListQActiveFilterCount, useAdminListQFilters } from "@/hooks/useAdminListQFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 
@@ -45,6 +51,8 @@ function mapApiToRows(api: AdminSourcesListResponse): SourceRow[] {
 function buildSourcesConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (r: SourceRow) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
+  onBulkEdit: (ids: string[]) => void,
 ): DataViewerConfig<SourceRow> {
   return {
     id: "sources",
@@ -67,14 +75,19 @@ function buildSourcesConfig(
         handler: (r) => router.push(`/admin/sources/${r.id}/edit`),
       },
       edit: { label: "Edit", handler: (r) => router.push(`/admin/sources/${r.id}/edit`) },
-      delete: { label: "Delete", handler: onDelete },
+      bulkEdit: { label: "Edit selected", handler: onBulkEdit },
+      delete: { label: "Delete", handler: onDelete, bulkDeleteOne },
     },
   };
 }
 
 export default function AdminSourcesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const deleteSource = useDeleteSource();
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
+  const [batchApplyKey, setBatchApplyKey] = useState<number | undefined>();
   const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminListQFilters();
 
@@ -101,8 +114,24 @@ export default function AdminSourcesPage() {
     [deleteSource],
   );
 
+  const bulkDeleteOneSource = useCallback(async (id: string) => {
+    await deleteJson(`/api/admin/sources/${id}`);
+  }, []);
+
+  const handleBulkDeleteFinished = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "sources"] });
+  }, [queryClient]);
+
+  const openBulkEdit = useCallback((ids: string[]) => {
+    setBatchEditIds(ids);
+    setBatchEditOpen(true);
+  }, []);
+
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildSourcesConfig(router, handleDelete), [router, handleDelete]);
+  const config = useMemo(
+    () => buildSourcesConfig(router, handleDelete, bulkDeleteOneSource, openBulkEdit),
+    [router, handleDelete, bulkDeleteOneSource, openBulkEdit],
+  );
 
   return (
     <AdminListPageShell
@@ -129,6 +158,16 @@ export default function AdminSourcesPage() {
         </FilterPanel>
       }
     >
+      <DataViewerGedcomBatchEditModal
+        open={batchEditOpen}
+        onOpenChange={setBatchEditOpen}
+        entityKind="source"
+        selectedIds={batchEditIds}
+        onApplied={() => {
+          setBatchApplyKey((k) => (k ?? 0) + 1);
+          void queryClient.invalidateQueries({ queryKey: ["admin", "sources"] });
+        }}
+      />
       <DataViewer
         config={config}
         data={rows}
@@ -137,6 +176,8 @@ export default function AdminSourcesPage() {
         skipClientGlobalFilter
         paginationResetKey={applied.q}
         totalCount={data?.total}
+        batchApplyKey={batchApplyKey}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
       />
     </AdminListPageShell>
   );

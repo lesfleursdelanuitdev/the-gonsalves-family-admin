@@ -26,7 +26,13 @@ export function notePickerLinkedBlocks(note: AdminNoteListItem): NotePickerLinke
   }
 
   const events = (note.eventNotes ?? [])
-    .map((en) => (en.event?.eventType ? labelGedcomEventType(en.event.eventType) : ""))
+    .map((en) => {
+      const et = en.event?.eventType;
+      if (!et) return "";
+      const base = labelGedcomEventType(et);
+      const custom = (en.event?.customType ?? "").trim();
+      return custom ? `${base} (${custom})` : base;
+    })
     .filter(Boolean);
   if (events.length) {
     blocks.push({ heading: "Events", lines: events });

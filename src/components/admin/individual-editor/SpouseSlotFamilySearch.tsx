@@ -11,6 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parentSexFromIndividualRecord } from "@/lib/forms/individual-editor-form";
 import { fetchJson } from "@/lib/infra/api";
+import {
+  ADMIN_LAST_NAME_PREFIX_PLACEHOLDER,
+  FAMILY_PARTNER_1_LABEL,
+  FAMILY_PARTNER_2_LABEL,
+} from "@/lib/gedcom/family-partner-slots";
 
 /**
  * Families with exactly one GEDCOM spouse, where that partner matches given (contains) + surname prefix
@@ -61,10 +66,10 @@ export function SpouseSlotFamilySearch({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Only families with <span className="font-medium text-base-content">one spouse</span> listed are shown (the
-        other GEDCOM slot is empty), so this person can fill Partner 1 (HUSB) or Partner 2 (WIFE) depending on sex and
-        which slot is open. Given name is a contains match; last name uses the same GEDCOM slash-aware prefix as
-        Families as child.
+        Only families with <span className="font-medium text-base-content">one partner</span> listed are shown (the
+        other position is empty), so this person can fill {FAMILY_PARTNER_1_LABEL} or {FAMILY_PARTNER_2_LABEL}{" "}
+        depending on sex and which side is open. Given name is a contains match; last name uses the same slash-aware
+        surname prefix as the child-parent family search.
       </p>
       <div className="space-y-3 rounded-box border border-base-content/10 bg-base-content/[0.02] p-3">
         <p className="text-sm font-medium text-base-content">Partner already in the family</p>
@@ -83,7 +88,7 @@ export function SpouseSlotFamilySearch({
             id={`${inputIdPrefix}-last`}
             value={partnerLast}
             onChange={(e) => setPartnerLast(e.target.value)}
-            placeholder="GEDCOM slash-aware prefix"
+            placeholder={ADMIN_LAST_NAME_PREFIX_PLACEHOLDER}
           />
         </div>
       </div>
@@ -118,9 +123,9 @@ export function SpouseSlotFamilySearch({
                     <span>{listedLabel}</span>
                   </span>
                   {openIsWife ? (
-                    <span className="block text-xs text-muted-foreground">Partner 2 (WIFE) slot is empty</span>
+                    <span className="block text-xs text-muted-foreground">{FAMILY_PARTNER_2_LABEL} is open</span>
                   ) : openIsHusband ? (
-                    <span className="block text-xs text-muted-foreground">Partner 1 (HUSB) slot is empty</span>
+                    <span className="block text-xs text-muted-foreground">{FAMILY_PARTNER_1_LABEL} is open</span>
                   ) : null}
                 </button>
               </li>

@@ -18,7 +18,7 @@ export interface AdminNoteListItem {
       wife: { fullName: string | null } | null;
     };
   }>;
-  eventNotes: Array<{ event: { id: string; eventType: string } }>;
+  eventNotes: Array<{ event: { id: string; eventType: string; customType: string | null } }>;
   sourceNotes: Array<{ source: { id: string; title: string | null; xref: string } }>;
 }
 

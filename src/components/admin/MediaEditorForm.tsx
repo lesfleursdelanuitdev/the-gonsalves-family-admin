@@ -50,6 +50,7 @@ import { formatBytes } from "@/lib/admin/format-bytes";
 import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";
 import { PersonEditorMobileFormHeader } from "@/components/admin/individual-editor/PersonEditorMobileFormHeader";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { MediaDeleteConfirmDialog } from "@/components/admin/MediaDeleteConfirmDialog";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 
 type MediaEditorFormProps =
@@ -180,6 +181,7 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
   const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<MediaMobileSectionKey | null>("media-preview");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [createScope, setCreateScope] = useState<"family-tree" | "site-assets" | "my-media">(
     mode === "create" ? (props.initialCreateScope ?? "family-tree") : (props.scope ?? "family-tree"),
   );
@@ -369,36 +371,43 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
     if (!t) return "Unknown";
     return t.toUpperCase();
   }, [formValue]);
+  const createNeedsFileRef = mode === "create" && !fileRefValue.trim();
   const knownSize = file.uploadProgress?.expectedBytes ?? null;
   const sizeMeta = knownSize != null ? formatBytes(knownSize) : "Unknown size";
   const dimMeta = file.showImagePreview && previewDims ? `${previewDims.w}×${previewDims.h}` : "Unknown dimensions";
 
-  const handleDeleteMedia = useCallback(async () => {
-    if (mode !== "edit" || !mediaId) return;
+  const deleteMediaDetail = useMemo(() => {
+    if (activeScope === "family-tree") {
+      return "This removes the GEDCOM media row, its tree links, tags, and album links.";
+    }
+    if (activeScope === "site-assets") {
+      return "This soft-deletes the site asset record.";
+    }
+    return "This soft-deletes your private media record.";
+  }, [activeScope]);
+
+  const executeDeleteMedia = useCallback(async () => {
+    if (mode !== "edit" || !mediaId) {
+      throw new Error("Cannot delete: missing media.");
+    }
     const label = file.title.trim() || file.fileRef.trim() || mediaId;
-    const detail =
-      activeScope === "family-tree"
-        ? "This removes the GEDCOM media row, its tree links, tags, and album links."
-        : activeScope === "site-assets"
-          ? "This soft-deletes the site asset record."
-          : "This soft-deletes your private media record.";
-    if (!window.confirm(`Delete media "${label}"? ${detail} This cannot be undone.`)) {
-      return;
+    if (activeScope === "site-assets") {
+      await deleteJson(`/api/admin/site-media/${mediaId}`);
+    } else if (activeScope === "my-media") {
+      await deleteJson(`/api/admin/user-media/${mediaId}`);
+    } else {
+      await deleteMedia.mutateAsync(mediaId);
     }
-    try {
-      if (activeScope === "site-assets") {
-        await deleteJson(`/api/admin/site-media/${mediaId}`);
-      } else if (activeScope === "my-media") {
-        await deleteJson(`/api/admin/user-media/${mediaId}`);
-      } else {
-        await deleteMedia.mutateAsync(mediaId);
-      }
-      await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
-      toast.success(`Deleted "${label}".`);
-      router.push("/admin/media");
-    } catch (err) {
-      toast.error(`Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
+    await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
+    toast.success(`Deleted "${label}".`);
+    setDeleteDialogOpen(false);
+    const listHref =
+      activeScope === "site-assets"
+        ? "/admin/media?scope=site-assets"
+        : activeScope === "my-media"
+          ? "/admin/media?scope=my-media"
+          : "/admin/media";
+    router.replace(listHref);
   }, [mode, mediaId, file.title, file.fileRef, deleteMedia, router, activeScope, qc]);
 
   const onMobileToggle = useCallback((key: MediaMobileSectionKey) => {
@@ -436,7 +445,12 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
                 <Link href={backHref} className={cn(buttonVariants({ variant: "outline" }))}>
                   Cancel
                 </Link>
-                <button type="submit" form={formId} className={cn(buttonVariants())} disabled={submitting}>
+                <button
+                  type="submit"
+                  form={formId}
+                  className={cn(buttonVariants())}
+                  disabled={submitting || createNeedsFileRef}
+                >
                   {submitting ? "Saving…" : mode === "create" ? "Create media" : "Save changes"}
                 </button>
               </div>
@@ -1336,10 +1350,10 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
               variant="destructive"
               size="sm"
               className="mt-3"
-              disabled={submitting || deleteMedia.isPending}
-              onClick={() => void handleDeleteMedia()}
+              disabled={submitting || deleteMedia.isPending || deleteDialogOpen}
+              onClick={() => setDeleteDialogOpen(true)}
             >
-              {deleteMedia.isPending ? "Deleting…" : "Delete media"}
+              Delete media
             </Button>
             </div>
           </>
@@ -1350,8 +1364,19 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
           mediaId={mediaId}
           backHref={backHref}
           submitting={submitting}
+          saveDisabled={createNeedsFileRef}
         />
       </form>
+
+      {mode === "edit" ? (
+        <MediaDeleteConfirmDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          mediaLabel={file.title.trim() || file.fileRef.trim() || mediaId}
+          detail={deleteMediaDetail}
+          onDelete={executeDeleteMedia}
+        />
+      ) : null}
     </div>
   );
 }

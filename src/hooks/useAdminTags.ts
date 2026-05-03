@@ -16,6 +16,24 @@ export interface AdminTagsListResponse {
   hasMore: boolean;
 }
 
+export interface AdminTagDetail {
+  id: string;
+  name: string;
+  color: string | null;
+  description: string | null;
+  isGlobal: boolean;
+  userId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface AdminTagDetailResponse {
+  tag: AdminTagDetail;
+  profileMediaSelection: unknown;
+}
+
 function buildTagsParams(opts: { q?: string; limit?: number; offset?: number }): URLSearchParams {
   const params = new URLSearchParams();
   if (opts.q) params.set("q", opts.q);
@@ -34,4 +52,9 @@ const tagsHooks = createAdminCrudHooks<{ q?: string; limit?: number; offset?: nu
 
 export const useAdminTags = tagsHooks.useList;
 export const useCreateTag = tagsHooks.useCreate;
+export const useUpdateTag = tagsHooks.useUpdate;
 export const useDeleteTag = tagsHooks.useDelete;
+
+export function useTagDetail(id: string) {
+  return tagsHooks.useDetail<AdminTagDetailResponse>(id);
+}

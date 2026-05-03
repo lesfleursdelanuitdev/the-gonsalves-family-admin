@@ -34,6 +34,20 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 36;
 
+/** Profile/cover flows that browse the family-tree archive only (no album/tag filters). */
+function isProfileCoverFamilyTreeMode(
+  purpose: MediaPickerPurpose | undefined,
+  targetType: MediaPickerTargetType,
+): boolean {
+  return (
+    purpose === "profileCover" &&
+    (targetType === "individual" ||
+      targetType === "family" ||
+      targetType === "event" ||
+      targetType === "tag")
+  );
+}
+
 function pickMediaCategory(
   allowed?: readonly ("photo" | "document" | "video" | "audio")[],
 ): "photo" | "document" | "video" | "audio" | undefined {
@@ -85,31 +99,59 @@ export function MediaPickerModal({
   useEffect(() => {
     if (!open) return;
     setQ("");
-    setSourceScope("all");
     setAlbumId("");
     setTagId("");
+    if (isProfileCoverFamilyTreeMode(purpose, targetType)) {
+      setSourceScope("family-tree");
+    } else {
+      setSourceScope("all");
+    }
     setSelected(new Set(mode === "single" && initialSelectedIds?.[0] ? [initialSelectedIds[0]] : []));
-  }, [open, mode, initialSelectedIds]);
+  }, [open, mode, initialSelectedIds, purpose, targetType]);
 
   const mediaCategory = useMemo(() => pickMediaCategory(allowedTypes), [allowedTypes]);
+
+  const profileCoverFamilyTree = isProfileCoverFamilyTreeMode(purpose, targetType);
+
+  const linkedEntityFilter = useMemo((): {
+    linkedIndividualId?: string;
+    linkedFamilyId?: string;
+    linkedEventId?: string;
+  } | null => {
+    if (!profileCoverFamilyTree) return null;
+    if (targetType === "individual") return { linkedIndividualId: targetId };
+    if (targetType === "family") return { linkedFamilyId: targetId };
+    if (targetType === "event") return { linkedEventId: targetId };
+    return null;
+  }, [profileCoverFamilyTree, targetType, targetId]);
 
   useEffect(() => {
     if (!open) return;
     setListOffset(0);
     setMerged([]);
-  }, [open, debouncedQ, albumId, tagId, mediaCategory, sourceScope]);
+  }, [open, debouncedQ, albumId, tagId, mediaCategory, sourceScope, linkedEntityFilter]);
 
   const listOpts = useMemo(
     () => ({
-      scope: sourceScope,
+      scope: profileCoverFamilyTree ? ("family-tree" as const) : sourceScope,
       q: debouncedQ || undefined,
-      albumId: albumId || undefined,
-      tagId: tagId || undefined,
+      albumId: profileCoverFamilyTree ? undefined : albumId || undefined,
+      tagId: profileCoverFamilyTree ? undefined : tagId || undefined,
       mediaCategory,
       limit: PAGE_SIZE,
       offset: listOffset,
+      ...(linkedEntityFilter ?? {}),
     }),
-    [sourceScope, debouncedQ, albumId, tagId, mediaCategory, listOffset],
+    [
+      profileCoverFamilyTree,
+      sourceScope,
+      debouncedQ,
+      albumId,
+      tagId,
+      mediaCategory,
+      listOffset,
+      linkedEntityFilter,
+    ],
   );
 
   const { data, isLoading, isFetching } = useAdminMedia(listOpts, open);
@@ -130,12 +172,12 @@ export function MediaPickerModal({
   const { data: albumsRes } = useQuery({
     queryKey: ["admin", "albums", albumsQs],
     queryFn: () => fetchJson<AdminAlbumsListResponse>(`/api/admin/albums?${albumsQs}`),
-    enabled: open,
+    enabled: open && !profileCoverFamilyTree,
   });
   const { data: tagsRes } = useQuery({
     queryKey: ["admin", "tags", tagsQs],
     queryFn: () => fetchJson<AdminTagsListResponse>(`/api/admin/tags?${tagsQs}`),
-    enabled: open,
+    enabled: open && !profileCoverFamilyTree,
   });
 
   useEffect(() => {
@@ -213,7 +255,10 @@ export function MediaPickerModal({
     }
     const isProfileCoverPurpose =
       purpose === "profileCover" &&
-      (targetType === "individual" || targetType === "family" || targetType === "event");
+      (targetType === "individual" ||
+        targetType === "family" ||
+        targetType === "event" ||
+        targetType === "tag");
 
     if (isProfileCoverPurpose) {
       if (!canLink) {
@@ -232,7 +277,9 @@ export function MediaPickerModal({
             ? `/api/admin/individuals/${targetId}/profile-media`
             : targetType === "family"
               ? `/api/admin/families/${targetId}/profile-media`
-              : `/api/admin/events/${targetId}/profile-media`;
+              : targetType === "event"
+                ? `/api/admin/events/${targetId}/profile-media`
+                : `/api/admin/tags/${targetId}/profile-media`;
         await putJson(base, { mediaId: mid });
         const row = merged.find((m) => m.id === mid);
         let picked: AdminMediaListItem[] = [];
@@ -243,6 +290,9 @@ export function MediaPickerModal({
           picked = [res.media];
         }
         await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
+        if (targetType === "tag") {
+          await qc.invalidateQueries({ queryKey: ["admin", "tags", "detail", targetId] });
+        }
         toast.success("Cover image saved.");
         onAttach?.(picked);
         onOpenChange(false);
@@ -431,6 +481,14 @@ export function MediaPickerModal({
   const hasMore = Boolean(data?.hasMore);
   const gridLoading = isLoading || (isFetching && listOffset === 0 && merged.length === 0);
 
+  const gridEmptyLabel = profileCoverFamilyTree
+    ? targetType === "individual"
+      ? "No linked photos yet. On the Media tab, use “Choose existing” or “Upload new” to attach images to this person, then return here."
+      : targetType === "family"
+        ? "No linked photos yet. Link images to this family on the Media tab, then return here."
+        : "No linked photos yet. Link images to this event on the Media tab, then return here."
+    : "No media matches these filters. Try another search or upload a new file.";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -441,62 +499,74 @@ export function MediaPickerModal({
         )}
       >
         <div className="border-b border-base-content/10 bg-base-100/60 px-4 py-3 sm:px-5">
-          <DialogTitle className="text-lg font-semibold tracking-tight text-base-content">Add media</DialogTitle>
+          <DialogTitle className="text-lg font-semibold tracking-tight text-base-content">
+            {profileCoverFamilyTree ? "Choose profile picture" : "Add media"}
+          </DialogTitle>
           <DialogDescription className="mt-1 text-sm text-muted-foreground">
-            Browse the archive, filter by album or tag, or upload. Attach links this record; edit full details on the media page.
+            {profileCoverFamilyTree
+              ? targetType === "individual"
+                ? "Only photos already linked to this person (from the Media tab) can be chosen here."
+                : targetType === "family"
+                  ? "Only photos already linked to this family can be chosen here."
+                  : "Only photos already linked to this event can be chosen here."
+              : "Browse the archive, filter by album or tag, or upload. Attach links this record; edit full details on the media page."}
           </DialogDescription>
         </div>
 
         <div className="sticky top-0 z-[1] space-y-3 border-b border-base-content/10 bg-base-100/85 px-4 py-3 backdrop-blur-sm sm:px-5">
           <MediaSearchBar id={`${baseId}-q`} value={q} onChange={setQ} />
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["all", "All"],
-                ["family-tree", "Family Tree"],
-                ["site-assets", "Site Assets"],
-                ["my-media", "My Media"],
-              ] as const
-            ).map(([scope, label]) => (
-              <button
-                key={scope}
-                type="button"
-                onClick={() => {
-                  setSourceScope(scope);
-                  setSelected(new Set());
-                }}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-semibold",
-                  sourceScope === scope
-                    ? "border-primary/40 bg-primary/12 text-primary"
-                    : "border-base-content/15 bg-base-200/35 text-muted-foreground hover:border-base-content/30 hover:text-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-            <AlbumFilter
-              id={`${baseId}-album`}
-              className="min-w-0 flex-1"
-              albums={albums}
-              value={albumId}
-              onChange={setAlbumId}
-            />
-            <TagFilter id={`${baseId}-tag`} className="min-w-0 flex-1" tags={tags} value={tagId} onChange={setTagId} />
-            {canUpload ? (
-              <QuickUploadPanel
-                className="sm:shrink-0"
-                disabled={
-                  !quickLinkSupported && targetType !== "story" && targetType !== "document"
-                }
-                busy={uploading}
-                uploadProgress={uploadProgress}
-                onFiles={(files) => void handleQuickUploadFiles(files)}
+          {!profileCoverFamilyTree ? (
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["all", "All"],
+                  ["family-tree", "Family Tree"],
+                  ["site-assets", "Site Assets"],
+                  ["my-media", "My Media"],
+                ] as const
+              ).map(([scope, label]) => (
+                <button
+                  key={scope}
+                  type="button"
+                  onClick={() => {
+                    setSourceScope(scope);
+                    setSelected(new Set());
+                  }}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold",
+                    sourceScope === scope
+                      ? "border-primary/40 bg-primary/12 text-primary"
+                      : "border-base-content/15 bg-base-200/35 text-muted-foreground hover:border-base-content/30 hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {!profileCoverFamilyTree ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+              <AlbumFilter
+                id={`${baseId}-album`}
+                className="min-w-0 flex-1"
+                albums={albums}
+                value={albumId}
+                onChange={setAlbumId}
               />
-            ) : null}
-          </div>
+              <TagFilter id={`${baseId}-tag`} className="min-w-0 flex-1" tags={tags} value={tagId} onChange={setTagId} />
+              {canUpload ? (
+                <QuickUploadPanel
+                  className="sm:shrink-0"
+                  disabled={
+                    !quickLinkSupported && targetType !== "story" && targetType !== "document"
+                  }
+                  busy={uploading}
+                  uploadProgress={uploadProgress}
+                  onFiles={(files) => void handleQuickUploadFiles(files)}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
@@ -506,7 +576,7 @@ export function MediaPickerModal({
             selectedIds={selected}
             excludeIds={excludeMediaIds}
             loading={gridLoading}
-            emptyLabel="No media matches these filters. Try another search or upload a new file."
+            emptyLabel={gridEmptyLabel}
             onToggle={toggle}
           />
           {hasMore ? (
@@ -555,8 +625,10 @@ export function MediaPickerModal({
               {attaching ? (
                 <>
                   <Loader2 size={16} className="animate-spin shrink-0" aria-hidden />
-                  Attaching…
+                  {profileCoverFamilyTree ? "Saving…" : "Attaching…"}
                 </>
+              ) : profileCoverFamilyTree ? (
+                "Use selected photo"
               ) : (
                 "Attach selected"
               )}

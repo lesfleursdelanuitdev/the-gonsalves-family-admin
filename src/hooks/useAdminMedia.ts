@@ -56,6 +56,12 @@ export interface UseAdminMediaOpts {
   linkedLast?: string;
   albumId?: string;
   tagId?: string;
+  /** Limit to media linked to this individual (GEDCOM junction). */
+  linkedIndividualId?: string;
+  linkedFamilyId?: string;
+  linkedEventId?: string;
+  /** GEDCOM event tag (e.g. BIRT); only affects family-tree `/api/admin/media` results. */
+  linkedEventType?: string;
 }
 
 export type AdminMediaScope = "family-tree" | "site-assets" | "my-media";
@@ -80,6 +86,10 @@ function buildMediaParams(opts: UseAdminMediaOpts): URLSearchParams {
   if (opts.linkedLast) params.set("linkedLast", opts.linkedLast);
   if (opts.albumId) params.set("albumId", opts.albumId);
   if (opts.tagId) params.set("tagId", opts.tagId);
+  if (opts.linkedIndividualId) params.set("linkedIndividualId", opts.linkedIndividualId);
+  if (opts.linkedFamilyId) params.set("linkedFamilyId", opts.linkedFamilyId);
+  if (opts.linkedEventId) params.set("linkedEventId", opts.linkedEventId);
+  if (opts.linkedEventType?.trim()) params.set("linkedEventType", opts.linkedEventType.trim().toUpperCase());
   return params;
 }
 

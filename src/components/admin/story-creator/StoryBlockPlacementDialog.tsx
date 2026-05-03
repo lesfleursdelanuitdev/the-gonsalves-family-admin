@@ -5,9 +5,12 @@ import { Code2, Columns2, ImageIcon, LayoutTemplate, Minus, Type } from "lucide-
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
+  DialogBackdrop,
   DialogDescription,
+  DialogPortal,
+  DialogPopup,
   DialogTitle,
+  DialogViewport,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { StoryColumnNestedInsertKind, StoryInsertKind } from "@/lib/admin/story-creator/story-block-factory";
@@ -24,6 +27,8 @@ export interface StoryBlockPlacementDialogProps {
   variant: StoryBlockPlacementVariant;
   /** When `variant` is `column`, whether the Columns block type is offered. */
   allowNestedColumns: boolean;
+  /** When set with `flow: "add"`, skip the position step and go straight to block type. */
+  initialAddPosition?: "above" | "below" | null;
   onAddComplete: (position: "above" | "below", kind: StoryInsertKind | StoryColumnNestedInsertKind) => void;
   onDuplicateComplete: (position: "above" | "below") => void;
 }
@@ -34,6 +39,7 @@ export function StoryBlockPlacementDialog({
   flow,
   variant,
   allowNestedColumns,
+  initialAddPosition = null,
   onAddComplete,
   onDuplicateComplete,
 }: StoryBlockPlacementDialogProps) {
@@ -43,11 +49,16 @@ export function StoryBlockPlacementDialog({
 
   useEffect(() => {
     if (!open) return;
-    setStep("position");
-    setAddPosition(null);
+    if (flow === "add" && initialAddPosition) {
+      setStep("type");
+      setAddPosition(initialAddPosition);
+    } else {
+      setStep("position");
+      setAddPosition(null);
+    }
     const t = window.setTimeout(() => firstActionRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
-  }, [open, flow]);
+  }, [open, flow, initialAddPosition]);
 
   const title =
     flow === "add" ? "Add block" : flow === "duplicate" ? "Duplicate block" : "Block";
@@ -76,12 +87,15 @@ export function StoryBlockPlacementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(
-          "max-w-md border-base-content/12 bg-base-100 p-5 shadow-xl ring-1 ring-base-content/[0.06]",
-          "data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95",
-        )}
-      >
+      <DialogPortal>
+        <DialogBackdrop className="z-[200]" />
+        <DialogViewport className="fixed inset-0 z-[200] flex min-h-full w-full items-center justify-center p-4">
+          <DialogPopup
+            className={cn(
+              "max-w-md border-base-content/12 bg-base-100 p-5 shadow-xl ring-1 ring-base-content/[0.06]",
+              "data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95",
+            )}
+          >
         <DialogTitle className="font-heading text-lg text-base-content">{title}</DialogTitle>
         <DialogDescription className="text-sm text-base-content/65">{description}</DialogDescription>
 
@@ -188,7 +202,9 @@ export function StoryBlockPlacementDialog({
             Cancel
           </Button>
         </div>
-      </DialogContent>
+          </DialogPopup>
+        </DialogViewport>
+      </DialogPortal>
     </Dialog>
   );
 }

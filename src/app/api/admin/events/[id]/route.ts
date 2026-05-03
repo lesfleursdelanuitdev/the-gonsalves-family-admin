@@ -14,6 +14,7 @@ import { refreshIndividualKeyFactsDenorm } from "@/lib/admin/admin-individual-ke
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { refreshFamilyDivorceDenorm, refreshFamilyMarriageDenorm } from "@/lib/admin/admin-family-marriage";
 import { ADMIN_EVENT_DETAIL_INCLUDE } from "@/app/api/admin/events/event-admin-detail-include";
+import { ensureMediaDatePlaceFromEventIds } from "@/lib/admin/ensure-media-date-place-from-event";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
   const { id } = await ctx.params;
@@ -176,6 +177,12 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
         for (const mid of mediaIds) {
           await tx.gedcomEventMedia.create({
             data: { fileUuid, eventId: id, mediaId: mid },
+          });
+          await ensureMediaDatePlaceFromEventIds(tx, changeCtx, {
+            mediaId: mid,
+            fileUuid,
+            dateId,
+            placeId,
           });
         }
       }

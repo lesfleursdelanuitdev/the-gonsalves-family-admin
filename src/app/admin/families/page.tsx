@@ -1,23 +1,31 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { FamilyCard, type FamilyCardRecord } from "@/components/admin/FamilyCard";
-import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
+import {
+  DataViewer,
+  DataViewerGedcomBatchEditModal,
+  type DataViewerConfig,
+} from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  ADMIN_FAMILIES_QUERY_KEY,
   useAdminFamilies,
   useDeleteFamily,
   type AdminFamiliesListResponse,
 } from "@/hooks/useAdminFamilies";
+import { deleteJson } from "@/lib/infra/api";
 import { useAdminFamiliesPageFilters } from "@/hooks/useAdminFamiliesPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import {
+  ADMIN_LAST_NAME_PREFIX_PLACEHOLDER,
   FAMILY_LIST_FILTER_PARTNER_COLUMNS_HELP,
   FAMILY_PARTNER_1_LABEL,
   FAMILY_PARTNER_2_LABEL,
@@ -42,6 +50,8 @@ function mapApiToRows(api: AdminFamiliesListResponse): FamilyRow[] {
 function buildFamiliesConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (r: FamilyRow) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
+  onBulkEdit: (ids: string[]) => void,
 ): DataViewerConfig<FamilyRow> {
   return {
     id: "families",
@@ -50,8 +60,8 @@ function buildFamiliesConfig(
     enableRowSelection: true,
     columns: [
       { accessorKey: "xref", header: "XREF" },
-      { accessorKey: "partner1", header: `${FAMILY_PARTNER_1_LABEL} (HUSB)`, enableSorting: true },
-      { accessorKey: "partner2", header: `${FAMILY_PARTNER_2_LABEL} (WIFE)`, enableSorting: true },
+      { accessorKey: "partner1", header: FAMILY_PARTNER_1_LABEL, enableSorting: true },
+      { accessorKey: "partner2", header: FAMILY_PARTNER_2_LABEL, enableSorting: true },
       { accessorKey: "childCount", header: "Children" },
       { accessorKey: "marriageYear", header: "Marriage" },
     ],
@@ -67,14 +77,19 @@ function buildFamiliesConfig(
       },
       view: { label: "View", handler: (r) => router.push(`/admin/families/${r.id}`) },
       edit: { label: "Edit", handler: (r) => router.push(`/admin/families/${r.id}/edit`) },
-      delete: { label: "Delete", handler: onDelete },
+      bulkEdit: { label: "Edit selected", handler: onBulkEdit },
+      delete: { label: "Delete", handler: onDelete, bulkDeleteOne },
     },
   };
 }
 
 export default function AdminFamiliesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const deleteFamily = useDeleteFamily();
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
+  const [batchApplyKey, setBatchApplyKey] = useState<number | undefined>();
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminFamiliesPageFilters();
 
@@ -104,8 +119,24 @@ export default function AdminFamiliesPage() {
     [deleteFamily],
   );
 
+  const bulkDeleteOneFamily = useCallback(async (id: string) => {
+    await deleteJson(`/api/admin/families/${id}`);
+  }, []);
+
+  const handleBulkDeleteFinished = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [...ADMIN_FAMILIES_QUERY_KEY] });
+  }, [queryClient]);
+
+  const openBulkEdit = useCallback((ids: string[]) => {
+    setBatchEditIds(ids);
+    setBatchEditOpen(true);
+  }, []);
+
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildFamiliesConfig(router, handleDelete), [router, handleDelete]);
+  const config = useMemo(
+    () => buildFamiliesConfig(router, handleDelete, bulkDeleteOneFamily, openBulkEdit),
+    [router, handleDelete, bulkDeleteOneFamily, openBulkEdit],
+  );
 
   return (
     <AdminListPageShell
@@ -132,7 +163,6 @@ export default function AdminFamiliesPage() {
           <div className="space-y-3 rounded-box border border-base-content/[0.08] bg-base-content/[0.03] p-4">
             <div>
               <p className="text-sm font-medium">{FAMILY_PARTNER_1_LABEL}</p>
-              <p className="text-xs text-muted-foreground">GEDCOM husband (HUSB)</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-p1-given">Given name contains</Label>
@@ -149,14 +179,13 @@ export default function AdminFamiliesPage() {
                 id="filter-p1-last"
                 value={filterDraft.p1Last}
                 onChange={(e) => updateDraft("p1Last", e.target.value)}
-                placeholder="GEDCOM slash-aware"
+                placeholder={ADMIN_LAST_NAME_PREFIX_PLACEHOLDER}
               />
             </div>
           </div>
           <div className="space-y-3 rounded-box border border-base-content/[0.08] bg-base-content/[0.03] p-4">
             <div>
               <p className="text-sm font-medium">{FAMILY_PARTNER_2_LABEL}</p>
-              <p className="text-xs text-muted-foreground">GEDCOM wife (WIFE)</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="filter-p2-given">Given name contains</Label>
@@ -173,7 +202,7 @@ export default function AdminFamiliesPage() {
                 id="filter-p2-last"
                 value={filterDraft.p2Last}
                 onChange={(e) => updateDraft("p2Last", e.target.value)}
-                placeholder="GEDCOM slash-aware"
+                placeholder={ADMIN_LAST_NAME_PREFIX_PLACEHOLDER}
               />
             </div>
           </div>
@@ -225,12 +254,24 @@ export default function AdminFamiliesPage() {
         </FilterPanel>
       }
     >
+      <DataViewerGedcomBatchEditModal
+        open={batchEditOpen}
+        onOpenChange={setBatchEditOpen}
+        entityKind="family"
+        selectedIds={batchEditIds}
+        onApplied={() => {
+          setBatchApplyKey((k) => (k ?? 0) + 1);
+          void queryClient.invalidateQueries({ queryKey: [...ADMIN_FAMILIES_QUERY_KEY] });
+        }}
+      />
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-families-view"
         totalCount={data?.total}
+        batchApplyKey={batchApplyKey}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
       />
     </AdminListPageShell>
   );

@@ -38,6 +38,8 @@ export const POST = withAdminAuth(async (request, user) => {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
   const color = typeof body.color === "string" && body.color.trim() ? body.color.trim().slice(0, 7) : null;
+  const description =
+    typeof body.description === "string" && body.description.trim() ? body.description.trim() : null;
 
   const dup = await prisma.tag.findFirst({
     where: { userId: user.id, name: { equals: name, mode: "insensitive" } },
@@ -52,10 +54,11 @@ export const POST = withAdminAuth(async (request, user) => {
       userId: user.id,
       name,
       color,
+      description,
       isGlobal: false,
       createdBy: user.id,
     },
-    select: { id: true, name: true, color: true, isGlobal: true, userId: true },
+    select: { id: true, name: true, color: true, description: true, isGlobal: true, userId: true },
   });
 
   return NextResponse.json({ tag }, { status: 201 });

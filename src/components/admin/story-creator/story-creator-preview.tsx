@@ -123,7 +123,7 @@ function StoryPreviewCoverBanner({ doc }: { doc: StoryDocument }) {
       <div className={cn("story-preview-header-body", headerBodyOverlap && "story-preview-header-body--with-profile")}>
         <h1 className="story-preview-title">{doc.title || "Untitled story"}</h1>
         {excerpt ? <p className="story-preview-subtitle">{excerpt}</p> : null}
-        {authorLine ? <p className="story-preview-author">{authorLine}</p> : null}
+        {authorLine ? <p className="story-preview-author whitespace-pre-line">{authorLine}</p> : null}
       </div>
     </header>
   );

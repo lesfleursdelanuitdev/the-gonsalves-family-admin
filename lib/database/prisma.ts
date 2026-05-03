@@ -26,10 +26,34 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
+/**
+ * True if this generated client includes delegates we rely on in admin routes.
+ * Bump checks when adding models so dev/HMR does not keep a pre-generate client missing new tables.
+ */
+function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
+  const o = client as unknown as Record<string, unknown>;
+  return o.openQuestion != null && o.tagProfileMedia != null;
+}
+
 function getPrisma(): PrismaClient {
-  if (globalForPrisma.prisma) return globalForPrisma.prisma;
-  globalForPrisma.prisma = createPrismaClient();
-  return globalForPrisma.prisma;
+  const cached = globalForPrisma.prisma;
+  if (cached && prismaClientHasExpectedDelegates(cached)) {
+    return cached;
+  }
+  if (cached) {
+    // Dev server / HMR can keep a PrismaClient from before `prisma generate` added models.
+    void cached.$disconnect().catch(() => {});
+    globalForPrisma.prisma = undefined;
+  }
+  const client = createPrismaClient();
+  if (!prismaClientHasExpectedDelegates(client)) {
+    void client.$disconnect().catch(() => {});
+    throw new Error(
+      "Prisma client is out of date (missing generated models). Run `npm run generate --prefix ../packages/ligneous-prisma` (or `npm run ensure-prisma` in this app), then restart the dev server.",
+    );
+  }
+  globalForPrisma.prisma = client;
+  return client;
 }
 
 /**

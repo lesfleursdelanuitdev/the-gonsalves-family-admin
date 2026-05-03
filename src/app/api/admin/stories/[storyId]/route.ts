@@ -100,7 +100,8 @@ export const DELETE = withAdminAuth(async (_req, user, ctx) => {
 
   await prisma.story.update({
     where: { id: storyId },
-    data: { deletedAt: new Date() },
+    // Clear slug so `(treeId, slug)` unique index does not reserve it for deleted rows.
+    data: { deletedAt: new Date(), slug: null },
   });
 
   return new NextResponse(null, { status: 204 });

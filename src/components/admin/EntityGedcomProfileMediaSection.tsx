@@ -12,7 +12,7 @@ import { inferAdminMediaCategory } from "@/lib/admin/infer-admin-media-category"
 import { mediaThumbSrc, resolveMediaImageSrc } from "@/lib/admin/mediaPreview";
 import { ApiError, deleteJson } from "@/lib/infra/api";
 
-type Entity = "individual" | "family" | "event";
+type Entity = "individual" | "family" | "event" | "tag";
 
 export type ProfileMediaSelectionShape = {
   media?: {
@@ -42,7 +42,8 @@ export function photoUrlFromProfileRow(row: ProfileMediaSelectionShape): string 
 function profileApiBase(entity: Entity, entityId: string): string {
   if (entity === "individual") return `/api/admin/individuals/${entityId}/profile-media`;
   if (entity === "family") return `/api/admin/families/${entityId}/profile-media`;
-  return `/api/admin/events/${entityId}/profile-media`;
+  if (entity === "event") return `/api/admin/events/${entityId}/profile-media`;
+  return `/api/admin/tags/${entityId}/profile-media`;
 }
 
 export type EntityGedcomProfileMediaSectionProps = {

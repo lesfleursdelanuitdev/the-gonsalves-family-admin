@@ -178,7 +178,10 @@ export function IndividualEditorChildTabPanel({
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label className="text-xs">Sex (for HUSB/WIFE placement)</Label>
+                                <Label className="text-xs">
+                                  Sex (affects {FAMILY_PARTNER_1_LABEL} / {FAMILY_PARTNER_2_LABEL} when adding new
+                                  parents)
+                                </Label>
                                 <select
                                   className={selectClassName}
                                   value={p.sex}

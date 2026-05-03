@@ -5,6 +5,7 @@ import { fetchJson } from "@/lib/infra/api";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { SexIcon } from "@/components/admin/SexIcon";
 import { cn } from "@/lib/utils";
+import { FAMILY_PARTNER_1_LABEL, FAMILY_PARTNER_2_LABEL } from "@/lib/gedcom/family-partner-slots";
 
 type IndHit = {
   id: string;
@@ -74,8 +75,8 @@ export function FamilyIndividualPickerList({
             ) : !sexOk && allowedSexes != null ? (
               <p className="px-2 pb-1 text-xs text-muted-foreground">
                 {sx !== "M" && sx !== "F"
-                  ? "Sex must be M or F for this open slot with the current API."
-                  : "Wrong sex for the open partner slot (Partner 1 = HUSB, Partner 2 = WIFE)."}
+                  ? "Set sex to Male or Female to match this open partner position."
+                  : `Recorded sex does not match the open ${FAMILY_PARTNER_1_LABEL} or ${FAMILY_PARTNER_2_LABEL} position for this family.`}
               </p>
             ) : null}
           </li>

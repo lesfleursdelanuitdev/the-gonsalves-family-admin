@@ -1,4 +1,4 @@
-import { formatStoryAuthorLine } from "@/lib/admin/story-creator/story-author-display";
+import { formatStoryAuthorLines } from "@/lib/admin/story-creator/story-author-display";
 import type { StoryDocument } from "@/lib/admin/story-creator/story-types";
 
 /**
@@ -24,5 +24,5 @@ export const STORY_FIELD_INSERT_LABELS: Record<StoryFieldKey, string> = {
 export function resolveStoryField(field: StoryFieldKey, doc: StoryDocument): string {
   if (field === "title") return (doc.title ?? "").trim();
   if (field === "subtitle") return (doc.excerpt ?? "").trim();
-  return formatStoryAuthorLine(doc) ?? "";
+  return formatStoryAuthorLines(doc).join(" · ");
 }

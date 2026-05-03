@@ -8,6 +8,7 @@ import { FileImage, FileText, Film, Headphones } from "lucide-react";
 import { useAdminMediaItem } from "@/hooks/useAdminMedia";
 import { MediaRasterImage } from "@/components/admin/MediaRasterImage";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { LinkedIndividualLink } from "@/components/admin/LinkedIndividualLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -376,6 +377,10 @@ export default function AdminMediaDetailPage() {
               })}
             </CardContent>
           </Card>
+
+          {scope === "family-tree" && id ? (
+            <EntityOpenQuestionsSection entityType="media" entityId={id} variant="view" entityLabel={headline} />
+          ) : null}
 
           {/* Tags */}
           <Card className="h-auto">

@@ -1,27 +1,34 @@
 /**
- * GEDCOM stores two spouse pointers as husband (HUSB) and wife (WIFE). In the admin UI we label those
- * columns Partner 1 and Partner 2 so the product language stays neutral while still mapping 1:1 to storage.
+ * Partner slots: two fixed positions on each family (Partner 1 and Partner 2).
+ * User-facing copy avoids legacy interchange tags; ordering rules are described in plain language.
  */
 
 export const FAMILY_PARTNER_1_LABEL = "Partner 1";
 export const FAMILY_PARTNER_2_LABEL = "Partner 2";
 
-/** Short line for card titles / table context */
+/** Short line for page intros / collapsible help */
 export const FAMILY_PARTNER_SLOT_SUBTITLE =
-  "Partner 1 = GEDCOM husband (HUSB); Partner 2 = GEDCOM wife (WIFE).";
+  "Each family has two partner positions. They only set display and search order—not social or legal roles.";
 
-/** How the tree chooses HUSB vs WIFE when linking parents (documented behavior for editors). */
+/** One-line hints under partner headings on detail pages */
+export const FAMILY_PARTNER_1_SLOT_HINT = "First partner field on this family";
+export const FAMILY_PARTNER_2_SLOT_HINT = "Second partner field on this family";
+
+/** How the tree orders partners when linking (user-facing). */
 export const FAMILY_PARTNER_ASSIGNMENT_RULES: readonly string[] = [
-  "If one partner is male and the other is female, the male is stored in the husband (HUSB) column and the female in the wife (WIFE) column.",
-  "If one partner is unknown/other (not M or F) and the other is female, unknown/other is stored in HUSB and the female in WIFE.",
-  "If one partner is unknown/other and the other is male, unknown/other is stored in WIFE and the male in HUSB.",
-  "If both partners are the same sex or both are unknown/other, the first person linked is stored in HUSB and the second in WIFE.",
+  "If one partner is recorded as male and the other as female, the male is listed as Partner 1 and the female as Partner 2.",
+  "If one partner’s sex is not simply male or female and the other is female, that first partner is listed as Partner 1 and the female as Partner 2.",
+  "If one partner’s sex is not simply male or female and the other is male, the male is listed as Partner 1 and the other as Partner 2.",
+  "If both have the same sex recorded or both are unknown/other, the first person you link becomes Partner 1 and the second Partner 2.",
 ];
 
-/** Filter panel / search helper: P1/P2 align to DB columns (not symmetric name search). */
+/** Filter panel: P1/P2 are asymmetric (first vs second field), not “either name”. */
 export const FAMILY_LIST_FILTER_PARTNER_COLUMNS_HELP =
-  `${FAMILY_PARTNER_1_LABEL} filters match the person in the GEDCOM husband (HUSB) column; ${FAMILY_PARTNER_2_LABEL} filters match the person in the wife (WIFE) column. When both have criteria, a family must match both columns.`;
+  `${FAMILY_PARTNER_1_LABEL} filters match the first partner on the family; ${FAMILY_PARTNER_2_LABEL} filters match the second. When both have criteria, both must match.`;
 
-/** Same column semantics as the families list filters, without repeating the one-line slot summary. */
+/** Family search by two parents’ names (same column semantics as list filters). */
 export const FAMILY_NAME_FILTER_COLUMNS_HELP =
-  `${FAMILY_PARTNER_1_LABEL} matches the GEDCOM husband (HUSB) column and ${FAMILY_PARTNER_2_LABEL} the wife (WIFE) column; when both have criteria, both columns must match.`;
+  `${FAMILY_PARTNER_1_LABEL} matches the first partner field and ${FAMILY_PARTNER_2_LABEL} the second; when both have text, both must match.`;
+
+/** Shared placeholder for last-name prefix fields that honor slash-separated surnames */
+export const ADMIN_LAST_NAME_PREFIX_PLACEHOLDER = "Surname prefix (slashes supported)";

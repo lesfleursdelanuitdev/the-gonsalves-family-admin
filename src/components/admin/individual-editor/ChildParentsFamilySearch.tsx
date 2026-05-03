@@ -5,6 +5,7 @@ import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  ADMIN_LAST_NAME_PREFIX_PLACEHOLDER,
   FAMILY_NAME_FILTER_COLUMNS_HELP,
   FAMILY_PARTNER_1_LABEL,
   FAMILY_PARTNER_2_LABEL,
@@ -76,14 +77,12 @@ export function ChildParentsFamilySearch({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        {FAMILY_PARTNER_SLOT_SUBTITLE} {FAMILY_NAME_FILTER_COLUMNS_HELP} Last name uses the same GEDCOM slash-aware
-        prefix as the Notes linked-record picker and the individuals list.
+        {FAMILY_PARTNER_SLOT_SUBTITLE} {FAMILY_NAME_FILTER_COLUMNS_HELP} Last name uses the same slash-aware surname
+        prefix as the notes linked-record picker and the individuals list.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-3 rounded-box border border-base-content/10 bg-base-content/[0.02] p-3">
-          <p className="text-sm font-medium text-base-content">
-            {FAMILY_PARTNER_1_LABEL} <span className="font-normal text-muted-foreground">(HUSB)</span>
-          </p>
+          <p className="text-sm font-medium text-base-content">{FAMILY_PARTNER_1_LABEL}</p>
           <div className="space-y-2">
             <Label htmlFor={`${inputIdPrefix}-p1-given`}>Given name contains</Label>
             <Input
@@ -99,14 +98,12 @@ export function ChildParentsFamilySearch({
               id={`${inputIdPrefix}-p1-last`}
               value={p1Last}
               onChange={(e) => setP1Last(e.target.value)}
-              placeholder="GEDCOM slash-aware prefix"
+              placeholder={ADMIN_LAST_NAME_PREFIX_PLACEHOLDER}
             />
           </div>
         </div>
         <div className="space-y-3 rounded-box border border-base-content/10 bg-base-content/[0.02] p-3">
-          <p className="text-sm font-medium text-base-content">
-            {FAMILY_PARTNER_2_LABEL} <span className="font-normal text-muted-foreground">(WIFE)</span>
-          </p>
+          <p className="text-sm font-medium text-base-content">{FAMILY_PARTNER_2_LABEL}</p>
           <div className="space-y-2">
             <Label htmlFor={`${inputIdPrefix}-p2-given`}>Given name contains</Label>
             <Input
@@ -122,13 +119,15 @@ export function ChildParentsFamilySearch({
               id={`${inputIdPrefix}-p2-last`}
               value={p2Last}
               onChange={(e) => setP2Last(e.target.value)}
-              placeholder="GEDCOM slash-aware prefix"
+              placeholder={ADMIN_LAST_NAME_PREFIX_PLACEHOLDER}
             />
           </div>
         </div>
       </div>
       {!enabled ? (
-        <p className="text-xs text-muted-foreground">Enter at least one field for P1 and one for P2 to search.</p>
+        <p className="text-xs text-muted-foreground">
+          Enter at least one field for {FAMILY_PARTNER_1_LABEL} and one for {FAMILY_PARTNER_2_LABEL} to search.
+        </p>
       ) : isFetching ? (
         <p className="text-xs text-muted-foreground">Searching…</p>
       ) : rawFamilies.length === 0 ? (

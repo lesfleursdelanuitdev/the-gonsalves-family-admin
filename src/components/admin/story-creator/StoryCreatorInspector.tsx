@@ -14,6 +14,7 @@ import type {
   StoryColumnsBlock,
   StoryContainerBlock,
   StoryContainerBlockProps,
+  StoryAuthorCredit,
   StoryDocument,
   StoryDocumentKind,
   StoryLinkedPlace,
@@ -26,7 +27,8 @@ import type {
   StoryImageMediaRef,
   StoryMediaBlock,
 } from "@/lib/admin/story-creator/story-types";
-import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
+import { newStoryId } from "@/lib/admin/story-creator/story-types";
+import { normalizeStorySlugInput, normalizeStorySlugInputLive, slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
 import { fetchJson } from "@/lib/infra/api";
 import { legacyCoverImageRef } from "@/lib/admin/story-creator/story-images-resolve";
 import { formatPlaceSuggestionLabel, type AdminPlaceSuggestionRow } from "@/lib/forms/admin-place-suggestions";
@@ -60,6 +62,8 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  ArrowDown,
+  ArrowUp,
   Bug,
   ChevronRight,
   Copy,
@@ -86,6 +90,7 @@ import {
   STORY_AUTHOR_PREFIX_OPTIONS,
   effectiveStoryAuthorPrefixMode,
   formatStoryAuthorLine,
+  getStoryAuthorCredits,
 } from "@/lib/admin/story-creator/story-author-display";
 import { storyDocumentWithSaveTimestamp } from "@/lib/admin/story-creator/story-storage";
 import { ApiError, postJson } from "@/lib/infra/api";
@@ -941,6 +946,198 @@ function InspectorStoryImagesSection({
   );
 }
 
+function authorsPatch(next: StoryAuthorCredit[]): StoryDocumentMetaPatch {
+  return {
+    authors: next,
+    author: undefined,
+    authorPrefixMode: undefined,
+    authorPrefixCustom: undefined,
+  };
+}
+
+function InspectorStoryAuthorsSection({
+  doc,
+  controlH,
+  authorPrefixOptionClass,
+  onStoryMetaChange,
+}: {
+  doc: StoryDocument;
+  controlH: string;
+  authorPrefixOptionClass: (active: boolean) => string;
+  onStoryMetaChange: (patch: StoryDocumentMetaPatch) => void;
+}) {
+  const credits = useMemo(() => getStoryAuthorCredits(doc), [doc]);
+
+  const setCredits = useCallback(
+    (next: StoryAuthorCredit[]) => {
+      const normalized = next.map((c) => ({
+        ...c,
+        id: c.id?.trim() && c.id !== "legacy" ? c.id : newStoryId(),
+        name: c.name,
+      }));
+      onStoryMetaChange(authorsPatch(normalized));
+    },
+    [onStoryMetaChange],
+  );
+
+  const updateCredit = useCallback(
+    (id: string, patch: Partial<StoryAuthorCredit>) => {
+      setCredits(credits.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    },
+    [credits, setCredits],
+  );
+
+  const addAuthor = useCallback(() => {
+    setCredits([...credits, { id: newStoryId(), name: "", authorPrefixMode: "by" }]);
+  }, [credits, setCredits]);
+
+  const removeAuthor = useCallback(
+    (id: string) => {
+      setCredits(credits.filter((c) => c.id !== id));
+    },
+    [credits, setCredits],
+  );
+
+  const moveAuthor = useCallback(
+    (id: string, delta: -1 | 1) => {
+      const i = credits.findIndex((c) => c.id === id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= credits.length) return;
+      const next = [...credits];
+      const t = next[i]!;
+      next[i] = next[j]!;
+      next[j] = t;
+      setCredits(next);
+    },
+    [credits, setCredits],
+  );
+
+  return (
+    <div>
+      <p className="mb-2 text-xs leading-relaxed text-base-content/55">
+        One credit per line; order is shown on the public page. Each person can use a different prefix (for example
+        &quot;Written by&quot; vs &quot;Narrated by&quot;).
+      </p>
+      <div className="flex flex-col gap-3">
+        {credits.length === 0 ? (
+          <p className="text-xs text-base-content/50">No authors yet.</p>
+        ) : (
+          credits.map((credit, idx) => (
+            <div
+              key={credit.id}
+              className="rounded-xl border border-base-content/12 bg-base-100/30 p-3 shadow-sm"
+            >
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-base-content/45">
+                  Author {idx + 1}
+                </span>
+                <div className="flex items-center gap-1">
+                  {credits.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs gap-0.5 px-1.5"
+                        disabled={idx === 0}
+                        onClick={() => moveAuthor(credit.id, -1)}
+                        aria-label={`Move author ${idx + 1} up`}
+                        title="Move up"
+                      >
+                        <ArrowUp className="size-3.5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs gap-0.5 px-1.5"
+                        disabled={idx >= credits.length - 1}
+                        onClick={() => moveAuthor(credit.id, 1)}
+                        aria-label={`Move author ${idx + 1} down`}
+                        title="Move down"
+                      >
+                        <ArrowDown className="size-3.5" aria-hidden />
+                      </button>
+                    </>
+                  ) : null}
+                  {credits.length > 1 ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs gap-1 text-error"
+                      onClick={() => removeAuthor(credit.id)}
+                      aria-label={`Remove author ${idx + 1}`}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <input
+                className={cn(
+                  "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100",
+                  controlH,
+                )}
+                placeholder="e.g. Jordan Gonsalves"
+                value={credit.name}
+                onChange={(e) => updateCredit(credit.id, { name: e.target.value })}
+              />
+              <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-wider text-base-content/45">
+                Text before this name
+              </p>
+              <div className="flex flex-col gap-2">
+                {STORY_AUTHOR_PREFIX_OPTIONS.map((opt) => {
+                  const active = effectiveStoryAuthorPrefixMode(credit.authorPrefixMode) === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={authorPrefixOptionClass(active)}
+                      onClick={() => updateCredit(credit.id, { authorPrefixMode: opt.value })}
+                    >
+                      <span className="block text-sm font-semibold text-base-content">{opt.label}</span>
+                      <span className="mt-0.5 block text-xs leading-snug text-base-content/55">{opt.example}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {effectiveStoryAuthorPrefixMode(credit.authorPrefixMode) === "custom" ? (
+                <div className="mt-2">
+                  <FieldLabel>Custom prefix</FieldLabel>
+                  <p className="mb-2 text-xs leading-relaxed text-base-content/55">
+                    Text immediately before this name. Add a trailing space if you want one before the name.
+                  </p>
+                  <input
+                    className={cn(
+                      "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100",
+                      controlH,
+                    )}
+                    placeholder='e.g. Narrated by  or  Written by '
+                    value={credit.authorPrefixCustom ?? ""}
+                    onChange={(e) =>
+                      updateCredit(credit.id, {
+                        authorPrefixCustom: e.target.value.length ? e.target.value : undefined,
+                      })
+                    }
+                  />
+                </div>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+      <button type="button" className="btn btn-outline btn-sm mt-2 gap-1" onClick={addAuthor}>
+        <Plus className="size-3.5" aria-hidden />
+        Add author
+      </button>
+      <div className="mt-3 rounded-lg border border-base-content/10 bg-base-100/45 px-3 py-2.5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-base-content/45">Live preview</p>
+        <p className="mt-1.5 whitespace-pre-line text-sm font-medium text-base-content">
+          {formatStoryAuthorLine(doc) ?? (
+            <span className="font-normal text-base-content/50">Add at least one author name to preview bylines.</span>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function InspectorStoryTabContent({
   doc,
   storyId,
@@ -965,21 +1162,24 @@ function InspectorStoryTabContent({
     (typeof process !== "undefined" && process.env.NEXT_PUBLIC_PUBLIC_STORY_SITE_ORIGIN?.trim()) ||
     "https://gonsalves.family";
 
-  const checkSlugAvailability = useCallback(async () => {
-    const slug = normalizeStorySlugInput(doc.slug ?? "");
-    if (!slug) {
-      setSlugError(null);
-      return;
-    }
-    try {
-      const res = await fetchJson<{ available: boolean }>(
-        `/api/admin/stories/check-slug?slug=${encodeURIComponent(slug)}&excludeId=${encodeURIComponent(storyId)}`,
-      );
-      setSlugError(res.available ? null : "This URL slug is already taken. Try another.");
-    } catch {
-      setSlugError(null);
-    }
-  }, [doc.slug, storyId]);
+  const checkSlugAvailability = useCallback(
+    async (slugOverride?: string) => {
+      const slug = normalizeStorySlugInput(slugOverride ?? doc.slug ?? "");
+      if (!slug) {
+        setSlugError(null);
+        return;
+      }
+      try {
+        const res = await fetchJson<{ available: boolean }>(
+          `/api/admin/stories/check-slug?slug=${encodeURIComponent(slug)}&excludeId=${encodeURIComponent(storyId)}`,
+        );
+        setSlugError(res.available ? null : "This URL slug is already taken. Try another.");
+      } catch {
+        setSlugError(null);
+      }
+    },
+    [doc.slug, storyId],
+  );
 
   const chipBtn = (active: boolean) =>
     cn(
@@ -999,6 +1199,11 @@ function InspectorStoryTabContent({
         : "border-base-content/12 bg-base-100/70 hover:border-base-content/20",
     );
 
+  const authorCredits = useMemo(() => getStoryAuthorCredits(doc), [doc]);
+  const authorsSectionDefaultOpen = authorCredits.length > 0;
+  const summaryDefaultOpen = Boolean((doc.excerpt ?? "").trim());
+  const slugPreview = normalizeStorySlugInput(doc.slug ?? "");
+
   return (
     <div className="space-y-4">
       <CollapsibleFormSection title="Basic details" defaultOpen>
@@ -1017,7 +1222,7 @@ function InspectorStoryTabContent({
         <div>
           <FieldLabel>Slug</FieldLabel>
           <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            URL-safe identifier (lowercase letters, numbers, hyphens). Used on the public site at{" "}
+            Lowercase letters, numbers, and hyphens. Spaces become hyphens; other characters are removed. Used on the public site at{" "}
             <span className="font-medium text-base-content/70">/stories/your-slug</span>.
           </p>
           <input
@@ -1029,94 +1234,51 @@ function InspectorStoryTabContent({
             placeholder="e.g. the-gonsalves-of-berbice"
             value={doc.slug ?? ""}
             onChange={(e) => {
-              const v = normalizeStorySlugInput(e.target.value);
-              onStoryMetaChange({ slug: v.length ? v : undefined });
+              const live = normalizeStorySlugInputLive(e.target.value);
+              if (!live.length) {
+                const auto = !doc.title.trim()
+                  ? ""
+                  : normalizeStorySlugInput(slugifyStoryTitle(doc.title));
+                onStoryMetaChange({
+                  slug: auto.length ? auto : undefined,
+                  slugManuallyEdited: false,
+                });
+              } else {
+                onStoryMetaChange({ slug: live, slugManuallyEdited: true });
+              }
               if (slugError) setSlugError(null);
             }}
-            onBlur={() => void checkSlugAvailability()}
+            onBlur={() => {
+              const raw = doc.slug ?? "";
+              const committed = normalizeStorySlugInput(raw);
+              if (committed !== raw) {
+                onStoryMetaChange({ slug: committed.length ? committed : undefined });
+              }
+              void checkSlugAvailability(committed);
+            }}
             spellCheck={false}
             aria-invalid={Boolean(slugError)}
           />
           {slugError ? <p className="mt-1.5 text-xs font-medium text-error">{slugError}</p> : null}
-          <p className="mt-1.5 text-[11px] leading-relaxed text-base-content/50">
-            Public URL:{" "}
-            <span className="break-all font-mono text-base-content/65">
-              {publicOrigin.replace(/\/$/, "")}/stories/
-              {normalizeStorySlugInput(doc.slug ?? "").length > 0 ? normalizeStorySlugInput(doc.slug ?? "") : "…"}
-            </span>
+        </div>
+        <div className="rounded-lg border border-base-content/10 bg-base-100/40 px-3 py-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-base-content/45">Public URL preview</p>
+          <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-base-content/70">
+            {publicOrigin.replace(/\/$/, "")}/stories/{slugPreview.length > 0 ? slugPreview : "…"}
           </p>
         </div>
-        <div>
-          <FieldLabel>Author</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            The name of the person or organization that created this story.
-          </p>
-          <input
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100",
-              controlH,
-            )}
-            placeholder="e.g. Jordan Gonsalves"
-            value={doc.author ?? ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              onStoryMetaChange({ author: v.trim() === "" ? undefined : v });
-            }}
-          />
-        </div>
-        <div>
-          <FieldLabel>Text before the author</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            Choose how the author line begins in preview and when the story is published. This does not change the author
-            name itself.
-          </p>
-          <div className="flex flex-col gap-2">
-            {STORY_AUTHOR_PREFIX_OPTIONS.map((opt) => {
-              const active = effectiveStoryAuthorPrefixMode(doc.authorPrefixMode) === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={authorPrefixOptionClass(active)}
-                  onClick={() => onStoryMetaChange({ authorPrefixMode: opt.value })}
-                >
-                  <span className="block text-sm font-semibold text-base-content">{opt.label}</span>
-                  <span className="mt-0.5 block text-xs leading-snug text-base-content/55">{opt.example}</span>
-                </button>
-              );
-            })}
-          </div>
-          {effectiveStoryAuthorPrefixMode(doc.authorPrefixMode) === "custom" ? (
-            <div className="mt-3">
-              <FieldLabel>Your custom prefix</FieldLabel>
-              <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-                Type the words that appear immediately before the author name. Add a trailing space if you want one
-                before the name. Leave empty to show only the name.
-              </p>
-              <input
-                className={cn(
-                  "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100",
-                  controlH,
-                )}
-                placeholder='e.g. Written by  or  From the desk of '
-                value={doc.authorPrefixCustom ?? ""}
-                onChange={(e) =>
-                  onStoryMetaChange({
-                    authorPrefixCustom: e.target.value.length ? e.target.value : undefined,
-                  })
-                }
-              />
-            </div>
-          ) : null}
-          <div className="mt-3 rounded-lg border border-base-content/10 bg-base-100/45 px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-base-content/45">Live preview</p>
-            <p className="mt-1.5 text-sm font-medium text-base-content">
-              {formatStoryAuthorLine(doc) ?? (
-                <span className="font-normal text-base-content/50">Enter an author name above to preview this line.</span>
-              )}
-            </p>
-          </div>
-        </div>
+      </CollapsibleFormSection>
+
+      <CollapsibleFormSection title="Authors" defaultOpen={authorsSectionDefaultOpen}>
+        <InspectorStoryAuthorsSection
+          doc={doc}
+          controlH={controlH}
+          authorPrefixOptionClass={authorPrefixOptionClass}
+          onStoryMetaChange={onStoryMetaChange}
+        />
+      </CollapsibleFormSection>
+
+      <CollapsibleFormSection title="Summary" defaultOpen={summaryDefaultOpen}>
         <div>
           <FieldLabel>Subtitle / short description</FieldLabel>
           <p className="mb-2 text-xs leading-relaxed text-base-content/55">
@@ -1129,6 +1291,9 @@ function InspectorStoryTabContent({
             onChange={(e) => onExcerptChange(e.target.value)}
           />
         </div>
+      </CollapsibleFormSection>
+
+      <CollapsibleFormSection title="Publishing state" defaultOpen={false}>
         <div>
           <FieldLabel>Status</FieldLabel>
           <p className="mb-2 text-xs leading-relaxed text-base-content/55">
@@ -1897,7 +2062,7 @@ export function StoryCreatorInspector({
   return (
     <aside
       className={cn(
-        "flex min-h-0 w-[min(100%,320px)] shrink-0 flex-col border-l border-base-content/10 bg-base-200/45 backdrop-blur-sm",
+        "flex min-h-0 w-full min-w-0 shrink-0 flex-col border-l border-base-content/10 bg-base-200/45 backdrop-blur-sm",
         className,
       )}
     >

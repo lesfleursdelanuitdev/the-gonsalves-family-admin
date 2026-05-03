@@ -20,7 +20,6 @@ export const GET = withAdminAuth(async (req: NextRequest, _user, _ctx) => {
   const taken = await prisma.story.findFirst({
     where: {
       treeId,
-      deletedAt: null,
       slug,
       ...(excludeId ? { NOT: { id: excludeId } } : {}),
     },

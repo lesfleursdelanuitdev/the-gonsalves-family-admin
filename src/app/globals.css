@@ -1054,6 +1054,20 @@ body {
 .story-tiptap .ProseMirror mark {
   border-radius: 0.125rem;
 }
+
+/* Media delete dialog — indeterminate progress strip */
+@keyframes admin-media-delete-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+.admin-media-delete-progress-strip {
+  animation: admin-media-delete-progress 1.15s ease-in-out infinite;
+}
+
 /* Empty rich-text — placeholder reads as intentional copy, not a bug */
 .story-tiptap .ProseMirror p.is-editor-empty:first-child::before {
   color: color-mix(in oklch, var(--color-base-content) 44%, transparent);

@@ -1,37 +1,26 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
-import Link from "next/link";
+import { useMemo, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileText, Link2, StickyNote } from "lucide-react";
 import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
-import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
+import { NoteGridCard, type NoteGridCardLinkedTarget } from "@/components/admin/NoteGridCard";
+import {
+  DataViewer,
+  DataViewerGedcomBatchEditModal,
+  type DataViewerConfig,
+} from "@/components/data-viewer";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
 import { selectClassName } from "@/components/data-viewer/constants";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  useAdminNotes,
-  useDeleteNote,
-  type AdminNotesListResponse,
-} from "@/hooks/useAdminNotes";
+import { useAdminNotes, useDeleteNote, type AdminNotesListResponse } from "@/hooks/useAdminNotes";
+import { deleteJson } from "@/lib/infra/api";
 import { useAdminNotesPageFilters } from "@/hooks/useAdminNotesPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
+import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import { markdownToPlainPreview } from "@/lib/utils/markdown-preview";
-
-interface NoteLinkedTarget {
-  label: string;
-  /** Null when there is no admin detail route (e.g. source). */
-  href: string | null;
-}
 
 interface NoteRow {
   id: string;
@@ -39,19 +28,19 @@ interface NoteRow {
   contentPreview: string;
   isTopLevel: boolean;
   linkedTo: string;
-  linkedTargets: NoteLinkedTarget[];
+  linkedTargets: NoteGridCardLinkedTarget[];
 }
 
 function mapApiToRows(api: AdminNotesListResponse): NoteRow[] {
   return (api?.notes ?? []).map((n) => {
-    const contentPreview = markdownToPlainPreview(n.content, 80);
-    const linkedTargets: NoteLinkedTarget[] = [];
+    const contentPreview = markdownToPlainPreview(n.content, 160);
+    const linkedTargets: NoteGridCardLinkedTarget[] = [];
 
     n.individualNotes?.forEach((in_) => {
       const name = stripSlashesFromName(in_.individual?.fullName);
       const id = in_.individual?.id;
       if (name && id) {
-        linkedTargets.push({ label: name, href: `/admin/individuals/${id}` });
+        linkedTargets.push({ kind: "individual", label: name, href: `/admin/individuals/${id}` });
       }
     });
     n.familyNotes?.forEach((fn) => {
@@ -60,19 +49,22 @@ function mapApiToRows(api: AdminNotesListResponse): NoteRow[] {
       const id = fn.family?.id;
       if (!id || !(h || w)) return;
       const label = `${h} & ${w}`.replace(/^ & | & $/g, "").trim() || "Family";
-      linkedTargets.push({ label, href: `/admin/families/${id}` });
+      linkedTargets.push({ kind: "family", label, href: `/admin/families/${id}` });
     });
     n.eventNotes?.forEach((en) => {
       const id = en.event?.id;
       const et = en.event?.eventType;
       if (id && et) {
-        linkedTargets.push({ label: `Event: ${et}`, href: `/admin/events/${id}` });
+        const typeWord = labelGedcomEventType(et);
+        const custom = (en.event?.customType ?? "").trim();
+        const display = custom ? `${typeWord} (${custom})` : typeWord;
+        linkedTargets.push({ kind: "event", label: `Event: ${display}`, href: `/admin/events/${id}` });
       }
     });
     n.sourceNotes?.forEach((sn) => {
       const t = sn.source?.title ?? sn.source?.xref;
       if (t) {
-        linkedTargets.push({ label: t, href: null });
+        linkedTargets.push({ kind: "source", label: t, href: null });
       }
     });
 
@@ -92,6 +84,8 @@ function mapApiToRows(api: AdminNotesListResponse): NoteRow[] {
 function buildNotesConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (r: NoteRow) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
+  onBulkEdit: (ids: string[]) => void,
 ): DataViewerConfig<NoteRow> {
   return {
     id: "notes",
@@ -109,61 +103,17 @@ function buildNotesConfig(
       { accessorKey: "linkedTo", header: "Linked to", enableSorting: true },
     ],
     renderCard: ({ record, onView, onEdit, onDelete }) => (
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-2">
-            <StickyNote className="size-5 text-muted-foreground" />
-            <CardTitle className="text-base font-mono text-sm">{record.xref || "—"}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <p className="flex items-center gap-1.5 rounded-md bg-white/8 px-5 py-3.5 text-sm font-bold leading-none text-white app-light:bg-black/[0.07] app-light:text-base-content/90">
-            <FileText className="size-3.5 shrink-0" aria-hidden />
-            Content Preview
-          </p>
-          <div className="rounded-md bg-black/10 p-3">
-            <p className="leading-snug text-sm text-base-content/90 line-clamp-4">
-              {record.contentPreview}
-            </p>
-          </div>
-          <p className="flex items-center gap-1.5 rounded-md bg-white/8 px-5 py-3.5 text-sm font-bold leading-none text-white app-light:bg-black/[0.07] app-light:text-base-content/90">
-            <Link2 className="size-3.5 shrink-0" aria-hidden />
-            Linked To
-          </p>
-          <div className="text-sm text-muted-foreground">
-            {record.linkedTargets.length === 0 ? (
-              <span>—</span>
-            ) : (
-              <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1 gap-y-1">
-                {record.linkedTargets.map((item, i) => (
-                  <span key={`${item.label}-${i}`} className="inline-flex items-baseline">
-                    {i > 0 ? <span className="mr-1 text-base-content/35">;</span> : null}
-                    {item.href ? (
-                      <Link
-                        href={item.href}
-                        className="font-medium text-primary underline-offset-2 hover:underline"
-                      >
-                        {item.label}
-                      </Link>
-                    ) : (
-                      <span>{item.label}</span>
-                    )}
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-        </CardContent>
-        <CardActionFooter onView={onView} onEdit={onEdit} onDelete={onDelete} />
-      </Card>
+      <NoteGridCard record={record} onView={onView} onEdit={onEdit} onDelete={onDelete} />
     ),
     actions: {
       add: { label: "Add note", handler: () => router.push("/admin/notes/new") },
       view: { label: "View", handler: (r) => router.push(`/admin/notes/${r.id}`) },
       edit: { label: "Edit", handler: (r) => router.push(`/admin/notes/${r.id}/edit`) },
+      bulkEdit: { label: "Edit selected", handler: onBulkEdit },
       delete: {
         label: "Delete",
         handler: onDelete,
+        bulkDeleteOne,
       },
     },
   };
@@ -171,7 +121,11 @@ function buildNotesConfig(
 
 export default function AdminNotesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const deleteNote = useDeleteNote();
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
+  const [batchApplyKey, setBatchApplyKey] = useState<number | undefined>();
   const { draft: filterDraft, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminNotesPageFilters();
 
@@ -198,8 +152,24 @@ export default function AdminNotesPage() {
     [deleteNote],
   );
 
+  const bulkDeleteOneNote = useCallback(async (id: string) => {
+    await deleteJson(`/api/admin/notes/${id}`);
+  }, []);
+
+  const handleBulkDeleteFinished = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "notes"] });
+  }, [queryClient]);
+
+  const openBulkEdit = useCallback((ids: string[]) => {
+    setBatchEditIds(ids);
+    setBatchEditOpen(true);
+  }, []);
+
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildNotesConfig(router, handleDelete), [router, handleDelete]);
+  const config = useMemo(
+    () => buildNotesConfig(router, handleDelete, bulkDeleteOneNote, openBulkEdit),
+    [router, handleDelete, bulkDeleteOneNote, openBulkEdit],
+  );
 
   return (
     <AdminListPageShell
@@ -252,12 +222,24 @@ export default function AdminNotesPage() {
         </FilterPanel>
       }
     >
+      <DataViewerGedcomBatchEditModal
+        open={batchEditOpen}
+        onOpenChange={setBatchEditOpen}
+        entityKind="note"
+        selectedIds={batchEditIds}
+        onApplied={() => {
+          setBatchApplyKey((k) => (k ?? 0) + 1);
+          void queryClient.invalidateQueries({ queryKey: ["admin", "notes"] });
+        }}
+      />
       <DataViewer
         config={config}
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-notes-view"
         totalCount={data?.total}
+        batchApplyKey={batchApplyKey}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
       />
     </AdminListPageShell>
   );

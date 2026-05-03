@@ -110,11 +110,6 @@ export function FamilyCard({
       )}
     >
       <CardHeader className="relative space-y-2 pb-2 pt-3 text-center">
-        <div className="absolute start-3 top-3 z-[1]">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Family
-          </span>
-        </div>
         <div className="absolute end-2 top-2 z-[1]">
           <DropdownMenu>
             <DropdownMenuTrigger

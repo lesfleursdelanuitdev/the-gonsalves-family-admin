@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useCallback, useLayoutEffect, useRef, Suspense } from "react";
+import { useMemo, useCallback, useLayoutEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
+import {
+  DataViewer,
+  DataViewerGedcomBatchEditModal,
+  type DataViewerConfig,
+} from "@/components/data-viewer";
 import {
   EventCard,
   EVENT_CARD_MAX_LINKED_INDIVIDUALS,
@@ -14,11 +19,13 @@ import { selectClassName } from "@/components/data-viewer/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  ADMIN_EVENTS_QUERY_KEY,
   useAdminEvents,
   useDeleteEvent,
   type AdminEventsListResponse,
   type UseAdminEventsOpts,
 } from "@/hooks/useAdminEvents";
+import { deleteJson } from "@/lib/infra/api";
 import { useFilterState } from "@/hooks/useFilterState";
 import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
@@ -145,6 +152,8 @@ function mapApiToRows(api: AdminEventsListResponse): EventRow[] {
 function buildEventsConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (r: EventRow) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
+  onBulkEdit: (ids: string[]) => void,
 ): DataViewerConfig<EventRow> {
   return {
     id: "events",
@@ -223,7 +232,8 @@ function buildEventsConfig(
         handler: (r) => router.push(`/admin/events/${r.id}`),
       },
       edit: { label: "Edit", handler: (r) => router.push(`/admin/events/${r.id}/edit`) },
-      delete: { label: "Delete", handler: onDelete },
+      bulkEdit: { label: "Edit selected", handler: onBulkEdit },
+      delete: { label: "Delete", handler: onDelete, bulkDeleteOne },
     },
   };
 }
@@ -253,8 +263,12 @@ function filterStateToQueryOpts(applied: FilterState): UseAdminEventsOpts {
 function AdminEventsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const deleteEvent = useDeleteEvent();
   const lastHydratedQsRef = useRef<string | null>(null);
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
+  const [batchApplyKey, setBatchApplyKey] = useState<number | undefined>();
   const { draft: filterDraft, queryOpts, updateDraft, apply, clear, replace } = useFilterState(
     FILTER_DEFAULTS,
     filterStateToQueryOpts,
@@ -309,8 +323,24 @@ function AdminEventsPageInner() {
     [deleteEvent],
   );
 
+  const bulkDeleteOneEvent = useCallback(async (id: string) => {
+    await deleteJson(`/api/admin/events/${id}`);
+  }, []);
+
+  const handleBulkDeleteFinished = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [...ADMIN_EVENTS_QUERY_KEY] });
+  }, [queryClient]);
+
+  const openBulkEdit = useCallback((ids: string[]) => {
+    setBatchEditIds(ids);
+    setBatchEditOpen(true);
+  }, []);
+
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
-  const config = useMemo(() => buildEventsConfig(router, handleDelete), [router, handleDelete]);
+  const config = useMemo(
+    () => buildEventsConfig(router, handleDelete, bulkDeleteOneEvent, openBulkEdit),
+    [router, handleDelete, bulkDeleteOneEvent, openBulkEdit],
+  );
 
   return (
     <div className="space-y-6">
@@ -422,6 +452,17 @@ function AdminEventsPageInner() {
         </div>
       </FilterPanel>
 
+      <DataViewerGedcomBatchEditModal
+        open={batchEditOpen}
+        onOpenChange={setBatchEditOpen}
+        entityKind="event"
+        selectedIds={batchEditIds}
+        onApplied={() => {
+          setBatchApplyKey((k) => (k ?? 0) + 1);
+          void queryClient.invalidateQueries({ queryKey: [...ADMIN_EVENTS_QUERY_KEY] });
+        }}
+      />
+
       <DataViewer
         config={config}
         data={rows}
@@ -429,6 +470,8 @@ function AdminEventsPageInner() {
         viewModeKey="admin-events-view"
         paginationResetKey={JSON.stringify(queryOpts)}
         totalCount={data?.total}
+        batchApplyKey={batchApplyKey}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { refreshSession, setSessionCookie } from "@/lib/infra/auth";
+import { applySessionCookieToResponse, refreshSession } from "@/lib/infra/auth";
 
 export async function POST(req: Request) {
   try {
@@ -13,8 +13,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid or expired refresh token" }, { status: 401 });
     }
 
-    await setSessionCookie(result.token);
-    return NextResponse.json({ refreshToken: result.refreshToken });
+    const res = NextResponse.json({ refreshToken: result.refreshToken });
+    applySessionCookieToResponse(res, result.token);
+    return res;
   } catch (e) {
     console.error("Refresh error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

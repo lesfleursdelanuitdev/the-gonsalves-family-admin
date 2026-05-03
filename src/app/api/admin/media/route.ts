@@ -19,6 +19,7 @@ import {
   type ChangeCtx,
 } from "@/lib/admin/changelog";
 import { reserveNextGedcomMediaXref } from "@/lib/admin/gedcom-media-xref";
+import { ensureMediaDatePlaceFromLinkedEvent } from "@/lib/admin/ensure-media-date-place-from-event";
 
 /**
  * Slim include set tuned for the media list/dataviewer.
@@ -227,6 +228,11 @@ export const POST = withAdminAuth(async (request, user, _ctx) => {
         if (!ev) throw new Error("EVENT_NOT_IN_TREE");
         await tx.gedcomEventMedia.create({
           data: { fileUuid, eventId: eid, mediaId: created.id },
+        });
+        await ensureMediaDatePlaceFromLinkedEvent(tx, ctx, {
+          mediaId: created.id,
+          fileUuid,
+          eventId: eid,
         });
       }
 

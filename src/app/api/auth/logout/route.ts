@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionToken, revokeSession, clearSessionCookie } from "@/lib/infra/auth";
+import { clearSessionCookieOnResponse, getSessionToken, revokeSession } from "@/lib/infra/auth";
 
 export async function POST() {
   try {
@@ -7,8 +7,9 @@ export async function POST() {
     if (token) {
       await revokeSession(token);
     }
-    await clearSessionCookie();
-    return NextResponse.json({ ok: true });
+    const res = NextResponse.json({ ok: true });
+    clearSessionCookieOnResponse(res);
+    return res;
   } catch (e) {
     console.error("Logout error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

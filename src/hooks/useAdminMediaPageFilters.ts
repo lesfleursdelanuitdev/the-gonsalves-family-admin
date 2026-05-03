@@ -11,6 +11,9 @@ export interface AdminMediaPageFilterState {
   linkedGiven: string;
   linkedLast: string;
   q: string;
+  albumId: string;
+  tagId: string;
+  linkedEventType: string;
 }
 
 export const ADMIN_MEDIA_PAGE_FILTER_DEFAULTS: AdminMediaPageFilterState = {
@@ -21,6 +24,9 @@ export const ADMIN_MEDIA_PAGE_FILTER_DEFAULTS: AdminMediaPageFilterState = {
   linkedGiven: "",
   linkedLast: "",
   q: "",
+  albumId: "",
+  tagId: "",
+  linkedEventType: "",
 };
 
 /**
@@ -49,6 +55,12 @@ export function adminMediaPageFilterStateToQueryOpts(applied: AdminMediaPageFilt
   const ll = applied.linkedLast.trim();
   if (lg) opts.linkedGiven = lg;
   if (ll) opts.linkedLast = ll;
+  const album = applied.albumId.trim();
+  if (album) opts.albumId = album;
+  const tag = applied.tagId.trim();
+  if (tag) opts.tagId = tag;
+  const et = applied.linkedEventType.trim();
+  if (et) opts.linkedEventType = et;
   return opts;
 }
 
