@@ -185,11 +185,14 @@ function StoryCanvasRichTextEditor({
   rich,
   onJson,
   isLg,
+  surface = "canvas",
 }: {
   editorKey: string;
   rich: StoryRichTextBlock;
   onJson: (json: JSONContent) => void;
   isLg: boolean;
+  /** `canvas`: flat shell inside section canvas. `card`: bordered shell when nested in containers/columns so the edit region is visible. */
+  surface?: "canvas" | "card";
 }) {
   const preset = getStoryRichTextPreset(rich);
   return (
@@ -198,7 +201,7 @@ function StoryCanvasRichTextEditor({
       content={rich.doc}
       onChange={onJson}
       toolbarDensity={isLg ? "default" : "touch"}
-      surface="canvas"
+      surface={surface}
       richTextPreset={preset}
       listVariant={preset === "list" ? (rich.listVariant ?? "bullet") : undefined}
       quoteStyle={rich.quoteStyle}
@@ -603,6 +606,7 @@ function StoryNestedColumnsGrid({
             rich={child}
             onJson={(json) => updateRichBlock(sectionId, child.id, json)}
             isLg={isLg}
+            surface="card"
           />
         );
       }
@@ -652,12 +656,13 @@ function StoryNestedColumnsGrid({
           <StorySplitContentEditorLayout
             block={child}
             textEditor={
-              <div className="max-w-full pb-4 pt-5">
+              <div className="max-w-full">
                 <StoryCanvasRichTextEditor
                   editorKey={`${sectionId}-${nest.id}-${child.text.id}`}
                   rich={child.text}
                   onJson={(json) => updateRichBlock(sectionId, child.text.id, json)}
                   isLg={isLg}
+                  surface="card"
                 />
               </div>
             }
@@ -805,7 +810,6 @@ function StoryNestedColumnsGrid({
           onDelete={() => removeBlock(sectionId, child.id)}
           onOpenInspector={openInspector}
           onMove={(dir) => moveBlock(sectionId, child.id, dir)}
-          contentClassName={cn(child.type === "richText" && "pb-4 pt-5")}
         >
           {renderColContainerChildBody(child)}
         </StoryEditorBlockFrame>
@@ -921,7 +925,6 @@ function StoryNestedColumnsGrid({
         onDelete={() => removeBlock(sectionId, nested.id)}
         onOpenInspector={openInspector}
         onMove={(dir) => moveBlock(sectionId, nested.id, dir)}
-        contentClassName={cn(nested.type === "richText" && "pb-4 pt-5")}
       >
         {nested.type === "richText" ? (
           <StoryCanvasRichTextEditor
@@ -929,6 +932,7 @@ function StoryNestedColumnsGrid({
             rich={nested}
             onJson={(json) => updateRichBlock(sectionId, nested.id, json)}
             isLg={isLg}
+            surface="card"
           />
         ) : nested.type === "media" ? (
           <MediaEmbedCanvasCard
@@ -983,12 +987,13 @@ function StoryNestedColumnsGrid({
           <StorySplitContentEditorLayout
             block={nested}
             textEditor={
-              <div className="max-w-full pb-4 pt-5">
+              <div className="max-w-full">
                 <StoryCanvasRichTextEditor
                   editorKey={`${sectionId}-${columnsBlock.id}-${nested.text.id}`}
                   rich={nested.text}
                   onJson={(json) => updateRichBlock(sectionId, nested.text.id, json)}
                   isLg={isLg}
+                  surface="card"
                 />
               </div>
             }
@@ -3288,6 +3293,7 @@ function StorySectionContainerInner({
           rich={child}
           onJson={(json) => updateRichBlock(sectionId, child.id, json)}
           isLg={isLg}
+          surface="card"
         />
       );
     }
@@ -3335,12 +3341,13 @@ function StorySectionContainerInner({
         <StorySplitContentEditorLayout
           block={child}
           textEditor={
-            <div className="max-w-full pb-4 pt-5">
+            <div className="max-w-full">
               <StoryCanvasRichTextEditor
                 editorKey={`${sectionId}-${nest.id}-${child.text.id}`}
                 rich={child.text}
                 onJson={(json) => updateRichBlock(sectionId, child.text.id, json)}
                 isLg={isLg}
+                surface="card"
               />
             </div>
           }
@@ -3531,7 +3538,6 @@ function StorySectionContainerInner({
         onDelete={() => removeBlock(sectionId, child.id)}
         onOpenInspector={openInspector}
         onMove={(dir) => moveBlock(sectionId, child.id, dir)}
-        contentClassName={cn(child.type === "richText" && "pb-4 pt-5")}
       >
         {renderContainerChildBody(child)}
       </StoryEditorBlockFrame>

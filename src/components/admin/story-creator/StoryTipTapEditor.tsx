@@ -250,10 +250,12 @@ function StoryTipTapEditorInner({
     return (
       <div
         className={cn(
-          "px-3 py-8 text-center text-sm text-muted-foreground",
+          "px-3 py-8 text-center text-sm",
           surface === "canvas"
-            ? "rounded-none border-0 bg-transparent"
-            : "rounded-lg border border-base-content/15 bg-base-100",
+            ? "rounded-none border-0 bg-transparent text-muted-foreground"
+            : canvasTone === "paper"
+              ? "rounded-lg border border-black/15 bg-white text-neutral-500"
+              : "rounded-lg border border-base-content/15 bg-base-100 text-muted-foreground",
           className,
         )}
       >
@@ -281,7 +283,9 @@ function StoryTipTapEditorInner({
         canvasTone === "paper" && "story-tiptap--paper",
         surface === "canvas"
           ? "rounded-none border-0 bg-transparent shadow-none ring-0"
-          : "rounded-xl border border-base-content/12 bg-base-100 shadow-sm ring-1 ring-base-content/[0.04]",
+          : canvasTone === "paper"
+            ? "rounded-xl border border-black/15 bg-white shadow-sm ring-1 ring-black/[0.06]"
+            : "rounded-xl border border-base-content/12 bg-base-100 shadow-sm ring-1 ring-base-content/[0.04]",
         quoteCard &&
           (canvasTone === "paper"
             ? "rounded-lg border border-black/20 bg-neutral-50/90 p-3 ring-1 ring-black/[0.06]"
