@@ -35,7 +35,7 @@ import { useStoryMediaById } from "@/hooks/useStoryMediaById";
 import { resolveStoryImages, storyCoverAndProfileAreSameRef } from "@/lib/admin/story-creator/story-images-resolve";
 import {
   getContainerCustomBackgroundStyle,
-  getContainerPresetShellClassName,
+  getContainerClasses,
 } from "@/lib/admin/story-creator/story-container-preset-styles";
 import "./story-reference-preview.css";
 import "./story-preview-themes.css";
@@ -115,7 +115,7 @@ function storyRichTextPresetPreviewClass(block: StoryRichTextBlock): string {
       ((block.quoteStyle ?? "simple") === "card"
         ? "rounded-lg border border-base-content/10 bg-base-content/[0.04] p-4"
         : "border-l-4 border-base-content/30 pl-4 italic"),
-    preset === "list" && "",
+    preset === "list" && "prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5",
   );
 }
 
@@ -254,7 +254,7 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
     const shellStyle = getContainerCustomBackgroundStyle(block.props);
     return (
       <StoryBlockRowDesignWrap block={block} floated={false} referencePreviewMobile={previewMobile}>
-        <div className={getContainerPresetShellClassName(block.props, "preview")} style={shellStyle ?? undefined}>
+        <div className={getContainerClasses(block, "preview")} style={shellStyle ?? undefined}>
           {block.children.length === 0 ? null : (
             <div className="space-y-3">
               {groupStoryBlocksForLayout(block.children).map((group) => {
@@ -285,8 +285,8 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
   if (block.type === "columns") {
     const cellClass =
       nestedDepth >= 2
-        ? "flex min-h-[3rem] min-w-0 flex-col rounded-md border border-base-content/7 bg-base-200/15 p-2"
-        : "flex min-h-[4rem] min-w-0 flex-col rounded-lg border border-base-content/10 bg-base-200/20 p-3";
+        ? "flex min-h-[3rem] min-w-0 flex-col rounded-md border border-solid border-[color:var(--story-subtle-border)] bg-base-200/15 p-2"
+        : "flex min-h-[4rem] min-w-0 flex-col rounded-lg border border-solid border-[color:var(--story-subtle-border)] bg-base-200/20 p-3";
     const layout = previewMobile ? ("stacked" as const) : ("two-column" as const);
     return (
       <div className="story-preview-columns grid min-w-0" style={storyColumnsGridStyle(block, layout)}>
@@ -337,7 +337,7 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
     const rows = block.cells ?? [];
     const hasHeader = block.hasHeaderRow ?? false;
     return (
-      <div className="story-preview-table-outer overflow-x-auto rounded-lg border p-3 text-sm">
+      <div className="story-preview-table-outer overflow-x-auto rounded-lg border border-solid border-[color:var(--story-subtle-border)] p-3 text-sm">
         <table className="w-full border-collapse">
           <tbody>
             {rows.map((row, ri) => (
@@ -365,7 +365,7 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
       </div>
     );
     const rail = (
-      <div className="preview-split-rail mt-4 w-full shrink-0 space-y-3 rounded-lg border p-3 md:mt-0 md:w-[min(38%,320px)]">
+      <div className="preview-split-rail mt-4 w-full shrink-0 space-y-3 rounded-lg border border-solid border-[color:var(--story-subtle-border)] p-3 md:mt-0 md:w-[min(38%,320px)]">
         {block.supporting.blocks.length === 0 ? (
           <p className="preview-empty-hint rounded-md px-2 py-3 text-center text-xs">Supporting area</p>
         ) : (

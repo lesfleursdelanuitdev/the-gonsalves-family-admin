@@ -17,6 +17,15 @@ import type {
   StorySplitContentBlock,
   StorySplitSupportBlock,
 } from "@/lib/admin/story-creator/story-types";
+import { getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
+import {
+  applyHeadingLevelToRichTextDoc,
+  clampStoryRichTextHeadingLevel,
+  inferFirstHeadingLevel,
+  swapListVariantInDoc,
+  transformRichTextDocToList,
+  unwrapListItemsToParagraphDoc,
+} from "@/components/admin/story-creator/story-tiptap-doc";
 import { mergeStoryBlockDesign } from "@/lib/admin/story-creator/story-block-design";
 import { columnsBlockDepthInSection, MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import { cloneStoryBlock } from "@/lib/admin/story-creator/story-block-factory";
@@ -217,9 +226,22 @@ export function patchRichTextInSection(
   return {
     ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) => {
-      if (b.type === "richText" && b.id === richId) return { ...b, doc };
+      if (b.type === "richText" && b.id === richId) {
+        const next: StoryRichTextBlock = { ...b, doc };
+        if (getStoryRichTextPreset(b) === "heading") {
+          const inferred = inferFirstHeadingLevel(doc);
+          if (inferred != null) next.headingLevel = inferred;
+        }
+        return next as StoryBlock;
+      }
       if (b.type === "splitContent" && b.text.id === richId) {
-        return { ...b, text: { ...b.text, doc } };
+        const t = b.text;
+        const nextText: StoryRichTextBlock = { ...t, doc };
+        if (getStoryRichTextPreset(t) === "heading") {
+          const inferred = inferFirstHeadingLevel(doc);
+          if (inferred != null) nextText.headingLevel = inferred;
+        }
+        return { ...b, text: nextText } as StoryBlock;
       }
       return b;
     }),
@@ -240,21 +262,84 @@ function mergeRichTextMetaPatch(patch: StoryRichTextMetaPatch): StoryRichTextMet
   return out;
 }
 
+/** Locked rich-text blocks cannot change text preset (inspector / future callers). */
+function richTextMetaPatchRespectingPresetLocks(
+  b: StoryRichTextBlock,
+  patch: StoryRichTextMetaPatch,
+): StoryRichTextMetaPatch {
+  if (!b.headingPresetLocked && !b.listPresetLocked) return mergeRichTextMetaPatch(patch);
+  const merged = mergeRichTextMetaPatch(patch);
+  const { preset: _p, textPreset: _t, ...rest } = merged;
+  return rest;
+}
+
+function applyStoryRichTextMetaPatchToBlock(b: StoryRichTextBlock, merged: StoryRichTextMetaPatch): StoryRichTextBlock {
+  let next: StoryRichTextBlock = { ...b, ...merged } as StoryRichTextBlock;
+  const prevPreset = getStoryRichTextPreset(b);
+  const preset = getStoryRichTextPreset(next);
+  const presetTouched = merged.preset !== undefined || merged.textPreset !== undefined;
+
+  if (prevPreset === "list" && preset !== "list" && presetTouched) {
+    next = {
+      ...next,
+      doc: unwrapListItemsToParagraphDoc(b.doc as JSONContent) as JSONContent,
+    };
+  }
+
+  const headingMetaTouched =
+    merged.preset !== undefined || merged.textPreset !== undefined || merged.headingLevel !== undefined;
+  if (preset === "heading" && headingMetaTouched) {
+    const lvl = clampStoryRichTextHeadingLevel(next.headingLevel);
+    const doc = applyHeadingLevelToRichTextDoc(next.doc as JSONContent, lvl);
+    return {
+      ...next,
+      preset: next.preset ?? "heading",
+      textPreset: next.textPreset ?? "heading",
+      headingLevel: lvl,
+      doc,
+    };
+  }
+
+  if (preset === "list") {
+    const listVariantNext = (next.listVariant ?? "bullet") as "bullet" | "ordered";
+    const enteringList = prevPreset !== "list" && presetTouched;
+
+    if (enteringList) {
+      const doc = transformRichTextDocToList(b.doc as JSONContent, listVariantNext);
+      return {
+        ...next,
+        preset: "list",
+        textPreset: "list",
+        listVariant: listVariantNext,
+        doc,
+      };
+    }
+    if (prevPreset === "list" && merged.listVariant !== undefined) {
+      const doc = swapListVariantInDoc(b.doc as JSONContent, listVariantNext);
+      return { ...next, listVariant: listVariantNext, doc };
+    }
+    return next;
+  }
+
+  return next;
+}
+
 /** Patch semantic rich-text fields anywhere in the section tree (incl. split primary text). */
 export function patchRichTextMetaInSection(
   sec: StorySection,
   richTextBlockId: string,
   patch: StoryRichTextMetaPatch,
 ): StorySection {
-  const merged = mergeRichTextMetaPatch(patch);
   return {
     ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) => {
       if (b.type === "richText" && b.id === richTextBlockId) {
-        return { ...b, ...merged } as StoryBlock;
+        const merged = richTextMetaPatchRespectingPresetLocks(b, patch);
+        return applyStoryRichTextMetaPatchToBlock(b, merged) as StoryBlock;
       }
       if (b.type === "splitContent" && b.text.id === richTextBlockId) {
-        return { ...b, text: { ...b.text, ...merged } } as StoryBlock;
+        const merged = richTextMetaPatchRespectingPresetLocks(b.text, patch);
+        return { ...b, text: applyStoryRichTextMetaPatchToBlock(b.text, merged) } as StoryBlock;
       }
       return b;
     }),
@@ -340,6 +425,28 @@ export function patchBlockRowLayoutInSection(
   };
 }
 
+function mergeContainerPropsPatch(prev: StoryContainerBlockProps, patch: Partial<StoryContainerBlockProps>): StoryContainerBlockProps {
+  const next: StoryContainerBlockProps = { ...prev, ...patch };
+  if (patch.preset != null) {
+    next.preset = patch.preset;
+    next.containerPreset = patch.preset;
+  } else if (patch.containerPreset != null) {
+    next.containerPreset = patch.containerPreset;
+    next.preset = patch.containerPreset;
+  }
+  return next;
+}
+
+function containerPropsPatchRespectingPresetLock(
+  b: StoryContainerBlock,
+  propsPatch: Partial<StoryContainerBlockProps>,
+): Partial<StoryContainerBlockProps> {
+  if (!b.containerPresetLocked) return propsPatch;
+  if (propsPatch.preset == null && propsPatch.containerPreset == null) return propsPatch;
+  const { preset: _p, containerPreset: _c, ...rest } = propsPatch;
+  return rest;
+}
+
 export function patchContainerInSection(
   sec: StorySection,
   containerId: string,
@@ -347,9 +454,11 @@ export function patchContainerInSection(
 ): StorySection {
   return {
     ...sec,
-    blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
-      b.type === "container" && b.id === containerId ? { ...b, props: { ...b.props, ...propsPatch } } : b,
-    ),
+    blocks: mapStoryBlocksDeep(sec.blocks, (b) => {
+      if (b.type !== "container" || b.id !== containerId) return b;
+      const patch = containerPropsPatchRespectingPresetLock(b, propsPatch);
+      return { ...b, props: mergeContainerPropsPatch(b.props, patch) };
+    }),
   };
 }
 

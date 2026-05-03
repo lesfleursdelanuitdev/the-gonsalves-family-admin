@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { useEditor, EditorContent, ReactNodeViewRenderer } from "@tiptap/react";
 import { cn } from "@/lib/utils";
 import { createStoryTipTapExtensions } from "@/components/admin/story-creator/story-tiptap-extensions";
-import { normalizeStoryDocContent, storyDocJsonEquals } from "@/components/admin/story-creator/story-tiptap-doc";
+import { bindStoryEditorSemanticPreset, unbindStoryEditorSemanticPreset } from "@/components/admin/story-creator/story-tiptap-semantic-preset";
+import { isEmptyListStarterDoc, normalizeStoryDocContent, storyDocJsonEquals } from "@/components/admin/story-creator/story-tiptap-doc";
 import { StoryField } from "@/lib/admin/story-creator/story-tiptap-story-field-extension";
 import { StoryFieldChipNodeView } from "@/components/admin/story-creator/StoryFieldChipNodeView";
 import { StoryTipTapToolbar } from "@/components/admin/story-creator/StoryTipTapToolbar";
@@ -19,6 +20,8 @@ function proseMirrorToneClass(
   richTextPreset: StoryRichTextTextPreset,
   verseSpacing: "compact" | "relaxed" | undefined,
   quoteStyle: "simple" | "card" | undefined,
+  /** When preset is `heading`, mirrors block `headingLevel` for canvas typography (h4–h6 scale down). */
+  headingLevel?: number,
 ) {
   const pad =
     toolbarDensity === "touch"
@@ -33,12 +36,23 @@ function proseMirrorToneClass(
           "prose-strong:text-neutral-900 prose-p:text-neutral-800 prose-li:text-neutral-800 prose-li:my-0.5",
         )
       : "prose prose-sm prose-invert prose-headings:font-heading prose-li:my-0.5";
+  const lvl = typeof headingLevel === "number" && Number.isFinite(headingLevel) ? Math.min(6, Math.max(1, headingLevel)) : 2;
   const presetShell =
     richTextPreset === "heading"
       ? cn(
           "font-bold tracking-tight",
           tone === "paper" ? "text-neutral-900" : "text-base-content",
-          toolbarDensity === "touch" ? "text-xl sm:text-2xl" : "text-lg sm:text-xl",
+          lvl <= 2
+            ? toolbarDensity === "touch"
+              ? "text-xl sm:text-2xl"
+              : "text-lg sm:text-xl"
+            : lvl === 3
+              ? toolbarDensity === "touch"
+                ? "text-lg sm:text-xl"
+                : "text-base sm:text-lg"
+              : toolbarDensity === "touch"
+                ? "text-base sm:text-lg"
+                : "text-sm sm:text-base leading-snug",
         )
       : richTextPreset === "list"
         ? "prose-ul:my-1 prose-ol:my-1"
@@ -94,8 +108,11 @@ function StoryTipTapEditorInner({
   toolbarDensity = "default",
   surface = "card",
   richTextPreset = "paragraph",
+  listVariant = "bullet",
   quoteStyle,
   verseSpacing,
+  headingLevel,
+  remountKey,
 }: {
   content: unknown;
   onChange: (json: JSONContent) => void;
@@ -107,8 +124,14 @@ function StoryTipTapEditorInner({
   surface?: "card" | "canvas";
   /** Semantic block preset from story JSON (drives chrome only; doc remains TipTap JSON). */
   richTextPreset?: StoryRichTextTextPreset;
+  /** When `richTextPreset` is `list`, matches block `listVariant` for empty-list auto-focus. */
+  listVariant?: "bullet" | "ordered";
   quoteStyle?: "simple" | "card";
   verseSpacing?: "compact" | "relaxed";
+  /** When `richTextPreset` is `heading`, optional h1–h6 for editor shell sizing. */
+  headingLevel?: number;
+  /** Same as parent `editorKey` — resets list auto-focus once per mounted block. */
+  remountKey: string;
 }) {
   const canvasTone = useStoryTipTapCanvasTone();
   const tiptapChrome = useStoryTiptapActiveEditorOptional();
@@ -116,6 +139,7 @@ function StoryTipTapEditorInner({
   /** Context value identity changes when `activeEditor` updates; keep a ref so we do not re-run mount/unmount effects and accidentally clear the active editor. */
   const tiptapChromeRef = useRef(tiptapChrome);
   tiptapChromeRef.current = tiptapChrome;
+  const listAutoFocusRef = useRef(false);
 
   const initialDoc = useMemo(() => normalizeStoryDocContent(content), [content]);
 
@@ -149,15 +173,37 @@ function StoryTipTapEditorInner({
       editable,
       editorProps: {
         attributes: {
-          class: proseMirrorToneClass(canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle),
+          class: proseMirrorToneClass(canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle, headingLevel),
         },
       },
       onUpdate: ({ editor: ed }) => {
         onChange(ed.getJSON());
       },
     },
-    [extensions, editable, canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle],
+    [extensions, editable, canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle, headingLevel],
   );
+
+  useEffect(() => {
+    if (!editor) return;
+    bindStoryEditorSemanticPreset(editor, richTextPreset);
+    return () => unbindStoryEditorSemanticPreset(editor);
+  }, [editor, richTextPreset]);
+
+  useLayoutEffect(() => {
+    listAutoFocusRef.current = false;
+  }, [remountKey, richTextPreset, listVariant]);
+
+  useLayoutEffect(() => {
+    if (!editor || !editable || richTextPreset !== "list") return;
+    if (listAutoFocusRef.current) return;
+    if (!isEmptyListStarterDoc(content, listVariant)) return;
+    listAutoFocusRef.current = true;
+    const id = requestAnimationFrame(() => {
+      if (editor.isDestroyed) return;
+      editor.chain().focus("start").run();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [editor, editable, richTextPreset, listVariant, content, remountKey]);
 
   useEffect(() => {
     if (!editor || !editable) return;
@@ -185,11 +231,11 @@ function StoryTipTapEditorInner({
     editor.setOptions({
       editorProps: {
         attributes: {
-          class: proseMirrorToneClass(canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle),
+          class: proseMirrorToneClass(canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle, headingLevel),
         },
       },
     });
-  }, [editor, toolbarDensity, canvasTone, richTextPreset, verseSpacing, quoteStyle]);
+  }, [editor, toolbarDensity, canvasTone, richTextPreset, verseSpacing, quoteStyle, headingLevel]);
 
   useEffect(() => {
     if (!editor) return;
@@ -221,7 +267,9 @@ function StoryTipTapEditorInner({
 
   const editorBody = (
     <>
-      {showInlineToolbar ? <StoryTipTapToolbar editor={editor} toolbarDensity={toolbarDensity} variant="inline" /> : null}
+      {showInlineToolbar ? (
+        <StoryTipTapToolbar editor={editor} toolbarDensity={toolbarDensity} variant="inline" semanticRichTextPreset={richTextPreset} />
+      ) : null}
       <EditorContent editor={editor} />
     </>
   );
@@ -236,7 +284,7 @@ function StoryTipTapEditorInner({
           : "rounded-xl border border-base-content/12 bg-base-100 shadow-sm ring-1 ring-base-content/[0.04]",
         quoteCard &&
           (canvasTone === "paper"
-            ? "rounded-lg border border-neutral-200/90 bg-neutral-50/90 p-3 ring-1 ring-neutral-900/[0.06]"
+            ? "rounded-lg border border-black/20 bg-neutral-50/90 p-3 ring-1 ring-black/[0.06]"
             : "rounded-lg border border-base-content/12 bg-base-content/[0.04] p-3 ring-1 ring-base-content/[0.06]"),
         className,
       )}
@@ -266,8 +314,10 @@ export function StoryTipTapEditor({
   toolbarDensity = "default",
   surface = "card",
   richTextPreset = "paragraph",
+  listVariant,
   quoteStyle,
   verseSpacing,
+  headingLevel,
 }: {
   editorKey: string;
   content: unknown;
@@ -278,12 +328,15 @@ export function StoryTipTapEditor({
   toolbarDensity?: "default" | "touch";
   surface?: "card" | "canvas";
   richTextPreset?: StoryRichTextTextPreset;
+  listVariant?: "bullet" | "ordered";
   quoteStyle?: "simple" | "card";
   verseSpacing?: "compact" | "relaxed";
+  headingLevel?: number;
 }) {
   return (
     <StoryTipTapEditorInner
       key={editorKey}
+      remountKey={editorKey}
       content={content}
       onChange={onChange}
       placeholder={placeholder}
@@ -292,8 +345,10 @@ export function StoryTipTapEditor({
       toolbarDensity={toolbarDensity}
       surface={surface}
       richTextPreset={richTextPreset}
+      listVariant={listVariant}
       quoteStyle={quoteStyle}
       verseSpacing={verseSpacing}
+      headingLevel={headingLevel}
     />
   );
 }

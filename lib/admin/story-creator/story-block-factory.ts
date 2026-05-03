@@ -117,11 +117,12 @@ export function createContainerBlock(): StoryContainerBlock {
     id: newStoryId(),
     type: "container",
     props: {
+      preset: "default",
       background: "none",
       padding: "md",
-      border: "subtle",
-      width: "full",
-      align: "left",
+      border: "none",
+      width: "normal",
+      align: "center",
     },
     children: [],
   };
@@ -200,6 +201,8 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         quoteAttribution: nb.quoteAttribution,
         quoteStyle: nb.quoteStyle,
         verseSpacing: nb.verseSpacing,
+        headingPresetLocked: nb.headingPresetLocked,
+        listPresetLocked: nb.listPresetLocked,
       };
     case "media":
       return { ...nb, id: newStoryId() };
@@ -219,6 +222,7 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         id: newStoryId(),
         props: { ...nb.props },
         children: nb.children.map(cloneStoryBlock),
+        containerPresetLocked: nb.containerPresetLocked,
       };
     case "table":
       return {
@@ -266,6 +270,8 @@ export function cloneStoryBlock(block: StoryBlock): StoryBlock {
         quoteAttribution: block.quoteAttribution,
         quoteStyle: block.quoteStyle,
         verseSpacing: block.verseSpacing,
+        headingPresetLocked: block.headingPresetLocked,
+        listPresetLocked: block.listPresetLocked,
       };
     case "media":
       return { ...block, id: newStoryId() };
@@ -301,6 +307,7 @@ export function cloneStoryBlock(block: StoryBlock): StoryBlock {
         props: { ...block.props },
         children: block.children.map(cloneStoryBlock),
         design: block.design ? { ...block.design } : undefined,
+        containerPresetLocked: block.containerPresetLocked,
       };
     case "table":
       return {

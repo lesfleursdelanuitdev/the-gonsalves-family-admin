@@ -4,7 +4,7 @@
  */
 export const storyEditorElevated = "bg-white/95";
 
-export const storyEditorBorder = "border-neutral-200/95";
+export const storyEditorBorder = "border-black/20";
 
 /** Selected block: light wash + primary border (reads on white paper). */
 export const storyActiveBlockFrame =
@@ -13,10 +13,9 @@ export const storyActiveBlockFrame =
 export const storyIdleBlockFrame =
   "rounded-xl border border-transparent bg-transparent transition-[box-shadow,border-color,background-color] duration-200";
 
-export const storyBlockFrameHover =
-  "hover:border-neutral-200/90 hover:bg-neutral-50/90";
+export const storyBlockFrameHover = "hover:border-black/20 hover:bg-neutral-50/90";
 
-export const storyBlockFrameQuietHover = "hover:border-neutral-200/60 hover:bg-neutral-50/60";
+export const storyBlockFrameQuietHover = "hover:border-black/20 hover:bg-neutral-50/60";
 
 /** Floating block toolbar: light pill on the document. */
 export const storyFloatingBlockToolbar =

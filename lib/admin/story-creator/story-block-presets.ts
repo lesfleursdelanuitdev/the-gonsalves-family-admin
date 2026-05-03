@@ -17,7 +17,7 @@ import {
   createSplitContentBlock,
   createTableBlock,
 } from "@/lib/admin/story-creator/story-block-factory";
-import { EMPTY_STORY_DOC } from "@/components/admin/story-creator/story-tiptap-doc";
+import { EMPTY_STORY_DOC, emptyListStarterDoc } from "@/components/admin/story-creator/story-tiptap-doc";
 
 /** Central id for Add Block / placement UI — maps to stored blocks via {@link createStoryBlockFromPreset}. */
 export type StoryAddBlockPresetId =
@@ -110,9 +110,21 @@ export const STORY_ADD_BLOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = [
     items: [
       { id: "layout_columns", label: "Columns", description: "Two independent stacks" },
       { id: "layout_split", label: "Split content", description: "Text + supporting media/embed" },
-      { id: "layout_container", label: "Container / card" },
-      { id: "layout_callout", label: "Callout" },
-      { id: "layout_hero", label: "Hero" },
+      {
+        id: "layout_container",
+        label: "Container / card",
+        description: "Group blocks inside a subtle card frame with padding",
+      },
+      {
+        id: "layout_callout",
+        label: "Callout",
+        description: "Soft background panel for tips, asides, or short highlights",
+      },
+      {
+        id: "layout_hero",
+        label: "Hero",
+        description: "Full-width band for titles, imagery, or featured content up front",
+      },
       { id: "layout_divider", label: "Divider", description: "Simple horizontal rule" },
       { id: "layout_divider_ornamental", label: "Ornamental divider", description: "Decorative rule" },
       { id: "layout_section_break", label: "Section break", description: "Strong separation between sections" },
@@ -121,7 +133,30 @@ export const STORY_ADD_BLOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = [
   },
 ];
 
-function richDocHeading(level: 1 | 2 | 3): JSONContent {
+/** Dock / mobile bottom sheet: same grouped layout as full-screen add, curated presets (Text = paragraph + heading + list). */
+export const STORY_ADD_BLOCK_DOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = (() => {
+  const byCat = (id: StoryAddBlockCategoryId) => STORY_ADD_BLOCK_PRESET_GROUPS.find((g) => g.categoryId === id);
+  const textIds: StoryAddBlockPresetId[] = ["text_paragraph", "text_heading", "text_list"];
+  const text = byCat("text")?.items.filter((i) => textIds.includes(i.id)) ?? [];
+  const media = byCat("media")?.items.filter((i) => i.id === "media_default") ?? [];
+  const embeds = byCat("embeds")?.items.filter((i) => i.id === "embed_document") ?? [];
+  const layoutIds: StoryAddBlockPresetId[] = [
+    "layout_columns",
+    "layout_container",
+    "layout_callout",
+    "layout_hero",
+    "layout_divider",
+  ];
+  const layout = byCat("layout")?.items.filter((i) => layoutIds.includes(i.id)) ?? [];
+  return [
+    { categoryId: "text", title: "Text", items: text },
+    { categoryId: "media", title: "Media", items: media },
+    { categoryId: "embeds", title: "Embeds", items: embeds },
+    { categoryId: "layout", title: "Layout", items: layout },
+  ];
+})();
+
+function richDocHeading(level: 1 | 2 | 3 | 4 | 5 | 6): JSONContent {
   return {
     type: "doc",
     content: [
@@ -129,23 +164,6 @@ function richDocHeading(level: 1 | 2 | 3): JSONContent {
         type: "heading",
         attrs: { level },
         content: [{ type: "text", text: "" }],
-      },
-    ],
-  };
-}
-
-function richDocBulletList(): JSONContent {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "bulletList",
-        content: [
-          {
-            type: "listItem",
-            content: [{ type: "paragraph", content: [{ type: "text", text: "" }] }],
-          },
-        ],
       },
     ],
   };
@@ -178,7 +196,7 @@ function richDocQuote(): JSONContent {
 function withRichPreset(
   doc: JSONContent,
   preset: StoryRichTextTextPreset,
-  opts?: { headingLevel?: 1 | 2 | 3; listVariant?: "bullet" | "ordered" },
+  opts?: { headingLevel?: 1 | 2 | 3 | 4 | 5 | 6; listVariant?: "bullet" | "ordered" },
 ): ReturnType<typeof createRichTextBlock> {
   const base = createRichTextBlock();
   return {
@@ -211,7 +229,7 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
     case "text_heading":
       return withRichPreset(richDocHeading(2), "heading", { headingLevel: 2 });
     case "text_list":
-      return withRichPreset(richDocBulletList(), "list", { listVariant: "bullet" });
+      return withRichPreset(emptyListStarterDoc("bullet"), "list", { listVariant: "bullet" });
     case "text_verse":
       return { ...withRichPreset(richDocVerse(), "verse"), verseSpacing: "relaxed" };
     case "text_quote":
@@ -259,12 +277,13 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
       const c = createContainerBlock();
       return {
         ...c,
+        containerPresetLocked: true,
         props: {
           ...c.props,
           label: "Card",
           border: "subtle",
           padding: "md",
-          containerPreset: "card",
+          preset: "card",
         },
       };
     }
@@ -272,13 +291,14 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
       const c = createContainerBlock();
       return {
         ...c,
+        containerPresetLocked: true,
         props: {
           ...c.props,
           label: "Callout",
           background: "subtle",
           border: "subtle",
           padding: "md",
-          containerPreset: "callout",
+          preset: "callout",
         },
       };
     }
@@ -286,13 +306,14 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
       const c = createContainerBlock();
       return {
         ...c,
+        containerPresetLocked: true,
         props: {
           ...c.props,
           label: "Hero",
           background: "subtle",
           padding: "lg",
           width: "full",
-          containerPreset: "hero",
+          preset: "hero",
         },
       };
     }

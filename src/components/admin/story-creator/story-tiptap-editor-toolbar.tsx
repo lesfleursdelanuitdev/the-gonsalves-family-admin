@@ -3,9 +3,23 @@
 import { useCallback, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
-import { Bold, Code, Highlighter, Italic, Link2, Redo2, Strikethrough, Underline, Undo2 } from "lucide-react";
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Code,
+  Highlighter,
+  Italic,
+  Link2,
+  Redo2,
+  Strikethrough,
+  Underline,
+  Undo2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { validateStoryLinkUrl } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
+import { blockTextAlign, validateStoryLinkUrl } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
 
 const scrollRow =
   "flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -67,6 +81,7 @@ function useStoryInlineToolbarState(editor: Editor) {
       highlight: ed.isActive("highlight"),
       inlineCode: ed.isActive("code"),
       link: ed.isActive("link"),
+      textAlign: blockTextAlign(ed),
     }),
   });
 }
@@ -123,6 +138,39 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
         </ToolbarButton>
         <ToolbarButton touch={touch} label="Link" active={s.link} onClick={setLink}>
           <Link2 className="size-4" />
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <ToolbarButton
+          touch={touch}
+          label="Align left"
+          active={s.textAlign === "left"}
+          onClick={() => editor.chain().focus().unsetTextAlign().run()}
+        >
+          <AlignLeft className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          touch={touch}
+          label="Align center"
+          active={s.textAlign === "center"}
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        >
+          <AlignCenter className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          touch={touch}
+          label="Align right"
+          active={s.textAlign === "right"}
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        >
+          <AlignRight className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          touch={touch}
+          label="Justify"
+          active={s.textAlign === "justify"}
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+        >
+          <AlignJustify className="size-4" />
         </ToolbarButton>
         <ToolbarSeparator />
         <ToolbarButton touch={touch} label="Undo" onClick={() => editor.chain().focus().undo().run()}>

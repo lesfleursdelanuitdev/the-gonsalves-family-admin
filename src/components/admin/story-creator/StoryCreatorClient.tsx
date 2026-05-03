@@ -20,24 +20,18 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Columns2,
   Expand,
   FileText,
   Globe,
   GripVertical,
-  ImageIcon,
-  Layers,
-  LayoutTemplate,
   Leaf,
   Minimize2,
-  Minus,
   Pencil,
   PanelLeft,
   PanelRight,
   PanelRightClose,
   Loader2,
   Plus,
-  Type,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -86,7 +80,7 @@ import type {
   StorySplitSupportBlock,
   StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
-import { getStoryRichTextPreset, newStoryId } from "@/lib/admin/story-creator/story-types";
+import { getStoryContainerPreset, getStoryRichTextPreset, newStoryId } from "@/lib/admin/story-creator/story-types";
 import { loadStoryDocument, saveStoryDocument } from "@/lib/admin/story-creator/story-storage";
 import { EmbedBlockContentRenderer } from "@/components/admin/story-creator/story-block-embed-content";
 import { MediaBlockContentRenderer } from "@/components/admin/story-creator/story-block-media-content";
@@ -105,11 +99,11 @@ import {
   StoryStructureSidebar,
   type OutlineRenameTarget,
 } from "@/components/admin/story-creator/StoryStructureSidebar";
+import "./story-preview-themes.css";
 import {
+  getContainerClasses,
   getContainerCustomBackgroundStyle,
   getContainerPresetEmptyHint,
-  getContainerPresetShellClassName,
-  getStoryContainerPreset,
 } from "@/lib/admin/story-creator/story-container-preset-styles";
 import { migrateStoryDocument } from "@/lib/admin/story-creator/migrate-story-document";
 import { normalizeStorySlugInput, slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
@@ -153,6 +147,7 @@ import {
   createColumnNestedBlockFromPreset,
   createSplitSupportBlockFromPreset,
   createStoryBlockFromPreset,
+  STORY_ADD_BLOCK_DOCK_PRESET_GROUPS,
   STORY_ADD_BLOCK_PRESET_GROUPS,
   STORY_SPLIT_SUPPORT_ADD_PRESET_IDS,
   storyBlockDisplayLabel,
@@ -205,8 +200,10 @@ function StoryCanvasRichTextEditor({
       toolbarDensity={isLg ? "default" : "touch"}
       surface="canvas"
       richTextPreset={preset}
+      listVariant={preset === "list" ? (rich.listVariant ?? "bullet") : undefined}
       quoteStyle={rich.quoteStyle}
       verseSpacing={rich.verseSpacing}
+      headingLevel={preset === "heading" ? rich.headingLevel : undefined}
     />
   );
 }
@@ -584,14 +581,16 @@ function StoryNestedColumnsGrid({
       : storyColumnsGridStyle(columnsBlock, layoutMode);
   const cellPad = depth >= 2 ? "p-2 sm:p-2.5" : "p-3";
   const cellMinH = depth >= 2 ? "min-h-[8rem]" : "min-h-[10rem]";
-  const cellBorder =
-    depth >= 2 ? "border-neutral-200/80 ring-primary/10" : "border-neutral-200/90 hover:border-neutral-300";
+  const cellBorder = depth >= 2 ? "border-black/20 ring-primary/10" : "border-black/20 hover:border-black/25";
   const cellActiveBorder = depth >= 2 ? "border-primary/35 ring-1 ring-primary/12" : "border-primary/40 ring-1 ring-primary/18";
 
   function renderContainerInColumn(nest: StoryContainerBlock) {
     const nestSelected = isStoryChromeBlockSelected(storySelection, nest.id);
     const colContainerEmptyHint = getContainerPresetEmptyHint(getStoryContainerPreset(nest.props));
-    const colContainerShellClass = getContainerPresetShellClassName(nest.props, "editor", { selected: nestSelected });
+    const colContainerShellClass = getContainerClasses(nest, "editor", {
+      selected: nestSelected,
+      emptyChildren: nest.children.length === 0,
+    });
     const colContainerShellStyle = getContainerCustomBackgroundStyle(nest.props);
     const frameLabel = nest.props.label?.trim() || "Container";
     const placementVariant: StoryBlockPlacementVariant = "column";
@@ -1397,6 +1396,16 @@ function StoryEditorSectionBlockCard({
 
 type StorySaveStatus = "idle" | "saving" | "error";
 
+/** Green leaf + “StoryCreator” — matches fullscreen writing bar branding. */
+function StoryCreatorBrandMark() {
+  return (
+    <div className="flex h-10 shrink-0 items-center gap-2 sm:h-9">
+      <Leaf className="size-5 shrink-0 text-success sm:size-[1.15rem]" strokeWidth={2} aria-hidden />
+      <span className="font-heading text-sm font-semibold tracking-tight text-base-content sm:text-base">StoryCreator</span>
+    </div>
+  );
+}
+
 export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const router = useRouter();
   const [doc, setDoc] = useState<StoryDocument | null>(null);
@@ -1420,7 +1429,6 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const docRef = useRef<StoryDocument | null>(null);
   const storyTitleInputRef = useRef<HTMLInputElement>(null);
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLg = useMediaQueryMinLg();
   const isSm = useMediaQuery("(min-width: 640px)");
 
@@ -1663,15 +1671,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     return JSON.stringify(doc) !== persistedSnapshot;
   }, [doc, persistedSnapshot]);
 
-  const clearAutosaveTimer = useCallback(() => {
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-  }, []);
-
   const flushSave = useCallback(async (next: StoryDocument) => {
-    clearAutosaveTimer();
     setSaveStatus("saving");
     try {
       const saved = await saveStoryDocument(next);
@@ -1686,7 +1686,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       toast.error("Save failed", { description: msg });
       throw e;
     }
-  }, [clearAutosaveTimer]);
+  }, []);
 
   docRef.current = doc;
 
@@ -1695,19 +1695,6 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     activeSectionId: null,
   });
   storySelectionRepairRef.current = { doc, activeSectionId };
-
-  useEffect(() => {
-    if (!doc || persistedSnapshot == null) return;
-    if (!storyEditorDirty) return;
-    clearAutosaveTimer();
-    autosaveTimerRef.current = setTimeout(() => {
-      autosaveTimerRef.current = null;
-      const cur = docRef.current;
-      if (!cur) return;
-      void flushSave(cur);
-    }, 2500);
-    return () => clearAutosaveTimer();
-  }, [doc, storyEditorDirty, persistedSnapshot, clearAutosaveTimer, flushSave]);
 
   const updateDoc = useCallback((fn: (d: StoryDocument) => StoryDocument) => {
     setDoc((cur) => {
@@ -2019,8 +2006,19 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   );
 
   const insertBlockWithPreset = useCallback(
-    (sectionId: string, index: number, presetId: StoryAddBlockPresetId) => {
-      const block = createStoryBlockFromPreset(presetId);
+    (
+      sectionId: string,
+      index: number,
+      presetId: StoryAddBlockPresetId,
+      opts?: { headingPresetLocked?: boolean },
+    ) => {
+      let block = createStoryBlockFromPreset(presetId);
+      if (opts?.headingPresetLocked && presetId === "text_heading" && block.type === "richText") {
+        block = { ...block, headingPresetLocked: true };
+      }
+      if (presetId === "text_list" && block.type === "richText") {
+        block = { ...block, listPresetLocked: true };
+      }
       updateDoc((d) => mapDocSection(d, sectionId, (sec) => insertBlockAtIndex(sec, index, block)));
       setActiveSectionId(sectionId);
       setSelectedBlockId(block.id);
@@ -2120,7 +2118,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   );
 
   const insertBlockFromDockPicker = useCallback(
-    (presetId: StoryAddBlockPresetId) => {
+    (presetId: StoryAddBlockPresetId, opts?: { fromFullscreenAddModal?: boolean }) => {
       if (!activePair) {
         toast.error("Pick a section in the outline first.");
         return;
@@ -2128,7 +2126,8 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       const blocks = activePair.section.blocks;
       const idx = selectedBlockId ? blocks.findIndex((b) => b.id === selectedBlockId) : -1;
       const insertIndex = idx >= 0 ? idx + 1 : blocks.length;
-      insertBlockWithPreset(activePair.section.id, insertIndex, presetId);
+      const headingLocked = Boolean(opts?.fromFullscreenAddModal && presetId === "text_heading");
+      insertBlockWithPreset(activePair.section.id, insertIndex, presetId, { headingPresetLocked: headingLocked });
       setAddBlockSheetOpen(false);
       setFullscreenAddBlockOpen(false);
     },
@@ -2369,12 +2368,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
               >
                 <Minimize2 className="size-4 shrink-0 opacity-90" aria-hidden />
               </Button>
-              <div className="flex h-10 shrink-0 items-center gap-2 sm:h-9">
-                <Leaf className="size-5 shrink-0 text-success sm:size-[1.15rem]" strokeWidth={2} aria-hidden />
-                <span className="font-heading text-sm font-semibold tracking-tight text-base-content sm:text-base">
-                  StoryCreator
-                </span>
-              </div>
+              <StoryCreatorBrandMark />
               {!isLg && isFullscreen ? (
                 <StoryEditPreviewModeToggle mode={mode} onMode={setMode} layout="dense" />
               ) : null}
@@ -2539,8 +2533,8 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
           <StoryTipTapCanvasToneProvider tone="paper">
             <div
               className={cn(
-                "w-full min-w-0",
-                "rounded-lg border border-neutral-200/95 bg-white text-neutral-900",
+                "story-doc-paper-surface w-full min-w-0",
+                "rounded-lg border border-black/20 bg-white text-neutral-900",
                 "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.1),0_20px_48px_-12px_rgba(0,0,0,0.12)]",
                 "ring-1 ring-black/[0.04]",
               )}
@@ -2551,7 +2545,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 </div>
               ) : null}
               {!isFullscreen ? (
-                <div className="border-b border-neutral-200/90 px-4 py-4 sm:px-5 lg:px-8">
+                <div className="border-b border-black/20 px-4 py-4 sm:px-5 lg:px-8">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Section</p>
                   {outlineRename?.kind === "section" && outlineRename.id === activePair.section.id ? (
                     <div className="mt-2 max-w-xl" onClick={(e) => e.stopPropagation()}>
@@ -2732,7 +2726,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         {!isLg ? (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-base-content/45">Story</span>
+              <StoryCreatorBrandMark />
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 <input
                   ref={storyTitleInputRef}
@@ -2830,9 +2824,9 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
           <>
             <div className="flex min-w-0 flex-1 flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-4">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-                <span className="hidden text-[10px] font-bold uppercase tracking-widest text-base-content/45 lg:inline">
-                  Story
-                </span>
+                <div className="hidden shrink-0 lg:flex">
+                  <StoryCreatorBrandMark />
+                </div>
                 <div className="flex min-w-0 max-w-full flex-1 items-center gap-2 lg:max-w-xl">
                   <input
                     ref={storyTitleInputRef}
@@ -3169,58 +3163,12 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       )}
       {mode === "edit" ? (
         <StoryAddBlockBottomSheet open={addBlockSheetOpen} onOpenChange={setAddBlockSheetOpen} title="Add block">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-base-content/12 bg-base-100/75 p-4 text-center shadow-sm transition-[transform,box-shadow] active:scale-[0.98]"
-              onClick={() => insertBlockFromDockPicker("text_paragraph")}
-            >
-              <Type className="size-7 text-primary opacity-90" strokeWidth={2} aria-hidden />
-              <span className="text-sm font-semibold text-base-content">Text</span>
-            </button>
-            <button
-              type="button"
-              className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-base-content/12 bg-base-100/75 p-4 text-center shadow-sm transition-[transform,box-shadow] active:scale-[0.98]"
-              onClick={() => insertBlockFromDockPicker("media_default")}
-            >
-              <ImageIcon className="size-7 text-primary opacity-90" aria-hidden />
-              <span className="text-sm font-semibold text-base-content">Media</span>
-            </button>
-            <button
-              type="button"
-              className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-base-content/12 bg-base-100/75 p-4 text-center shadow-sm transition-[transform,box-shadow] active:scale-[0.98]"
-              onClick={() => insertBlockFromDockPicker("embed_document")}
-            >
-              <Layers className="size-7 text-primary opacity-90" aria-hidden />
-              <span className="text-sm font-semibold text-base-content">Embed</span>
-            </button>
-            <button
-              type="button"
-              className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-base-content/12 bg-base-100/75 p-4 text-center shadow-sm transition-[transform,box-shadow] active:scale-[0.98]"
-              onClick={() => insertBlockFromDockPicker("layout_columns")}
-            >
-              <Columns2 className="size-7 text-primary opacity-90" aria-hidden />
-              <span className="text-sm font-semibold text-base-content">Columns</span>
-            </button>
-            <button
-              type="button"
-              className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-base-content/12 bg-base-100/75 p-4 text-center shadow-sm transition-[transform,box-shadow] active:scale-[0.98]"
-              onClick={() => insertBlockFromDockPicker("layout_container")}
-            >
-              <LayoutTemplate className="size-7 text-primary opacity-90" aria-hidden />
-              <span className="text-sm font-semibold text-base-content">Container</span>
-            </button>
-            <button
-              type="button"
-              className="col-span-2 flex min-h-[52px] flex-row items-center justify-center gap-2 rounded-2xl border border-base-content/12 bg-base-100/75 px-4 py-3 text-center shadow-sm transition-[transform,box-shadow] active:scale-[0.98]"
-              onClick={() => insertBlockFromDockPicker("layout_divider")}
-            >
-              <Minus className="size-6 text-primary opacity-90" aria-hidden />
-              <span className="text-sm font-semibold text-base-content">Divider</span>
-            </button>
-          </div>
+          <StoryAddBlockPresetTypeGrid
+            groups={STORY_ADD_BLOCK_DOCK_PRESET_GROUPS}
+            onPick={(id) => insertBlockFromDockPicker(id)}
+          />
           <p className="mt-4 text-center text-xs leading-relaxed text-base-content/45">
-            Tables: pick Data → Table. New blocks insert after the selection when possible.
+            Tables: pick Data → Table in the full-screen adder. New blocks insert after the selection when possible.
           </p>
         </StoryAddBlockBottomSheet>
       ) : null}
@@ -3259,7 +3207,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
               <div className="mt-4 max-h-[min(52dvh,480px)] overflow-y-auto pr-1">
                 <StoryAddBlockPresetTypeGrid
                   groups={fullscreenAddBlockPresetGroups}
-                  onPick={(id) => insertBlockFromDockPicker(id)}
+                  onPick={(id) => insertBlockFromDockPicker(id, { fromFullscreenAddModal: true })}
                 />
               </div>
               <div className="mt-5 flex justify-end border-t border-base-content/10 pt-4">
@@ -3326,7 +3274,10 @@ function StorySectionContainerInner({
 }: StorySectionContainerInnerProps) {
   const nestSelected = isStoryChromeBlockSelected(storySelection, nest.id);
   const containerEmptyHint = getContainerPresetEmptyHint(getStoryContainerPreset(nest.props));
-  const containerShellClass = getContainerPresetShellClassName(nest.props, "editor", { selected: nestSelected });
+  const containerShellClass = getContainerClasses(nest, "editor", {
+    selected: nestSelected,
+    emptyChildren: nest.children.length === 0,
+  });
   const containerShellStyle = getContainerCustomBackgroundStyle(nest.props);
 
   function renderContainerChildBody(child: StoryBlock) {

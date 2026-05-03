@@ -33,6 +33,7 @@ import type {
   StoryDividerVariant,
   StoryRichTextTextPreset,
   StoryContainerPreset,
+  StoryContainerWidth,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryDividerPreset, getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
@@ -63,6 +64,7 @@ import {
   STORY_COLUMNS_WIDTH_PRESETS,
 } from "@/lib/admin/story-creator/story-columns-layout";
 import { MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
+import { resolveContainerVisualProps } from "@/lib/admin/story-creator/story-container-preset-styles";
 import { cn } from "@/lib/utils";
 import {
   AlignCenter,
@@ -1593,6 +1595,7 @@ function ContainerLayoutInspector({
   touchComfort?: boolean;
 }) {
   const p = block.props;
+  const r = resolveContainerVisualProps(block);
   const controlH = touchComfort ? "min-h-11 h-11" : "h-10";
   const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
 
@@ -1606,36 +1609,44 @@ function ContainerLayoutInspector({
     );
 
   const layoutPresets: StoryContainerPreset[] = ["default", "card", "callout", "hero", "quote"];
+  const presetLabel = (v: StoryContainerPreset) => (v === "default" ? "Default" : v.charAt(0).toUpperCase() + v.slice(1));
 
   return (
     <div className="space-y-4">
       <HelperCard title="Container">
         Groups blocks with shared layout. The label is only shown in the editor, not in the published story.
       </HelperCard>
-      <div>
-        <FieldLabel>Layout preset</FieldLabel>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {layoutPresets.map((v) => (
-            <button key={v} type="button" className={chipBtn((p.containerPreset ?? "default") === v)} onClick={() => onPatch({ containerPreset: v })}>
-              {v === "default" ? "Default" : v.charAt(0).toUpperCase() + v.slice(1)}
-            </button>
-          ))}
+      {block.containerPresetLocked ? (
+        <HelperCard title={`${presetLabel(r.preset)} (fixed preset)`}>
+          Added from <strong className="font-semibold text-base-content">Add block</strong> as {presetLabel(r.preset)}. The layout
+          preset cannot be changed; background, padding, border, and width below still apply.
+        </HelperCard>
+      ) : (
+        <div>
+          <FieldLabel>Layout preset</FieldLabel>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {layoutPresets.map((v) => (
+              <button key={v} type="button" className={chipBtn(r.preset === v)} onClick={() => onPatch({ preset: v })}>
+                {presetLabel(v)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       <div>
         <FieldLabel>Label (editor only)</FieldLabel>
         <Input
           className={cn("input input-bordered input-sm mt-2 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
           placeholder="Optional — e.g. “Hero”"
           value={p.label ?? ""}
-          onChange={(e) => onPatch({ label: e.target.value.trim() ? e.target.value : undefined })}
+          onChange={(e) => onPatch({ label: e.target.value ? e.target.value : undefined })}
         />
       </div>
       <div>
         <FieldLabel>Background</FieldLabel>
         <div className="mt-2 flex flex-wrap gap-2">
           {(["none", "subtle", "custom"] as const).map((v) => (
-            <button key={v} type="button" className={chipBtn(p.background === v)} onClick={() => onPatch({ background: v })}>
+            <button key={v} type="button" className={chipBtn(r.background === v)} onClick={() => onPatch({ background: v })}>
               {v === "none" ? "None" : v === "subtle" ? "Subtle" : "Custom"}
             </button>
           ))}
@@ -1656,7 +1667,7 @@ function ContainerLayoutInspector({
         <FieldLabel>Padding</FieldLabel>
         <div className="mt-2 flex flex-wrap gap-2">
           {(["none", "sm", "md", "lg"] as const).map((v) => (
-            <button key={v} type="button" className={chipBtn(p.padding === v)} onClick={() => onPatch({ padding: v })}>
+            <button key={v} type="button" className={chipBtn(r.padding === v)} onClick={() => onPatch({ padding: v })}>
               {v}
             </button>
           ))}
@@ -1666,7 +1677,7 @@ function ContainerLayoutInspector({
         <FieldLabel>Border</FieldLabel>
         <div className="mt-2 flex flex-wrap gap-2">
           {(["none", "subtle", "dashed"] as const).map((v) => (
-            <button key={v} type="button" className={chipBtn(p.border === v)} onClick={() => onPatch({ border: v })}>
+            <button key={v} type="button" className={chipBtn(r.border === v)} onClick={() => onPatch({ border: v })}>
               {v}
             </button>
           ))}
@@ -1676,11 +1687,16 @@ function ContainerLayoutInspector({
         rowLayout={effectiveContainerRowLayout(p)}
         onPatch={(patch) => {
           const nextRl = mergeStoryRowLayout(effectiveContainerRowLayout(p), patch);
-          const mode = nextRl.widthMode ?? "full";
+          const wm = nextRl.widthMode ?? "full";
+          let width: StoryContainerWidth = "normal";
+          if (wm === "full") width = "full";
+          else if (wm === "wide") width = "wide";
+          else if (wm === "narrow") width = "narrow";
+          else if (wm === "medium") width = "normal";
           onPatch({
             rowLayout: nextRl,
-            width: mode === "full" ? "full" : "constrained",
-            align: (nextRl.alignment ?? "left") as NonNullable<StoryContainerBlockProps["align"]>,
+            width,
+            align: (nextRl.alignment ?? "center") as NonNullable<StoryContainerBlockProps["align"]>,
           });
         }}
         touchComfort={touchComfort}
@@ -1883,21 +1899,33 @@ function RichTextBlockInspector({
 
   return (
     <div className="space-y-4">
-      <div>
-        <FieldLabel>Text preset</FieldLabel>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {RICH_TEXT_PRESET_OPTIONS.map((p) => (
-            <button key={p} type="button" className={chipBtn(preset === p)} onClick={() => onPatch({ preset: p, textPreset: p })}>
-              {p}
-            </button>
-          ))}
+      {block.headingPresetLocked ? (
+        <HelperCard title="Heading (fixed preset)">
+          This block was added from full-screen <strong className="font-semibold text-base-content">Add block</strong> as a heading. It
+          stays a heading; use <strong className="font-semibold text-base-content">Heading level</strong> below to change H1–H6.
+        </HelperCard>
+      ) : block.listPresetLocked ? (
+        <HelperCard title="List (fixed preset)">
+          This block was added from <strong className="font-semibold text-base-content">Add block</strong> as a list. It stays a list; use{" "}
+          <strong className="font-semibold text-base-content">List style</strong> below for bullets vs numbered.
+        </HelperCard>
+      ) : (
+        <div>
+          <FieldLabel>Text preset</FieldLabel>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {RICH_TEXT_PRESET_OPTIONS.map((p) => (
+              <button key={p} type="button" className={chipBtn(preset === p)} onClick={() => onPatch({ preset: p, textPreset: p })}>
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       {preset === "heading" ? (
         <div>
           <FieldLabel>Heading level</FieldLabel>
           <div className="mt-2 flex flex-wrap gap-2">
-            {([1, 2, 3] as const).map((lvl) => (
+            {([1, 2, 3, 4, 5, 6] as const).map((lvl) => (
               <button key={lvl} type="button" className={chipBtn((block.headingLevel ?? 2) === lvl)} onClick={() => onPatch({ headingLevel: lvl })}>
                 H{lvl}
               </button>

@@ -20,6 +20,9 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
   Highlighter,
   Italic,
   Link2,
@@ -67,6 +70,8 @@ import {
   STORY_FONT_SIZE_STEP,
   validateStoryLinkUrl,
 } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
+import { getStoryEditorSemanticPreset } from "@/components/admin/story-creator/story-tiptap-semantic-preset";
+import type { StoryRichTextTextPreset } from "@/lib/admin/story-creator/story-types";
 
 function ToolbarBtn({
   label,
@@ -149,6 +154,19 @@ function StoryTipTapToolbarIdle({
           <Link2 className="size-4" />
         </ToolbarButton>
         <ToolbarSeparator />
+        <ToolbarButton touch={touchUi} disabled label="Align left" onClick={noop}>
+          <AlignLeft className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Align center" onClick={noop}>
+          <AlignCenter className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Align right" onClick={noop}>
+          <AlignRight className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Justify" onClick={noop}>
+          <AlignJustify className="size-4" />
+        </ToolbarButton>
+        <ToolbarSeparator />
         <ToolbarButton touch={touchUi} disabled label="Undo" onClick={noop}>
           <Undo2 className="size-4" />
         </ToolbarButton>
@@ -164,11 +182,16 @@ function StoryTipTapToolbarLive({
   editor,
   toolbarDensity,
   variant,
+  semanticRichTextPreset,
 }: {
   editor: Editor;
   toolbarDensity: StoryTiptapToolbarDensity;
   variant: "inline" | "global";
+  semanticRichTextPreset?: StoryRichTextTextPreset;
 }) {
+  const hideListToolbar =
+    (semanticRichTextPreset ?? getStoryEditorSemanticPreset(editor) ?? "paragraph") === "list";
+
   const s = useEditorState({
     editor,
     selector: ({ editor: ed }) => {
@@ -184,6 +207,9 @@ function StoryTipTapToolbarLive({
         h1: ed.isActive("heading", { level: 1 }),
         h2: ed.isActive("heading", { level: 2 }),
         h3: ed.isActive("heading", { level: 3 }),
+        h4: ed.isActive("heading", { level: 4 }),
+        h5: ed.isActive("heading", { level: 5 }),
+        h6: ed.isActive("heading", { level: 6 }),
         bullet: ed.isActive("bulletList"),
         ordered: ed.isActive("orderedList"),
         quote: ed.isActive("blockquote"),
@@ -214,8 +240,11 @@ function StoryTipTapToolbarLive({
     if (s.h1) return "Heading 1";
     if (s.h2) return "Heading 2";
     if (s.h3) return "Heading 3";
+    if (s.h4) return "Heading 4";
+    if (s.h5) return "Heading 5";
+    if (s.h6) return "Heading 6";
     return "Paragraph";
-  }, [s.h1, s.h2, s.h3]);
+  }, [s.h1, s.h2, s.h3, s.h4, s.h5, s.h6]);
 
   const scrollRow =
     "flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -259,6 +288,14 @@ function StoryTipTapToolbarLive({
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           >
             <Heading2 className="size-4" />
+          </ToolbarBtn>
+          <ToolbarBtn
+            touch
+            label="Heading 3"
+            active={s.h3}
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          >
+            <Heading3 className="size-4" />
           </ToolbarBtn>
           <span className="mx-1 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
           <ToolbarBtn touch label="Bold" active={s.bold} onClick={() => editor.chain().focus().toggleBold().run()}>
@@ -324,22 +361,26 @@ function StoryTipTapToolbarLive({
           >
             <AlignJustify className="size-4" />
           </ToolbarBtn>
-          <ToolbarBtn
-            touch
-            label="Bullet list"
-            active={s.bullet}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-          >
-            <List className="size-4" />
-          </ToolbarBtn>
-          <ToolbarBtn
-            touch
-            label="Numbered list"
-            active={s.ordered}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          >
-            <ListOrdered className="size-4" />
-          </ToolbarBtn>
+          {hideListToolbar ? null : (
+            <>
+              <ToolbarBtn
+                touch
+                label="Bullet list"
+                active={s.bullet}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+              >
+                <List className="size-4" />
+              </ToolbarBtn>
+              <ToolbarBtn
+                touch
+                label="Numbered list"
+                active={s.ordered}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              >
+                <ListOrdered className="size-4" />
+              </ToolbarBtn>
+            </>
+          )}
           <ToolbarBtn touch label="Insert link" active={s.link} onClick={setLink}>
             <Link2 className="size-4" />
           </ToolbarBtn>
@@ -374,9 +415,21 @@ function StoryTipTapToolbarLive({
             <DropdownMenuContent align="end" className="min-w-52">
               <DropdownMenuItem
                 className="min-h-10 py-2.5"
-                onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
               >
-                Heading 3
+                Heading 4
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="min-h-10 py-2.5"
+                onClick={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}
+              >
+                Heading 5
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="min-h-10 py-2.5"
+                onClick={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}
+              >
+                Heading 6
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="min-h-10 py-2.5"
@@ -506,6 +559,27 @@ function StoryTipTapToolbarLive({
         >
           <Heading3 className="size-4" />
         </ToolbarBtn>
+        <ToolbarBtn
+          label="Heading 4"
+          active={s.h4}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
+        >
+          <Heading4 className="size-4" />
+        </ToolbarBtn>
+        <ToolbarBtn
+          label="Heading 5"
+          active={s.h5}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}
+        >
+          <Heading5 className="size-4" />
+        </ToolbarBtn>
+        <ToolbarBtn
+          label="Heading 6"
+          active={s.h6}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}
+        >
+          <Heading6 className="size-4" />
+        </ToolbarBtn>
         <span className="mx-1 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
         <ToolbarBtn label="Bold" active={s.bold} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold className="size-4" />
@@ -586,20 +660,24 @@ function StoryTipTapToolbarLive({
           <AlignJustify className="size-4" />
         </ToolbarBtn>
         <span className="mx-1 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
-        <ToolbarBtn
-          label="Bullet list"
-          active={s.bullet}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        >
-          <List className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn
-          label="Numbered list"
-          active={s.ordered}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        >
-          <ListOrdered className="size-4" />
-        </ToolbarBtn>
+        {hideListToolbar ? null : (
+          <>
+            <ToolbarBtn
+              label="Bullet list"
+              active={s.bullet}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+            >
+              <List className="size-4" />
+            </ToolbarBtn>
+            <ToolbarBtn
+              label="Numbered list"
+              active={s.ordered}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            >
+              <ListOrdered className="size-4" />
+            </ToolbarBtn>
+          </>
+        )}
         <ToolbarBtn
           label="Blockquote"
           active={s.quote}
@@ -711,13 +789,23 @@ export function StoryTipTapToolbar({
   editor,
   toolbarDensity = "default",
   variant = "inline",
+  semanticRichTextPreset,
 }: {
   editor: Editor | null;
   toolbarDensity?: StoryTiptapToolbarDensity;
   variant?: "inline" | "global";
+  /** When set (or bound on the editor), list toggle buttons are hidden — the block preset owns list structure. */
+  semanticRichTextPreset?: StoryRichTextTextPreset;
 }) {
   if (!editor || editor.isDestroyed) {
     return <StoryTipTapToolbarIdle toolbarDensity={toolbarDensity} variant={variant} />;
   }
-  return <StoryTipTapToolbarLive editor={editor} toolbarDensity={toolbarDensity} variant={variant} />;
+  return (
+    <StoryTipTapToolbarLive
+      editor={editor}
+      toolbarDensity={toolbarDensity}
+      variant={variant}
+      semanticRichTextPreset={semanticRichTextPreset}
+    />
+  );
 }

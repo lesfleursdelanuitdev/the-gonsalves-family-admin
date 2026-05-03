@@ -59,6 +59,9 @@ export type StoryRichTextTextPreset = "paragraph" | "heading" | "list" | "verse"
 /** Optional layout preset for containers created from Add Block. */
 export type StoryContainerPreset = "default" | "card" | "callout" | "hero" | "quote";
 
+/** Content width inside the row wrapper (max-width + horizontal alignment). */
+export type StoryContainerWidth = "narrow" | "normal" | "wide" | "full";
+
 /** Divider / spacer preset values (stored on `preset` and mirrored on `variant` for compatibility). */
 export type StoryDividerVariant = "line" | "spacer" | "ornamental" | "sectionBreak";
 
@@ -104,8 +107,8 @@ export type StoryRichTextBlock = {
   preset?: StoryRichTextTextPreset;
   /** @deprecated Prefer {@link StoryRichTextBlock.preset}; kept for older JSON until migration runs. */
   textPreset?: StoryRichTextTextPreset;
-  /** When preset is `heading`, display level for inspector / starter docs. */
-  headingLevel?: 1 | 2 | 3;
+  /** When preset is `heading`, semantic level (mirrors TipTap `heading` attrs.level, h1–h6). */
+  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
   /** When preset is `list`, preferred list style for starter docs. */
   listVariant?: "bullet" | "ordered";
   /** When preset is `quote`, optional attribution (published later). */
@@ -114,6 +117,16 @@ export type StoryRichTextBlock = {
   quoteStyle?: "simple" | "card";
   /** When preset is `verse`, vertical rhythm between lines in the editor. */
   verseSpacing?: "compact" | "relaxed";
+  /**
+   * When true, this block was created as a locked heading (e.g. full-screen Add block → Heading).
+   * The text preset cannot be changed away from `heading`; heading level may still be edited.
+   */
+  headingPresetLocked?: boolean;
+  /**
+   * When true, this block was inserted as a List from Add block. The text preset cannot be changed away from `list`;
+   * list style (bullets vs numbered) may still be edited.
+   */
+  listPresetLocked?: boolean;
 };
 
 /** Raster / video / audio attached from the media library (picker, thumbnail, captions). */
@@ -315,16 +328,30 @@ export type StoryContainerBlockProps = {
   customBackground?: string;
   padding?: "none" | "sm" | "md" | "lg";
   border?: "none" | "subtle" | "dashed";
-  width?: "full" | "constrained";
+  /** Legacy `"constrained"` is normalized at load to `"normal"`. */
+  width?: StoryContainerWidth | "constrained";
   align?: "left" | "center" | "right";
   /** Optional row width / alignment (takes precedence over legacy `width`/`align` when set). */
   rowLayout?: StoryBlockRowLayout;
+  /** Canonical layout preset for this container. */
+  preset?: StoryContainerPreset;
   /**
-   * Layout/visual preset for this container (`default` when omitted).
-   * Stored as `containerPreset` (not a separate block type).
+   * @deprecated Prefer {@link StoryContainerBlockProps.preset}; older JSON may only have this key.
    */
   containerPreset?: StoryContainerPreset;
 };
+
+/** Canonical container layout preset (`preset` wins, then legacy `containerPreset`). */
+export function getStoryContainerPreset(props: Pick<StoryContainerBlockProps, "preset" | "containerPreset">): StoryContainerPreset {
+  return props.preset ?? props.containerPreset ?? "default";
+}
+
+/** Normalized content width (runtime default when omitted: `normal`). */
+export function resolveStoryContainerWidth(raw: StoryContainerBlockProps["width"] | undefined): StoryContainerWidth {
+  if (raw === "narrow" || raw === "normal" || raw === "wide" || raw === "full") return raw;
+  if (raw === "constrained") return "normal";
+  return "normal";
+}
 
 export type StoryContainerBlock = {
   id: string;
@@ -333,6 +360,11 @@ export type StoryContainerBlock = {
   children: StoryBlock[];
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  /**
+   * When true, this container was inserted as Card / Callout / Hero from the add-block presets;
+   * the layout preset cannot be switched to default or quote in the inspector (padding, border, etc. stay editable).
+   */
+  containerPresetLocked?: boolean;
 };
 
 export type StoryBlock =

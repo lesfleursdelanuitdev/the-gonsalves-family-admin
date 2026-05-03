@@ -5,6 +5,7 @@ import type {
   StoryColumnSlot,
   StoryColumnsBlock,
   StoryContainerBlockProps,
+  StoryContainerWidth,
   StoryAuthorCredit,
   StoryAuthorPrefixMode,
   StoryDocument,
@@ -116,16 +117,24 @@ function legacyEmbedToBlock(b: LegacyEmbedJson): StoryMediaBlock | StoryEmbedBlo
   };
 }
 
+function normalizeContainerWidth(raw: StoryContainerBlockProps["width"] | undefined): StoryContainerWidth {
+  if (raw === "narrow" || raw === "normal" || raw === "wide" || raw === "full") return raw;
+  if (raw === "constrained") return "normal";
+  return "normal";
+}
+
 function defaultContainerProps(raw: StoryContainerBlockProps | undefined): StoryContainerBlockProps {
+  const presetVal = raw?.preset ?? raw?.containerPreset;
   return {
     background: raw?.background ?? "none",
     padding: raw?.padding ?? "md",
-    border: raw?.border ?? "subtle",
-    width: raw?.width ?? "full",
-    align: raw?.align ?? "left",
+    border: raw?.border ?? "none",
+    width: normalizeContainerWidth(raw?.width),
+    align: raw?.align ?? "center",
     label: raw?.label,
     customBackground: raw?.customBackground,
-    containerPreset: raw?.containerPreset,
+    preset: presetVal,
+    containerPreset: presetVal,
     rowLayout: raw?.rowLayout,
   };
 }

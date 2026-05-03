@@ -7,12 +7,14 @@ import type {
   StoryBlockWidthMode,
   StoryColumnNestedBlock,
   StoryContainerBlockProps,
+  StoryContainerWidth,
   StoryEmbedBlock,
   StoryEmbedLayoutAlign,
   StoryEmbedWidthPreset,
   StoryMediaBlock,
   StoryRichTextBlock,
 } from "@/lib/admin/story-creator/story-types";
+import { resolveStoryContainerWidth } from "@/lib/admin/story-creator/story-types";
 
 /** Maps legacy embed/media width preset to row `widthMode` (inspector + preview must agree). */
 export function legacyWidthPresetToWidthMode(preset: StoryEmbedWidthPreset | undefined): StoryBlockWidthMode {
@@ -238,28 +240,39 @@ export function groupColumnNestedBlocksForLayout(blocks: readonly StoryColumnNes
   return out;
 }
 
-/** Container shell: combine new rowLayout with legacy width/align when rowLayout is sparse. */
+function containerContentWidthToRowWidthMode(w: StoryContainerWidth): StoryBlockWidthMode {
+  switch (w) {
+    case "narrow":
+      return "narrow";
+    case "normal":
+      return "medium";
+    case "wide":
+      return "wide";
+    case "full":
+      return "full";
+    default:
+      return "full";
+  }
+}
+
+/** Row layout for the outer wrapper; inner shell also applies {@link resolveStoryContainerWidth} max-width. */
 export function effectiveContainerRowLayout(props: StoryContainerBlockProps): StoryBlockRowLayout {
+  const contentW = resolveStoryContainerWidth(props.width);
+  const alignDefault = props.align ?? "center";
   if (props.rowLayout && Object.keys(props.rowLayout).length > 0) {
     const rl = effectiveRowLayout(props.rowLayout);
-    if (props.rowLayout.widthMode == null && props.width === "constrained") {
-      return { ...rl, widthMode: "medium", alignment: props.align ?? rl.alignment };
-    }
-    if (props.rowLayout.widthMode == null && props.width === "full") {
-      return { ...rl, widthMode: "full", alignment: props.align ?? rl.alignment };
+    if (props.rowLayout.widthMode == null) {
+      return {
+        ...rl,
+        widthMode: containerContentWidthToRowWidthMode(contentW),
+        alignment: props.rowLayout.alignment ?? alignDefault,
+      };
     }
     return rl;
   }
-  if (props.width === "constrained") {
-    return effectiveRowLayout({
-      widthMode: "medium",
-      alignment: props.align ?? "left",
-      displayMode: "block",
-    });
-  }
   return effectiveRowLayout({
-    widthMode: "full",
-    alignment: props.align ?? "left",
+    widthMode: containerContentWidthToRowWidthMode(contentW),
+    alignment: alignDefault,
     displayMode: "block",
   });
 }

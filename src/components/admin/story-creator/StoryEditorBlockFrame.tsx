@@ -68,7 +68,7 @@ function MobileSheetRow({
         "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition-colors",
         danger
           ? "border-error/25 bg-error/10 text-error hover:bg-error/15"
-          : "border-neutral-200/90 bg-neutral-50 text-neutral-800 hover:bg-primary/10 hover:border-primary/25",
+          : "border-black/20 bg-neutral-50 text-neutral-800 hover:bg-primary/10 hover:border-primary/25",
       )}
     >
       {children}

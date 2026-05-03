@@ -1,8 +1,29 @@
 import { cn } from "@/lib/utils";
-import type { StoryContainerBlockProps, StoryContainerPreset } from "@/lib/admin/story-creator/story-types";
+import type { StoryContainerBlock, StoryContainerBlockProps, StoryContainerPreset, StoryContainerWidth } from "@/lib/admin/story-creator/story-types";
+import { getStoryContainerPreset, resolveStoryContainerWidth } from "@/lib/admin/story-creator/story-types";
 
-export function getStoryContainerPreset(props: StoryContainerBlockProps): StoryContainerPreset {
-  return props.containerPreset ?? "default";
+export type StoryContainerRenderMode = "editor" | "preview";
+
+/** Resolved visual props (safe defaults when fields are omitted on disk). */
+export type ResolvedContainerVisualProps = {
+  preset: StoryContainerPreset;
+  background: NonNullable<StoryContainerBlockProps["background"]>;
+  padding: NonNullable<StoryContainerBlockProps["padding"]>;
+  border: NonNullable<StoryContainerBlockProps["border"]>;
+  width: StoryContainerWidth;
+  align: NonNullable<StoryContainerBlockProps["align"]>;
+};
+
+export function resolveContainerVisualProps(block: Pick<StoryContainerBlock, "props">): ResolvedContainerVisualProps {
+  const p = block.props;
+  return {
+    preset: getStoryContainerPreset(p),
+    background: p.background ?? "none",
+    padding: p.padding ?? "md",
+    border: p.border ?? "none",
+    width: resolveStoryContainerWidth(p.width),
+    align: p.align ?? "center",
+  };
 }
 
 export function getContainerPresetEmptyHint(preset: StoryContainerPreset): string {
@@ -20,136 +41,183 @@ export function getContainerPresetEmptyHint(preset: StoryContainerPreset): strin
   }
 }
 
-function paddingClass(padding: StoryContainerBlockProps["padding"] | undefined): string {
+function paddingClass(padding: ResolvedContainerVisualProps["padding"], mode: StoryContainerRenderMode): string {
   switch (padding) {
     case "none":
-      return "p-0";
+      /** Editor: minimal padding so selection chrome does not clip; preview stays flush. */
+      return mode === "editor" ? "px-px py-px sm:px-0.5 sm:py-0.5" : "p-0";
     case "sm":
       return "p-2 sm:p-2.5";
     case "lg":
-      return "p-6 sm:p-7";
+      return "p-6 sm:p-8";
     case "md":
     default:
       return "p-4 sm:p-5";
   }
 }
 
-function alignClass(align: StoryContainerBlockProps["align"] | undefined): string {
+function alignClass(align: ResolvedContainerVisualProps["align"]): string {
   if (align === "center") return "text-center";
   if (align === "right") return "text-right";
   return "text-left";
 }
 
-function widthClass(width: StoryContainerBlockProps["width"] | undefined): string {
-  return width === "constrained" ? "mx-auto w-full max-w-3xl" : "w-full";
+function innerWidthClass(width: StoryContainerWidth): string {
+  switch (width) {
+    case "narrow":
+      return "w-full max-w-md min-w-0 mx-auto";
+    case "wide":
+      return "w-full max-w-5xl min-w-0 mx-auto";
+    case "full":
+      return "w-full min-w-0 max-w-none";
+    case "normal":
+    default:
+      return "w-full max-w-3xl min-w-0 mx-auto";
+  }
 }
 
-/** Extra border treatment for default; dashed accent for structured presets. */
-function userBorderModifier(preset: StoryContainerPreset, border: StoryContainerBlockProps["border"] | undefined): string {
-  if (preset === "default" && border === "none") return "border-transparent";
-  if (preset === "default" && border === "dashed") return "border border-dashed border-neutral-300/90";
-  if (preset === "default") return "border border-neutral-200/90";
-  if (border === "dashed") return "border-dashed";
-  return "";
+/**
+ * User-controlled border on top/right/bottom. For callout/quote, the left accent bar uses
+ * `border-l-*` on the same node so `border: "none"` never removes that accent (only the soft
+ * frame on the other three sides).
+ */
+function userBorderShellClass(preset: StoryContainerPreset, border: ResolvedContainerVisualProps["border"]): string {
+  if (border === "none") {
+    if (preset === "default") return "border border-transparent";
+    return "border-t border-r border-b border-transparent";
+  }
+  if (border === "dashed") {
+    return cn(
+      "border-t border-r border-b border-dashed [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]",
+    );
+  }
+  return cn(
+    "border-t border-r border-b border-solid [border-color:var(--story-subtle-border,rgba(0,0,0,0.2))]",
+  );
 }
 
-function subtleBackgroundClass(preset: StoryContainerPreset): string {
-  if (preset === "callout") return "!bg-primary/[0.11]";
-  if (preset === "quote") return "!bg-neutral-100/95";
-  if (preset === "hero") return "!bg-gradient-to-b !from-neutral-200/90 !via-neutral-50/95 !to-white/90";
-  if (preset === "card") return "!bg-neutral-100/95";
-  return "bg-neutral-50/90";
+function presetShellClassName(r: ResolvedContainerVisualProps, mode: StoryContainerRenderMode): string {
+  const pad = paddingClass(r.padding, mode);
+  const align = alignClass(r.align);
+  const width = innerWidthClass(r.width);
+  const userBorder = userBorderShellClass(r.preset, r.border);
+
+  switch (r.preset) {
+    case "card":
+      return cn(
+        "story-container-preset-shell story-container-preset-card min-w-0 rounded-xl transition-[box-shadow,ring-color] duration-200",
+        "bg-[var(--story-surface)] shadow-sm",
+        pad,
+        align,
+        width,
+        userBorder,
+      );
+    case "callout":
+      return cn(
+        "story-container-preset-shell story-container-preset-callout min-w-0 rounded-lg transition-[box-shadow,ring-color] duration-200",
+        "border-l-[4px] border-l-[var(--story-accent)] bg-[var(--story-surface-muted)] pl-3 pr-3 shadow-sm",
+        pad,
+        align,
+        width,
+        userBorder,
+      );
+    case "hero":
+      return cn(
+        "story-container-preset-shell story-container-preset-hero min-w-0 rounded-xl transition-[box-shadow,ring-color] duration-200",
+        "story-container-hero-gradient shadow-md",
+        pad,
+        align,
+        width,
+        userBorder,
+      );
+    case "quote":
+      return cn(
+        "story-container-preset-shell story-container-preset-quote min-w-0 rounded-lg transition-[box-shadow,ring-color] duration-200",
+        "border-l-[4px] border-l-[var(--story-quote-accent)] bg-[var(--story-surface-muted)] pl-4 pr-3 font-serif text-[var(--story-text)] shadow-sm",
+        pad,
+        align,
+        width,
+        userBorder,
+      );
+    default:
+      return cn(
+        "story-container-preset-shell story-container-preset-default min-w-0 rounded-lg transition-[box-shadow,ring-color] duration-200",
+        pad,
+        align,
+        width,
+        userBorder,
+      );
+  }
 }
 
-function backgroundLayer(props: StoryContainerBlockProps, preset: StoryContainerPreset): string {
-  if (props.background === "custom") return "";
-  if (props.background === "subtle") return subtleBackgroundClass(preset);
+function backgroundOverlayClass(
+  props: StoryContainerBlockProps,
+  r: ResolvedContainerVisualProps,
+  preset: StoryContainerPreset,
+): string {
+  if (r.background === "custom") {
+    const has = Boolean(props.customBackground?.trim());
+    if (!has) return "story-container-bg-fallback";
+    return "";
+  }
+  if (r.background === "subtle") {
+    if (preset === "default") return "story-container-bg-subtle";
+    return "story-container-bg-subtle-on-preset";
+  }
   return "";
 }
 
 /**
- * Shared surface for container blocks — editor and preview use the same classes;
- * editor adds a selection ring when `selected` is true. Custom fill is applied via
- * {@link getContainerCustomBackgroundStyle} on the same node (inline wins over classes).
+ * Combined class list for a `container` block (editor + preview). Single source of truth for
+ * preset, background, padding, border, width, and alignment.
  */
-export function getContainerPresetShellClassName(
-  props: StoryContainerBlockProps,
-  mode: "editor" | "preview",
-  opts?: { selected?: boolean },
+export function getContainerClasses(
+  block: StoryContainerBlock,
+  mode: StoryContainerRenderMode,
+  opts?: { selected?: boolean; emptyChildren?: boolean },
 ): string {
-  const preset = getStoryContainerPreset(props);
-  const pad = paddingClass(props.padding);
-  const align = alignClass(props.align);
-  const width = widthClass(props.width);
-  const borderMod = userBorderModifier(preset, props.border);
-  const bg = backgroundLayer(props, preset);
-
-  const defaultShell = cn(
-    "min-w-0 rounded-lg transition-[box-shadow,ring-color] duration-200",
-    pad,
-    align,
-    width,
-    borderMod,
-    props.background === "none" || !props.background ? "bg-transparent" : "",
-    props.background === "subtle" && preset === "default" && bg,
-  );
-
-  const cardShell = cn(
-    "min-w-0 rounded-xl border border-neutral-200/90 bg-white/95 shadow-sm shadow-neutral-900/[0.06]",
-    pad,
-    align,
-    width,
-    borderMod,
-    props.background === "none" || !props.background ? "bg-white/95" : "",
-    props.background === "subtle" && bg,
-  );
-
-  const calloutShell = cn(
-    "min-w-0 rounded-lg border border-primary/25 border-l-[4px] border-l-primary/60 bg-primary/[0.07] pl-3 pr-3 shadow-sm shadow-primary/5",
-    pad,
-    align,
-    width,
-    borderMod,
-    props.background === "none" || !props.background ? "bg-primary/[0.05]" : "",
-    props.background === "subtle" && bg,
-  );
-
-  const heroShell = cn(
-    "min-w-0 rounded-xl border border-neutral-200/80 bg-gradient-to-b from-neutral-100/95 via-white/92 to-neutral-50/85 shadow-md shadow-neutral-900/10",
-    pad,
-    align,
-    width,
-    borderMod,
-    props.background === "none" || !props.background ? "" : "",
-    props.background === "subtle" && bg,
-  );
-
-  const quoteShell = cn(
-    "min-w-0 rounded-lg border border-neutral-200/85 border-l-[4px] border-l-neutral-500/75 bg-neutral-50/70 pl-4 pr-3 shadow-sm shadow-neutral-900/[0.04]",
-    "font-serif text-neutral-800/95",
-    pad,
-    align,
-    width,
-    borderMod,
-    props.background === "none" || !props.background ? "bg-neutral-50/55" : "",
-    props.background === "subtle" && bg,
-  );
-
-  let shell = defaultShell;
-  if (preset === "card") shell = cardShell;
-  else if (preset === "callout") shell = calloutShell;
-  else if (preset === "hero") shell = heroShell;
-  else if (preset === "quote") shell = quoteShell;
-
+  const r = resolveContainerVisualProps(block);
+  const shell = presetShellClassName(r, mode);
+  const bg = backgroundOverlayClass(block.props, r, r.preset);
+  const defaultPresetFill = r.background === "none" && r.preset === "default" ? "bg-transparent" : "";
   const editorRing =
     mode === "editor" && opts?.selected
-      ? "ring-2 ring-primary/45 ring-offset-2 ring-offset-white"
+      ? "ring-2 ring-primary/45 ring-offset-2 ring-offset-[var(--story-ring-offset,theme(colors.base.100))]"
       : "";
+  const editorEmptyMin =
+    mode === "editor" && opts?.emptyChildren ? "min-h-[3.5rem] flex flex-col justify-center" : "";
 
-  return cn("story-container-preset-shell", shell, editorRing);
+  return cn(
+    "story-container-mode",
+    mode === "editor" ? "story-container-mode-editor" : "story-container-mode-preview",
+    shell,
+    bg,
+    defaultPresetFill,
+    editorRing,
+    editorEmptyMin,
+  );
 }
 
-export function getContainerCustomBackgroundStyle(props: StoryContainerBlockProps): { background?: string } | undefined {
-  if (props.background !== "custom" || !props.customBackground?.trim()) return undefined;
-  return { background: props.customBackground.trim() };
+/** @deprecated Prefer {@link getContainerClasses} with the full block. */
+export function getContainerPresetShellClassName(
+  props: StoryContainerBlockProps,
+  mode: StoryContainerRenderMode,
+  opts?: { selected?: boolean; emptyChildren?: boolean },
+): string {
+  const stub: StoryContainerBlock = {
+    id: "",
+    type: "container",
+    props,
+    children: [],
+  };
+  return getContainerClasses(stub, mode, opts);
+}
+
+export function getContainerCustomBackgroundStyle(
+  props: StoryContainerBlockProps,
+): { background?: string } | undefined {
+  if (props.background !== "custom") return undefined;
+  const c = props.customBackground?.trim();
+  if (!c) return undefined;
+  return { background: c };
 }

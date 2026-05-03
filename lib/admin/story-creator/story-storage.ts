@@ -163,9 +163,8 @@ export async function saveStoryDocument(doc: StoryDocument): Promise<StoryDocume
     `/api/admin/stories/${encodeURIComponent(doc.id)}`,
     doc,
   );
-  const remote = await fetchJson<StoryDocument>(`/api/admin/stories/${encodeURIComponent(doc.id)}`);
-  const migrated = migrateStoryDocument(remote);
-  return { ...migrated, updatedAt };
+  /** Avoid a follow-up GET: re-fetching after every save replaced `doc` with server-shaped JSON and felt like a full UI reset. */
+  return migrateStoryDocument({ ...doc, updatedAt });
 }
 
 export function createEmptyStoryDocument(id?: string): StoryDocument {
