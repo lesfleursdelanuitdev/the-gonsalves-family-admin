@@ -1073,3 +1073,21 @@ body {
   color: color-mix(in oklch, var(--color-base-content) 44%, transparent);
   font-weight: 400;
 }
+
+/* Paper canvas — `base-content` follows the dark shell; use neutral ink on white/mint blocks */
+.story-tiptap--paper .ProseMirror p.is-editor-empty:first-child::before {
+  color: color-mix(in oklch, var(--color-neutral) 52%, white);
+}
+.story-tiptap--paper .ProseMirror th,
+.story-tiptap--paper .ProseMirror td {
+  border-color: color-mix(in oklch, var(--color-neutral) 22%, transparent);
+}
+.story-tiptap--paper .ProseMirror th {
+  background: color-mix(in oklch, var(--color-neutral) 8%, white);
+}
+.story-tiptap--paper .ProseMirror pre,
+.story-tiptap--paper .ProseMirror pre.story-editor-codeblock {
+  background: color-mix(in oklch, var(--color-neutral) 6%, white);
+  border-color: color-mix(in oklch, var(--color-neutral) 14%, transparent);
+  color: var(--color-neutral);
+}

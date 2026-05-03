@@ -7,10 +7,15 @@ import type {
   StoryColumnNestedBlock,
   StoryColumnSlot,
   StoryColumnsBlock,
+  StoryContainerBlock,
   StoryContainerBlockProps,
+  StoryDividerBlock,
   StoryEmbedBlock,
   StoryMediaBlock,
+  StoryRichTextBlock,
   StorySection,
+  StorySplitContentBlock,
+  StorySplitSupportBlock,
 } from "@/lib/admin/story-creator/story-types";
 import { mergeStoryBlockDesign } from "@/lib/admin/story-creator/story-block-design";
 import { columnsBlockDepthInSection, MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
@@ -20,7 +25,32 @@ function columnPair(c0: StoryColumnSlot, c1: StoryColumnSlot): [StoryColumnSlot,
   return [c0, c1];
 }
 
-/** Bottom-up map over section blocks (containers + columns). */
+function mapSplitSupportingDeep(
+  blocks: StorySplitSupportBlock[],
+  mapper: (b: StoryBlock) => StoryBlock,
+): StorySplitSupportBlock[] {
+  return blocks.map((sb) => mapOneSplitSupporting(sb, mapper));
+}
+
+function mapOneSplitSupporting(sb: StorySplitSupportBlock, mapper: (b: StoryBlock) => StoryBlock): StorySplitSupportBlock {
+  if (sb.type === "container") {
+    const inner = mapStoryBlocksDeep(sb.children, mapper);
+    return mapper({ ...sb, children: inner }) as StoryContainerBlock;
+  }
+  if (sb.type === "columns") {
+    const inner: StoryColumnsBlock = {
+      ...sb,
+      columns: [
+        { ...sb.columns[0], blocks: mapColumnNestedDeep(sb.columns[0].blocks, mapper) },
+        { ...sb.columns[1], blocks: mapColumnNestedDeep(sb.columns[1].blocks, mapper) },
+      ],
+    };
+    return mapper(inner) as StoryColumnsBlock;
+  }
+  return mapper(sb as StoryBlock) as StorySplitSupportBlock;
+}
+
+/** Bottom-up map over section blocks (containers + columns + split). */
 function mapStoryBlocksDeep(blocks: StoryBlock[], mapper: (b: StoryBlock) => StoryBlock): StoryBlock[] {
   return blocks.map((b) => {
     let base: StoryBlock = b;
@@ -33,6 +63,18 @@ function mapStoryBlocksDeep(blocks: StoryBlock[], mapper: (b: StoryBlock) => Sto
           { ...b.columns[0], blocks: mapColumnNestedDeep(b.columns[0].blocks, mapper) },
           { ...b.columns[1], blocks: mapColumnNestedDeep(b.columns[1].blocks, mapper) },
         ],
+      };
+    } else if (b.type === "splitContent") {
+      const mappedText = mapper(b.text as StoryBlock);
+      const text: StoryRichTextBlock =
+        mappedText.type === "richText" ? (mappedText as StoryRichTextBlock) : (b as StorySplitContentBlock).text;
+      base = {
+        ...(b as StorySplitContentBlock),
+        text,
+        supporting: {
+          ...(b as StorySplitContentBlock).supporting,
+          blocks: mapSplitSupportingDeep((b as StorySplitContentBlock).supporting.blocks, mapper),
+        },
       };
     }
     return mapper(base);
@@ -57,6 +99,20 @@ function mapColumnNestedDeep(blocks: StoryColumnNestedBlock[], mapper: (b: Story
           { ...nb.columns[1], blocks: mapColumnNestedDeep(nb.columns[1].blocks, mapper) },
         ],
       } as StoryColumnsBlock;
+    } else if (nb.type === "splitContent") {
+      const mappedText = mapper(nb.text as StoryBlock);
+      const text: StoryRichTextBlock =
+        mappedText.type === "richText" ? (mappedText as StoryRichTextBlock) : nb.text;
+      base = {
+        ...nb,
+        text,
+        supporting: {
+          ...nb.supporting,
+          blocks: mapSplitSupportingDeep(nb.supporting.blocks, mapper),
+        },
+      };
+    } else if (nb.type === "table") {
+      base = nb;
     }
     return mapper(base) as StoryColumnNestedBlock;
   });
@@ -80,6 +136,40 @@ function patchColumnSlotDeep(
       if (nextChildren !== nb.children) {
         changed = true;
         return { ...nb, children: nextChildren };
+      }
+      return nb;
+    }
+    if (nb.type === "splitContent") {
+      const ix = nb.supporting.blocks.findIndex((x) => x.id === childId);
+      if (ix >= 0) {
+        changed = true;
+        const sb = [...nb.supporting.blocks];
+        sb[ix] = fn(sb[ix] as StoryColumnNestedBlock) as StorySplitSupportBlock;
+        return { ...nb, supporting: { ...nb.supporting, blocks: sb } };
+      }
+      let splitChanged = false;
+      const sbNext = nb.supporting.blocks.map((sb) => {
+        if (sb.type === "container") {
+          const nextChildren = mapStoryBlocksDeep(sb.children, (b) => fn(b as StoryColumnNestedBlock) as StoryBlock);
+          if (nextChildren !== sb.children) {
+            splitChanged = true;
+            return { ...sb, children: nextChildren };
+          }
+          return sb;
+        }
+        if (sb.type === "columns") {
+          const c0 = patchColumnSlotDeep(sb.columns[0], childId, fn);
+          const c1 = patchColumnSlotDeep(sb.columns[1], childId, fn);
+          if (c0 !== sb.columns[0] || c1 !== sb.columns[1]) {
+            splitChanged = true;
+            return { ...sb, columns: columnPair(c0, c1) };
+          }
+        }
+        return sb;
+      });
+      if (splitChanged) {
+        changed = true;
+        return { ...nb, supporting: { ...nb.supporting, blocks: sbNext } };
       }
       return nb;
     }
@@ -126,8 +216,68 @@ export function patchRichTextInSection(
 ): StorySection {
   return {
     ...sec,
+    blocks: mapStoryBlocksDeep(sec.blocks, (b) => {
+      if (b.type === "richText" && b.id === richId) return { ...b, doc };
+      if (b.type === "splitContent" && b.text.id === richId) {
+        return { ...b, text: { ...b.text, doc } };
+      }
+      return b;
+    }),
+  };
+}
+
+export type StoryRichTextMetaPatch = Partial<
+  Pick<
+    StoryRichTextBlock,
+    "preset" | "textPreset" | "headingLevel" | "listVariant" | "quoteAttribution" | "quoteStyle" | "verseSpacing"
+  >
+>;
+
+function mergeRichTextMetaPatch(patch: StoryRichTextMetaPatch): StoryRichTextMetaPatch {
+  const out = { ...patch };
+  if (patch.preset != null && patch.textPreset === undefined) out.textPreset = patch.preset;
+  if (patch.textPreset != null && patch.preset === undefined) out.preset = patch.textPreset;
+  return out;
+}
+
+/** Patch semantic rich-text fields anywhere in the section tree (incl. split primary text). */
+export function patchRichTextMetaInSection(
+  sec: StorySection,
+  richTextBlockId: string,
+  patch: StoryRichTextMetaPatch,
+): StorySection {
+  const merged = mergeRichTextMetaPatch(patch);
+  return {
+    ...sec,
+    blocks: mapStoryBlocksDeep(sec.blocks, (b) => {
+      if (b.type === "richText" && b.id === richTextBlockId) {
+        return { ...b, ...merged } as StoryBlock;
+      }
+      if (b.type === "splitContent" && b.text.id === richTextBlockId) {
+        return { ...b, text: { ...b.text, ...merged } } as StoryBlock;
+      }
+      return b;
+    }),
+  };
+}
+
+export type StoryDividerMetaPatch = Partial<
+  Pick<StoryDividerBlock, "preset" | "variant" | "spacerRem" | "rowLayout" | "dividerThicknessPx" | "ornamentalStyle">
+>;
+
+function mergeDividerMetaPatch(patch: StoryDividerMetaPatch): StoryDividerMetaPatch {
+  const out = { ...patch };
+  if (patch.preset != null && patch.variant === undefined) out.variant = patch.preset;
+  if (patch.variant != null && patch.preset === undefined) out.preset = patch.variant;
+  return out;
+}
+
+export function patchDividerBlockInSection(sec: StorySection, dividerId: string, patch: StoryDividerMetaPatch): StorySection {
+  const merged = mergeDividerMetaPatch(patch);
+  return {
+    ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
-      b.type === "richText" && b.id === richId ? { ...b, doc } : b,
+      b.type === "divider" && b.id === dividerId ? ({ ...b, ...merged } as StoryBlock) : b,
     ),
   };
 }
@@ -181,6 +331,9 @@ export function patchBlockRowLayoutInSection(
       }
       if (b.type === "container") {
         return { ...b, props: { ...b.props, rowLayout: { ...b.props.rowLayout, ...patch } } };
+      }
+      if (b.type === "divider") {
+        return { ...b, rowLayout: { ...b.rowLayout, ...patch } } as StoryBlock;
       }
       return b;
     }),
@@ -463,6 +616,17 @@ function removeFromStoryBlocksDeep(blocks: StoryBlock[], targetId: string): Remo
         return { ...b, children: r.next };
       }
     }
+    if (b.type === "splitContent") {
+      if (b.text.id === targetId) {
+        return b;
+      }
+      const r = removeFromStoryBlocksDeep(b.supporting.blocks as StoryBlock[], targetId);
+      if (r.removed) {
+        changed = true;
+        sel = r.nextSelectedId ?? b.id;
+        return { ...b, supporting: { ...b.supporting, blocks: r.next as StorySplitSupportBlock[] } };
+      }
+    }
     if (b.type === "columns") {
       const r = removeFromNestedColumnTree(b, targetId);
       if (r.removed) {
@@ -504,6 +668,20 @@ function removeFromNestedColumnTree(block: StoryColumnsBlock, targetId: string):
           return { next: { ...block, columns: cols }, nextSelectedId, removed: true };
         }
       }
+      if (nb.type === "splitContent") {
+        if (nb.text.id === targetId) continue;
+        const inner = removeFromStoryBlocksDeep(nb.supporting.blocks as StoryBlock[], targetId);
+        if (inner.removed) {
+          const nextBlocks = [...slot.blocks];
+          nextBlocks[j] = {
+            ...nb,
+            supporting: { ...nb.supporting, blocks: inner.next as StorySplitSupportBlock[] },
+          };
+          cols[col] = { ...slot, blocks: nextBlocks };
+          const nextSelectedId = inner.nextSelectedId ?? nb.id;
+          return { next: { ...block, columns: cols }, nextSelectedId, removed: true };
+        }
+      }
       if (nb.type !== "columns") continue;
       const inner = removeFromNestedColumnTree(nb, targetId);
       if (inner.removed) {
@@ -539,6 +717,14 @@ export function removeBlockById(
         changed = true;
         nextSelectedId = r.nextSelectedId ?? b.id;
         return { ...b, children: r.next };
+      }
+    }
+    if (b.type === "splitContent") {
+      const r = removeFromStoryBlocksDeep(b.supporting.blocks as StoryBlock[], blockId);
+      if (r.removed) {
+        changed = true;
+        nextSelectedId = r.nextSelectedId ?? b.id;
+        return { ...b, supporting: { ...b.supporting, blocks: r.next as StorySplitSupportBlock[] } };
       }
     }
     if (b.type === "columns") {
@@ -583,6 +769,16 @@ function findColumnNestedPlacementInBlock(
           if (ix >= 0) return { columnsBlockId: block.id, columnIndex: col as 0 | 1, blockIndex: ix };
         }
       }
+      if (nb.type === "splitContent") {
+        if (nb.text.id === blockId) {
+          const ix = block.columns[col].blocks.findIndex((x) => x.id === nb.id);
+          if (ix >= 0) return { columnsBlockId: block.id, columnIndex: col as 0 | 1, blockIndex: ix };
+        }
+        if (findStoryBlockPlacementInList(nb.supporting.blocks as StoryBlock[], blockId) != null) {
+          const ix = block.columns[col].blocks.findIndex((x) => x.id === nb.id);
+          if (ix >= 0) return { columnsBlockId: block.id, columnIndex: col as 0 | 1, blockIndex: ix };
+        }
+      }
       if (nb.type === "columns") {
         const inner = findColumnNestedPlacementInBlock(nb, blockId);
         if (inner) return inner;
@@ -606,9 +802,19 @@ function findStoryBlockPlacementInList(blocks: StoryBlock[], blockId: string): n
         for (const nb of slot.blocks) {
           if (nb.id === blockId) return i;
           if (nb.type === "container" && findStoryBlockPlacementInList(nb.children, blockId) != null) return i;
+          if (
+            nb.type === "splitContent" &&
+            (nb.text.id === blockId ||
+              findStoryBlockPlacementInList(nb.supporting.blocks as StoryBlock[], blockId) != null)
+          )
+            return i;
           if (nb.type === "columns" && findColumnNestedPlacementInBlock(nb, blockId)) return i;
         }
       }
+    }
+    if (b.type === "splitContent") {
+      if (b.text.id === blockId) return i;
+      if (findStoryBlockPlacementInList(b.supporting.blocks as StoryBlock[], blockId) != null) return i;
     }
   }
   return null;
@@ -634,6 +840,10 @@ function findInnermostColumnsBlockContainingTargetInColumns(
       if (nb.type === "container" && findStoryBlockPlacementInList(nb.children, targetBlockId) != null) {
         return block;
       }
+      if (nb.type === "splitContent") {
+        if (nb.text.id === targetBlockId) return block;
+        if (findStoryBlockPlacementInList(nb.supporting.blocks as StoryBlock[], targetBlockId) != null) return block;
+      }
       if (nb.type === "columns") {
         const inner = findInnermostColumnsBlockContainingTargetInColumns(nb, targetBlockId);
         if (inner) return inner;
@@ -656,6 +866,41 @@ export function findInnermostColumnsBlockContainingTargetBlock(
   return null;
 }
 
+function tryInsertInSplitContent(
+  split: StorySplitContentBlock,
+  targetBlockId: string,
+  position: "above" | "below",
+  insert: StoryBlock,
+): StorySplitContentBlock | null {
+  if (split.text.id === targetBlockId) return null;
+  const ix = split.supporting.blocks.findIndex((sb) => sb.id === targetBlockId);
+  if (ix >= 0) {
+    const at = position === "above" ? ix : ix + 1;
+    const nextSb = [...split.supporting.blocks];
+    nextSb.splice(at, 0, insert as StorySplitSupportBlock);
+    return { ...split, supporting: { ...split.supporting, blocks: nextSb } };
+  }
+  let any = false;
+  const nextSb = split.supporting.blocks.map((sb) => {
+    if (sb.type === "container") {
+      const inner = tryInsertInStoryBlocks(sb.children, targetBlockId, position, insert);
+      if (inner) {
+        any = true;
+        return { ...sb, children: inner };
+      }
+    }
+    if (sb.type === "columns") {
+      const inner = tryInsertInColumnTree(sb, targetBlockId, position, insert as StoryColumnNestedBlock);
+      if (inner) {
+        any = true;
+        return inner;
+      }
+    }
+    return sb;
+  });
+  return any ? { ...split, supporting: { ...split.supporting, blocks: nextSb } } : null;
+}
+
 function tryInsertInColumnNestedSlotList(
   blocks: StoryColumnNestedBlock[],
   targetBlockId: string,
@@ -676,6 +921,13 @@ function tryInsertInColumnNestedSlotList(
       if (inner) {
         any = true;
         return { ...nb, children: inner };
+      }
+    }
+    if (nb.type === "splitContent") {
+      const s = tryInsertInSplitContent(nb, targetBlockId, position, insert as StoryBlock);
+      if (s) {
+        any = true;
+        return s;
       }
     }
     if (nb.type === "columns") {
@@ -743,6 +995,13 @@ function tryInsertInStoryBlocks(
         return { ...b, children: inner };
       }
     }
+    if (b.type === "splitContent") {
+      const s = tryInsertInSplitContent(b, targetBlockId, position, insert);
+      if (s) {
+        any = true;
+        return s;
+      }
+    }
     if (b.type === "columns") {
       const inner = tryInsertInColumnTree(b, targetBlockId, position, insert as StoryColumnNestedBlock);
       if (inner) {
@@ -760,6 +1019,14 @@ function findInStoryBlock(b: StoryBlock, id: string): StoryBlock | null {
   if (b.type === "container") {
     for (const c of b.children) {
       const h = findInStoryBlock(c, id);
+      if (h) return h;
+    }
+    return null;
+  }
+  if (b.type === "splitContent") {
+    if (b.text.id === id) return b.text as StoryBlock;
+    for (const sb of b.supporting.blocks) {
+      const h = findInStoryBlock(sb as StoryBlock, id);
       if (h) return h;
     }
     return null;
@@ -790,6 +1057,14 @@ function findInStoryBlock(b: StoryBlock, id: string): StoryBlock | null {
 
 function findInColumnNestedAsStoryBlock(nb: StoryColumnNestedBlock, id: string): StoryBlock | null {
   if (nb.id === id) return nb as StoryBlock;
+  if (nb.type === "splitContent") {
+    if (nb.text.id === id) return nb.text as StoryBlock;
+    for (const sb of nb.supporting.blocks) {
+      const h = findInStoryBlock(sb as StoryBlock, id);
+      if (h) return h;
+    }
+    return null;
+  }
   if (nb.type === "container") {
     for (const c of nb.children) {
       const h = findInStoryBlock(c, id);
@@ -905,6 +1180,13 @@ function appendBlockIntoContainerInSlot(
         return inner;
       }
     }
+    if (nb.type === "splitContent") {
+      const inner = appendBlockIntoContainerDeep(nb.supporting.blocks as StoryBlock[], containerId, block);
+      if (inner) {
+        any = true;
+        return { ...nb, supporting: { ...nb.supporting, blocks: inner as StorySplitSupportBlock[] } };
+      }
+    }
     return nb;
   });
   return any ? next : null;
@@ -935,9 +1217,131 @@ function appendBlockIntoContainerDeep(
         return inner;
       }
     }
+    if (b.type === "splitContent") {
+      const inner = appendBlockIntoContainerDeep(b.supporting.blocks as StoryBlock[], containerId, block);
+      if (inner) {
+        any = true;
+        return {
+          ...b,
+          supporting: { ...b.supporting, blocks: inner as StorySplitSupportBlock[] },
+        };
+      }
+    }
     return b;
   });
   return any ? next : null;
+}
+
+function appendSupportingToSplitInColumns(
+  colBlock: StoryColumnsBlock,
+  splitBlockId: string,
+  insert: StorySplitSupportBlock,
+): StoryColumnsBlock | null {
+  const n0 = appendSupportingToSplitInSlot(colBlock.columns[0].blocks, splitBlockId, insert);
+  if (n0) {
+    return {
+      ...colBlock,
+      columns: [{ ...colBlock.columns[0], blocks: n0 }, colBlock.columns[1]],
+    };
+  }
+  const n1 = appendSupportingToSplitInSlot(colBlock.columns[1].blocks, splitBlockId, insert);
+  if (n1) {
+    return {
+      ...colBlock,
+      columns: [colBlock.columns[0], { ...colBlock.columns[1], blocks: n1 }],
+    };
+  }
+  return null;
+}
+
+function appendSupportingToSplitInSlot(
+  blocks: StoryColumnNestedBlock[],
+  splitBlockId: string,
+  insert: StorySplitSupportBlock,
+): StoryColumnNestedBlock[] | null {
+  let any = false;
+  const next = blocks.map((nb) => {
+    if (nb.type === "splitContent" && nb.id === splitBlockId) {
+      any = true;
+      return {
+        ...nb,
+        supporting: { ...nb.supporting, blocks: [...nb.supporting.blocks, insert] },
+      };
+    }
+    if (nb.type === "splitContent") {
+      const inner = appendSupportingToSplitDeep(nb.supporting.blocks as StoryBlock[], splitBlockId, insert);
+      if (inner) {
+        any = true;
+        return { ...nb, supporting: { ...nb.supporting, blocks: inner as StorySplitSupportBlock[] } };
+      }
+    }
+    if (nb.type === "container") {
+      const inner = appendSupportingToSplitDeep(nb.children, splitBlockId, insert);
+      if (inner) {
+        any = true;
+        return { ...nb, children: inner };
+      }
+    }
+    if (nb.type === "columns") {
+      const inner = appendSupportingToSplitInColumns(nb, splitBlockId, insert);
+      if (inner) {
+        any = true;
+        return inner;
+      }
+    }
+    return nb;
+  });
+  return any ? next : null;
+}
+
+function appendSupportingToSplitDeep(
+  blocks: StoryBlock[],
+  splitBlockId: string,
+  insert: StorySplitSupportBlock,
+): StoryBlock[] | null {
+  let any = false;
+  const next = blocks.map((b) => {
+    if (b.type === "splitContent" && b.id === splitBlockId) {
+      any = true;
+      return {
+        ...b,
+        supporting: { ...b.supporting, blocks: [...b.supporting.blocks, insert] },
+      };
+    }
+    if (b.type === "splitContent") {
+      const inner = appendSupportingToSplitDeep(b.supporting.blocks as StoryBlock[], splitBlockId, insert);
+      if (inner) {
+        any = true;
+        return { ...b, supporting: { ...b.supporting, blocks: inner as StorySplitSupportBlock[] } };
+      }
+    }
+    if (b.type === "container") {
+      const inner = appendSupportingToSplitDeep(b.children, splitBlockId, insert);
+      if (inner) {
+        any = true;
+        return { ...b, children: inner };
+      }
+    }
+    if (b.type === "columns") {
+      const inner = appendSupportingToSplitInColumns(b, splitBlockId, insert);
+      if (inner) {
+        any = true;
+        return inner;
+      }
+    }
+    return b;
+  });
+  return any ? next : null;
+}
+
+/** Append a supporting-only block to a split block’s rail (any depth). */
+export function appendSupportingBlockToSplit(
+  sec: StorySection,
+  splitBlockId: string,
+  block: StorySplitSupportBlock,
+): StorySection | null {
+  const next = appendSupportingToSplitDeep(sec.blocks, splitBlockId, block);
+  return next ? { ...sec, blocks: next } : null;
 }
 
 /** Append a block as the last child of the container with `containerId` (any depth). */

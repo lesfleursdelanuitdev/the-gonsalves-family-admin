@@ -53,6 +53,15 @@ export type StoryBlockDateAnnotation = {
   endDate?: string;
 };
 
+/** Semantic text preset (Add Block); TipTap remains the inline engine inside `doc`. */
+export type StoryRichTextTextPreset = "paragraph" | "heading" | "list" | "verse" | "quote";
+
+/** Optional layout preset for containers created from Add Block. */
+export type StoryContainerPreset = "default" | "card" | "callout" | "hero" | "quote";
+
+/** Divider / spacer preset values (stored on `preset` and mirrored on `variant` for compatibility). */
+export type StoryDividerVariant = "line" | "spacer" | "ornamental" | "sectionBreak";
+
 /** Matches Prisma `StoryKind` — used in local drafts until server sync. */
 export type StoryDocumentKind = "story" | "article" | "post";
 
@@ -88,6 +97,23 @@ export type StoryRichTextBlock = {
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  /**
+   * Canonical semantic preset (paragraph, heading, list, quote, verse).
+   * When migrating older drafts, mirrors legacy {@link StoryRichTextBlock.textPreset}.
+   */
+  preset?: StoryRichTextTextPreset;
+  /** @deprecated Prefer {@link StoryRichTextBlock.preset}; kept for older JSON until migration runs. */
+  textPreset?: StoryRichTextTextPreset;
+  /** When preset is `heading`, display level for inspector / starter docs. */
+  headingLevel?: 1 | 2 | 3;
+  /** When preset is `list`, preferred list style for starter docs. */
+  listVariant?: "bullet" | "ordered";
+  /** When preset is `quote`, optional attribution (published later). */
+  quoteAttribution?: string;
+  /** When preset is `quote`, layout flavor in the editor / preview. */
+  quoteStyle?: "simple" | "card";
+  /** When preset is `verse`, vertical rhythm between lines in the editor. */
+  verseSpacing?: "compact" | "relaxed";
 };
 
 /** Raster / video / audio attached from the media library (picker, thumbnail, captions). */
@@ -114,8 +140,17 @@ export type StoryMediaBlock = {
   dateAnnotation?: StoryBlockDateAnnotation;
 };
 
-/** Non-media embeds: maps, timelines, trees, documents, graphs. */
-export type StoryGeneralEmbedKind = "document" | "timeline" | "map" | "tree" | "graph";
+/** Non-media embeds: maps, timelines, trees, documents, graphs, and genealogy UI scaffolds. */
+export type StoryGeneralEmbedKind =
+  | "document"
+  | "timeline"
+  | "map"
+  | "tree"
+  | "graph"
+  | "gallery"
+  | "personSpotlight"
+  | "familyGroup"
+  | "event";
 
 /** Layout for media / embed blocks (theme-controlled presets, not freeform CSS). */
 export type StoryEmbedLayoutAlign = "above" | "below" | "left" | "right" | "wrapped" | "center" | "full";
@@ -161,7 +196,9 @@ export type StoryColumnNestedBlock =
   | StoryMediaBlock
   | StoryEmbedBlock
   | StoryColumnsBlock
-  | StoryContainerBlock;
+  | StoryContainerBlock
+  | StoryTableBlock
+  | StorySplitContentBlock;
 
 /**
  * Vertical distribution of blocks inside a column (`flex-direction: column` → `justify-content`).
@@ -200,12 +237,75 @@ export type StoryColumnsBlock = {
   dateAnnotation?: StoryBlockDateAnnotation;
 };
 
-export type StoryDividerBlock = {
+/** Custom grid table (not TipTap table). */
+export type StoryTableBlock = {
   id: string;
-  type: "divider";
+  type: "table";
+  hasHeaderRow?: boolean;
+  columnCount: number;
+  rowCount: number;
+  /** Row-major plain-text cells. */
+  cells: string[][];
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
 };
+
+/** Blocks allowed in the split “supporting” rail (scaffold; expand later). */
+export type StorySplitSupportBlock =
+  | StoryMediaBlock
+  | StoryEmbedBlock
+  | StoryColumnsBlock
+  | StoryContainerBlock
+  | StoryTableBlock;
+
+/** One primary text flow plus a supporting stack (media/embed). Wrap layout is scaffolded for a later pass. */
+export type StorySplitSupportingSlot = {
+  id: string;
+  blocks: StorySplitSupportBlock[];
+};
+
+export type StorySplitContentBlock = {
+  id: string;
+  type: "splitContent";
+  text: StoryRichTextBlock;
+  supporting: StorySplitSupportingSlot;
+  supportingSide?: "left" | "right";
+  design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
+};
+
+export type StoryDividerBlock = {
+  id: string;
+  type: "divider";
+  /** Canonical divider preset; when absent, {@link StoryDividerBlock.variant} is used (migration fills both). */
+  preset?: StoryDividerVariant;
+  /** @deprecated Prefer {@link StoryDividerBlock.preset}; kept in sync for older readers. */
+  variant?: StoryDividerVariant;
+  /** When preset is `spacer`, vertical gap in rem (default 2). */
+  spacerRem?: number;
+  /** Row width / alignment (optional; defaults when omitted). */
+  rowLayout?: StoryBlockRowLayout;
+  /** Line weight for `line`, `ornamental`, and `sectionBreak` (CSS px, clamped in UI). */
+  dividerThicknessPx?: number;
+  /** Sub-style when `variant` is `ornamental`. */
+  ornamentalStyle?: "dots" | "diamonds";
+  design?: StoryBlockDesign;
+  dateAnnotation?: StoryBlockDateAnnotation;
+};
+
+const STORY_DIVIDER_VARIANTS: readonly StoryDividerVariant[] = ["line", "spacer", "ornamental", "sectionBreak"];
+
+/** Resolved divider preset (`preset` wins, then `variant`, then `line`). */
+export function getStoryDividerPreset(block: Pick<StoryDividerBlock, "preset" | "variant">): StoryDividerVariant {
+  const raw = block.preset ?? block.variant;
+  if (raw && (STORY_DIVIDER_VARIANTS as readonly string[]).includes(raw)) return raw;
+  return "line";
+}
+
+/** Canonical rich-text preset (prefers `preset`, then legacy `textPreset`). */
+export function getStoryRichTextPreset(block: Pick<StoryRichTextBlock, "preset" | "textPreset">): StoryRichTextTextPreset {
+  return block.preset ?? block.textPreset ?? "paragraph";
+}
 
 /** Layout-only container; children are full section-level block shapes (recursive). */
 export type StoryContainerBlockProps = {
@@ -219,6 +319,11 @@ export type StoryContainerBlockProps = {
   align?: "left" | "center" | "right";
   /** Optional row width / alignment (takes precedence over legacy `width`/`align` when set). */
   rowLayout?: StoryBlockRowLayout;
+  /**
+   * Layout/visual preset for this container (`default` when omitted).
+   * Stored as `containerPreset` (not a separate block type).
+   */
+  containerPreset?: StoryContainerPreset;
 };
 
 export type StoryContainerBlock = {
@@ -236,7 +341,9 @@ export type StoryBlock =
   | StoryEmbedBlock
   | StoryColumnsBlock
   | StoryDividerBlock
-  | StoryContainerBlock;
+  | StoryContainerBlock
+  | StoryTableBlock
+  | StorySplitContentBlock;
 
 /**
  * Ordered structural unit: optional `blocks`, optional nested `children` (both may be set).

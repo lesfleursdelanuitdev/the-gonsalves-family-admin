@@ -1,4 +1,3 @@
-import type { JSONContent } from "@tiptap/core";
 import { EMPTY_STORY_DOC, storyDocJsonEquals } from "@/components/admin/story-creator/story-tiptap-doc";
 import type {
   StoryBlock,
@@ -13,9 +12,13 @@ import type {
   StoryLinkedPlace,
   StoryEmbedBlock,
   StoryGeneralEmbedKind,
+  StoryDividerBlock,
+  StoryDividerVariant,
   StoryMediaBlock,
   StoryRichTextBlock,
   StorySection,
+  StorySplitSupportBlock,
+  StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
@@ -28,7 +31,17 @@ import { createDefaultSectionBlocks } from "@/lib/admin/story-creator/story-bloc
 import { legacyCoverImageRef } from "@/lib/admin/story-creator/story-images-resolve";
 import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
 
-const GENERAL_EMBED_KINDS: readonly StoryGeneralEmbedKind[] = ["document", "timeline", "map", "tree", "graph"];
+const GENERAL_EMBED_KINDS: readonly StoryGeneralEmbedKind[] = [
+  "document",
+  "timeline",
+  "map",
+  "tree",
+  "graph",
+  "gallery",
+  "personSpotlight",
+  "familyGroup",
+  "event",
+];
 
 /** Legacy persisted block shape (removed from `StoryBlock`; still on disk until migration runs). */
 type LegacyStoryTableJson = {
@@ -112,12 +125,43 @@ function defaultContainerProps(raw: StoryContainerBlockProps | undefined): Story
     align: raw?.align ?? "left",
     label: raw?.label,
     customBackground: raw?.customBackground,
+    containerPreset: raw?.containerPreset,
+    rowLayout: raw?.rowLayout,
   };
 }
 
+const MIGRATE_DIVIDER_VARIANTS: readonly StoryDividerVariant[] = ["line", "spacer", "ornamental", "sectionBreak"];
+
+function migrateRichTextBlock(b: StoryRichTextBlock): StoryRichTextBlock {
+  const preset = b.preset ?? b.textPreset ?? "paragraph";
+  return { ...b, preset, textPreset: b.textPreset ?? preset };
+}
+
+function migrateDividerBlock(b: StoryDividerBlock): StoryDividerBlock {
+  const raw = b.preset ?? b.variant;
+  const preset =
+    raw && (MIGRATE_DIVIDER_VARIANTS as readonly string[]).includes(raw) ? (raw as StoryDividerVariant) : ("line" as const);
+  return { ...b, preset, variant: preset };
+}
+
 function migrateNested(nb: StoryColumnNestedBlock): StoryColumnNestedBlock {
-  if (nb.type === "richText") return nb;
+  if (nb.type === "richText") return migrateRichTextBlock(nb);
   if (nb.type === "media") return nb;
+  if (nb.type === "table") {
+    return migrateBlock(nb as StoryBlock) as StoryColumnNestedBlock;
+  }
+  if (nb.type === "splitContent") {
+    return {
+      ...nb,
+      text: migrateNested(nb.text) as StoryRichTextBlock,
+      supporting: {
+        ...nb.supporting,
+        blocks: nb.supporting.blocks.map(
+          (sb) => migrateNested(sb as StoryColumnNestedBlock) as StorySplitSupportBlock,
+        ),
+      },
+    };
+  }
   if (nb.type === "container") {
     return {
       ...nb,
@@ -136,6 +180,8 @@ function tooDeepColumnPlaceholder(): StoryRichTextBlock {
   return {
     id: newStoryId(),
     type: "richText",
+    preset: "paragraph",
+    textPreset: "paragraph",
     doc: {
       type: "doc",
       content: [
@@ -310,64 +356,55 @@ function padCells(cells: string[], nCols: number): string[] {
   return out.slice(0, nCols);
 }
 
-function tiptapCell(isHeader: boolean, text: string): JSONContent {
-  const type = isHeader ? "tableHeader" : "tableCell";
-  const paragraph: JSONContent =
-    text.length > 0 ? { type: "paragraph", content: [{ type: "text", text }] } : { type: "paragraph" };
-  return { type, content: [paragraph] };
-}
-
-function tiptapRow(cells: string[], isHeaderRow: boolean): JSONContent {
-  return {
-    type: "tableRow",
-    content: cells.map((t) => tiptapCell(isHeaderRow, t)),
-  };
-}
-
-/** Build a TipTap doc whose sole top-level node is a `table` mirroring legacy story table data. */
-function legacyTableToTipTapDoc(b: LegacyStoryTableJson): JSONContent {
+/** Convert legacy standalone `table` JSON → native {@link StoryTableBlock} (same id). */
+function legacyTableToNativeTable(b: LegacyStoryTableJson): StoryTableBlock {
   const headers = coerceStringArray(b.headers);
   const rows = coerceRows(b.rows);
-  const maxRowLen = rows.reduce((m, r) => Math.max(m, r.length), 0);
-  const nCols = Math.max(headers.length, maxRowLen, 1);
-
   const hasHeadingRow = b.hasHeadingRow !== false;
-  const paddedHeaders = padCells(headers, nCols);
-  const paddedRows = rows.map((r) => padCells(r, nCols));
-
-  const tableRows: JSONContent[] = [];
-  if (hasHeadingRow) {
-    tableRows.push(tiptapRow(paddedHeaders, true));
-    for (const r of paddedRows) {
-      tableRows.push(tiptapRow(r, false));
-    }
-  } else if (paddedRows.length > 0) {
-    for (const r of paddedRows) {
-      tableRows.push(tiptapRow(r, false));
-    }
+  const nCols = Math.max(headers.length, rows.reduce((m, r) => Math.max(m, r.length), 0), 1);
+  const cells: string[][] = [];
+  if (hasHeadingRow && headers.some((h) => String(h).trim().length > 0)) {
+    cells.push(padCells(headers, nCols));
+    for (const r of rows) cells.push(padCells(r, nCols));
+  } else if (rows.length > 0) {
+    for (const r of rows) cells.push(padCells(r, nCols));
   } else {
-    tableRows.push(tiptapRow(Array.from({ length: nCols }, () => ""), false));
+    cells.push(Array.from({ length: nCols }, () => ""));
   }
-
   return {
-    type: "doc",
-    content: [{ type: "table", content: tableRows }],
+    id: b.id,
+    type: "table",
+    hasHeaderRow: hasHeadingRow && headers.length > 0,
+    columnCount: nCols,
+    rowCount: cells.length,
+    cells,
   };
 }
 
-/** Convert removed standalone `table` block → `richText` with embedded TipTap table (same block id). */
-function legacyTableToRichText(b: LegacyStoryTableJson): StoryRichTextBlock {
+function migrateNativeTableOnDisk(b: StoryTableBlock): StoryTableBlock {
+  const cols = Math.max(1, b.columnCount || 1);
+  const rows = Array.isArray(b.cells) ? b.cells.map((r) => coerceStringArray(r as unknown)) : [];
+  const padded = rows.map((r) => padCells(r, cols));
+  while (padded.length < Math.max(1, b.rowCount || 1)) {
+    padded.push(Array.from({ length: cols }, () => ""));
+  }
+  const cells = padded.map((r) => padCells(r, cols));
   return {
-    id: b.id,
-    type: "richText",
-    doc: legacyTableToTipTapDoc(b),
+    ...b,
+    columnCount: cols,
+    rowCount: cells.length,
+    cells,
   };
 }
 
 function migrateBlock(b: StoryBlock): StoryBlock {
   const t = (b as unknown as { type?: string }).type;
   if (t === "table") {
-    return legacyTableToRichText(b as unknown as LegacyStoryTableJson);
+    const raw = b as unknown as Record<string, unknown>;
+    if (Array.isArray(raw.cells) && typeof raw.columnCount === "number") {
+      return migrateNativeTableOnDisk(b as StoryTableBlock);
+    }
+    return legacyTableToNativeTable(b as unknown as LegacyStoryTableJson) as StoryBlock;
   }
   if (b.type === "columns") return migrateColumns(b);
   if (b.type === "container") {
@@ -382,6 +419,8 @@ function migrateBlock(b: StoryBlock): StoryBlock {
     const next = legacyEmbedToBlock(b as unknown as LegacyEmbedJson) as StoryBlock;
     return next.type === "embed" ? (ensureMediaEmbedRowLayoutMigrated(next) as StoryBlock) : next;
   }
+  if (b.type === "richText") return migrateRichTextBlock(b);
+  if (b.type === "divider") return migrateDividerBlock(b);
   return b;
 }
 

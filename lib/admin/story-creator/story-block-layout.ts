@@ -78,6 +78,7 @@ export function effectiveBlockRowLayout(block: StoryBlock): StoryBlockRowLayout 
   if (block.type === "richText") return effectiveRowLayoutForRichText(block.rowLayout);
   if (block.type === "media" || block.type === "embed") return effectiveMediaEmbedInspectorRowLayout(block);
   if (block.type === "container") return effectiveContainerRowLayout(block.props);
+  if (block.type === "divider" && block.rowLayout != null) return effectiveRowLayout(block.rowLayout);
   return null;
 }
 

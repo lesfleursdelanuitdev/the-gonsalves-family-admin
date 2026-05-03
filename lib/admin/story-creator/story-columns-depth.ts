@@ -22,6 +22,11 @@ function findColumnsDepth(
       if (inner != null) return inner;
       continue;
     }
+    if (b.type === "splitContent") {
+      const inner = findColumnsDepth(b.supporting.blocks as readonly StoryColumnNestedBlock[], columnsBlockId, parentColumnsDepth);
+      if (inner != null) return inner;
+      continue;
+    }
     if (b.type !== "columns") continue;
     const depth = parentColumnsDepth + 1;
     if (b.id === columnsBlockId) return depth;

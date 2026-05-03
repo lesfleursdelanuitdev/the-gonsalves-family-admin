@@ -1,4 +1,10 @@
-import type { StoryBlock, StoryColumnSlot, StoryColumnsBlock, StorySection } from "@/lib/admin/story-creator/story-types";
+import type {
+  StoryBlock,
+  StoryColumnSlot,
+  StoryColumnsBlock,
+  StorySection,
+  StorySplitContentBlock,
+} from "@/lib/admin/story-creator/story-types";
 
 function moveInStoryBlockChildren(
   children: StoryBlock[],
@@ -34,9 +40,59 @@ function moveInStoryBlockChildren(
       }
       return c;
     }
+    if (c.type === "splitContent") {
+      const r = moveInSplitContentBlock(c, blockId, dir);
+      if (r.changed) {
+        changed = true;
+        return r.next;
+      }
+      return c;
+    }
     return c;
   });
   return { next: changed ? next : children, changed };
+}
+
+function moveInSplitContentBlock(
+  split: StorySplitContentBlock,
+  blockId: string,
+  dir: -1 | 1,
+): { next: StorySplitContentBlock; changed: boolean } {
+  const ix = split.supporting.blocks.findIndex((x) => x.id === blockId);
+  if (ix >= 0) {
+    const j = ix + dir;
+    if (j < 0 || j >= split.supporting.blocks.length) return { next: split, changed: false };
+    const nb = [...split.supporting.blocks];
+    const a = nb[ix]!;
+    const b = nb[j]!;
+    nb[ix] = b;
+    nb[j] = a;
+    return { next: { ...split, supporting: { ...split.supporting, blocks: nb } }, changed: true };
+  }
+  let slotChanged = false;
+  const nextBlocks = split.supporting.blocks.map((sb) => {
+    if (sb.type === "container") {
+      const r = moveInStoryBlockChildren(sb.children, blockId, dir);
+      if (r.changed) {
+        slotChanged = true;
+        return { ...sb, children: r.next };
+      }
+      return sb;
+    }
+    if (sb.type === "columns") {
+      const r = moveInColumnsBlock(sb, blockId, dir);
+      if (r.changed) {
+        slotChanged = true;
+        return r.next;
+      }
+      return sb;
+    }
+    return sb;
+  });
+  if (slotChanged) {
+    return { next: { ...split, supporting: { ...split.supporting, blocks: nextBlocks } }, changed: true };
+  }
+  return { next: split, changed: false };
 }
 
 function moveInColumnsBlock(
@@ -74,6 +130,14 @@ function moveInColumnsBlock(
       }
       if (nb.type === "columns") {
         const r = moveInColumnsBlock(nb, blockId, dir);
+        if (r.changed) {
+          slotChanged = true;
+          return r.next;
+        }
+        return nb;
+      }
+      if (nb.type === "splitContent") {
+        const r = moveInSplitContentBlock(nb, blockId, dir);
         if (r.changed) {
           slotChanged = true;
           return r.next;

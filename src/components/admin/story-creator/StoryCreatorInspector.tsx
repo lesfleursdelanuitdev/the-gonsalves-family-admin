@@ -22,11 +22,19 @@ import type {
   StoryDocumentMetaPatch,
   StoryEmbedBlock,
   StoryEmbedHeightPreset,
+  StoryEmbedLayoutAlign,
   StoryEmbedLinkMode,
+  StoryEmbedWidthPreset,
   StoryGeneralEmbedKind,
   StoryImageMediaRef,
   StoryMediaBlock,
+  StoryRichTextBlock,
+  StoryDividerBlock,
+  StoryDividerVariant,
+  StoryRichTextTextPreset,
+  StoryContainerPreset,
 } from "@/lib/admin/story-creator/story-types";
+import { getStoryDividerPreset, getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
 import { normalizeStorySlugInput, normalizeStorySlugInputLive, slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
 import { fetchJson } from "@/lib/infra/api";
@@ -40,11 +48,9 @@ import {
   effectiveRowLayoutForRichText,
   mergeStoryRowLayout,
 } from "@/lib/admin/story-creator/story-block-layout";
-import {
-  effectiveMediaEmbedInspectorRowLayout,
-  mergeMediaEmbedRowLayoutPatch,
-} from "@/lib/admin/story-creator/story-media-embed-layout-sync";
+import { standaloneMediaEmbedLayoutPatch } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
 import { STORY_TEXT_PLACEMENT_OPTIONS } from "@/lib/admin/story-creator/story-block-text-layout";
+import type { StoryDividerMetaPatch, StoryRichTextMetaPatch } from "@/lib/admin/story-creator/story-doc-mutators";
 import {
   normalizeColumnWidthPercents,
   resolveColumnGapRem,
@@ -183,6 +189,8 @@ function nestedBlockSummary(nb: StoryColumnNestedBlock): string {
   if (nb.type === "media") return "Media";
   if (nb.type === "columns") return "Columns (2)";
   if (nb.type === "container") return nb.props.label?.trim() || "Container";
+  if (nb.type === "table") return "Table";
+  if (nb.type === "splitContent") return "Split content";
   return `Embed (${nb.embedKind})`;
 }
 
@@ -1285,7 +1293,7 @@ function InspectorStoryTabContent({
             Optional teaser for cards, search, and social previews. Keep it one or two sentences.
           </p>
           <textarea
-            className="textarea textarea-bordered textarea-sm min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed"
+            className="textarea textarea-bordered textarea-sm min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500"
             placeholder="e.g. How the family came to California…"
             value={doc.excerpt ?? ""}
             onChange={(e) => onExcerptChange(e.target.value)}
@@ -1597,11 +1605,23 @@ function ContainerLayoutInspector({
         : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
     );
 
+  const layoutPresets: StoryContainerPreset[] = ["default", "card", "callout", "hero", "quote"];
+
   return (
     <div className="space-y-4">
       <HelperCard title="Container">
         Groups blocks with shared layout. The label is only shown in the editor, not in the published story.
       </HelperCard>
+      <div>
+        <FieldLabel>Layout preset</FieldLabel>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {layoutPresets.map((v) => (
+            <button key={v} type="button" className={chipBtn((p.containerPreset ?? "default") === v)} onClick={() => onPatch({ containerPreset: v })}>
+              {v === "default" ? "Default" : v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
       <div>
         <FieldLabel>Label (editor only)</FieldLabel>
         <Input
@@ -1663,7 +1683,6 @@ function ContainerLayoutInspector({
             align: (nextRl.alignment ?? "left") as NonNullable<StoryContainerBlockProps["align"]>,
           });
         }}
-        allowFloat={false}
         touchComfort={touchComfort}
       />
     </div>
@@ -1716,7 +1735,7 @@ function StoryBlockDesignInspector({
         </p>
         <textarea
           className={cn(
-            "textarea textarea-bordered textarea-sm mt-1 w-full resize-y rounded-lg border-base-content/12 bg-base-100 font-mono text-xs leading-relaxed",
+            "textarea textarea-bordered textarea-sm mt-1 w-full resize-y rounded-lg border-base-content/12 bg-base-100 font-mono text-xs leading-relaxed text-neutral-900 placeholder:text-neutral-500",
             taMin,
           )}
           value={design?.css ?? ""}
@@ -1837,6 +1856,201 @@ function BlockDateAnnotationInspector({
   );
 }
 
+const RICH_TEXT_PRESET_OPTIONS: StoryRichTextTextPreset[] = ["paragraph", "heading", "list", "verse", "quote"];
+
+function RichTextBlockInspector({
+  block,
+  onPatch,
+  onPatchRowLayout,
+  touchComfort,
+}: {
+  block: StoryRichTextBlock;
+  onPatch: (patch: StoryRichTextMetaPatch) => void;
+  onPatchRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
+  touchComfort?: boolean;
+}) {
+  const preset = getStoryRichTextPreset(block);
+  const controlH = touchComfort ? "min-h-11 h-11" : "h-10";
+  const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
+  const chipBtn = (active: boolean) =>
+    cn(
+      "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
+      chip,
+      active
+        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+    );
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <FieldLabel>Text preset</FieldLabel>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {RICH_TEXT_PRESET_OPTIONS.map((p) => (
+            <button key={p} type="button" className={chipBtn(preset === p)} onClick={() => onPatch({ preset: p, textPreset: p })}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      {preset === "heading" ? (
+        <div>
+          <FieldLabel>Heading level</FieldLabel>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {([1, 2, 3] as const).map((lvl) => (
+              <button key={lvl} type="button" className={chipBtn((block.headingLevel ?? 2) === lvl)} onClick={() => onPatch({ headingLevel: lvl })}>
+                H{lvl}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {preset === "list" ? (
+        <div>
+          <FieldLabel>List style</FieldLabel>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["bullet", "ordered"] as const).map((lv) => (
+              <button key={lv} type="button" className={chipBtn((block.listVariant ?? "bullet") === lv)} onClick={() => onPatch({ listVariant: lv })}>
+                {lv === "bullet" ? "Bullets" : "Numbered"}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {preset === "quote" ? (
+        <>
+          <div>
+            <FieldLabel>Attribution</FieldLabel>
+            <Input
+              className={cn("input input-bordered input-sm mt-2 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+              placeholder="Name or source (optional)"
+              value={block.quoteAttribution ?? ""}
+              onChange={(e) => onPatch({ quoteAttribution: e.target.value.trim() ? e.target.value : undefined })}
+            />
+          </div>
+          <div>
+            <FieldLabel>Quote style</FieldLabel>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(["simple", "card"] as const).map((s) => (
+                <button key={s} type="button" className={chipBtn((block.quoteStyle ?? "simple") === s)} onClick={() => onPatch({ quoteStyle: s })}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : null}
+      {preset === "verse" ? (
+        <div>
+          <FieldLabel>Line spacing</FieldLabel>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["compact", "relaxed"] as const).map((s) => (
+              <button key={s} type="button" className={chipBtn((block.verseSpacing ?? "relaxed") === s)} onClick={() => onPatch({ verseSpacing: s })}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <StoryBlockRowLayoutInspector
+        rowLayout={effectiveRowLayoutForRichText(block.rowLayout)}
+        onPatch={(patch) => onPatchRowLayout({ ...patch, displayMode: "block", float: undefined })}
+        touchComfort={touchComfort}
+      />
+    </div>
+  );
+}
+
+const DIVIDER_PRESET_OPTIONS: StoryDividerVariant[] = ["line", "ornamental", "spacer", "sectionBreak"];
+
+function DividerBlockInspector({
+  block,
+  onPatch,
+  onPatchRowLayout,
+  touchComfort,
+}: {
+  block: StoryDividerBlock;
+  onPatch: (patch: StoryDividerMetaPatch) => void;
+  onPatchRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
+  touchComfort?: boolean;
+}) {
+  const pr = getStoryDividerPreset(block);
+  const controlH = touchComfort ? "min-h-11 h-11" : "h-10";
+  const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
+  const chipBtn = (active: boolean) =>
+    cn(
+      "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
+      chip,
+      active
+        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+    );
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <FieldLabel>Divider preset</FieldLabel>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {DIVIDER_PRESET_OPTIONS.map((p) => (
+            <button key={p} type="button" className={chipBtn(pr === p)} onClick={() => onPatch({ preset: p, variant: p })}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      {pr === "spacer" ? (
+        <div>
+          <FieldLabel>Height (rem)</FieldLabel>
+          <Input
+            type="number"
+            min={0.5}
+            max={24}
+            step={0.5}
+            className={cn("input input-bordered input-sm mt-2 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+            value={block.spacerRem ?? 2}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (!Number.isFinite(n)) return;
+              onPatch({ spacerRem: Math.min(24, Math.max(0.5, n)) });
+            }}
+          />
+        </div>
+      ) : null}
+      {pr === "ornamental" ? (
+        <div>
+          <FieldLabel>Ornamental style</FieldLabel>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["diamonds", "dots"] as const).map((s) => (
+              <button key={s} type="button" className={chipBtn((block.ornamentalStyle ?? "diamonds") === s)} onClick={() => onPatch({ ornamentalStyle: s })}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {pr !== "spacer" ? (
+        <div>
+          <FieldLabel>Thickness (px)</FieldLabel>
+          <Input
+            type="number"
+            min={1}
+            max={8}
+            step={1}
+            className={cn("input input-bordered input-sm mt-2 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+            value={block.dividerThicknessPx ?? 1}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (!Number.isFinite(n)) return;
+              onPatch({ dividerThicknessPx: Math.min(8, Math.max(1, Math.round(n))) });
+            }}
+          />
+        </div>
+      ) : null}
+      <StoryBlockRowLayoutInspector rowLayout={effectiveRowLayout(block.rowLayout)} onPatch={onPatchRowLayout} touchComfort={touchComfort} />
+    </div>
+  );
+}
+
 function InspectorBlockTabContent({
   storyId,
   selectedBlock,
@@ -1850,6 +2064,8 @@ function InspectorBlockTabContent({
   onPatchBlockRowLayout,
   onPatchBlockDesign,
   onPatchBlockDateAnnotation,
+  onPatchRichTextMeta,
+  onPatchDividerMeta,
   onDeleteBlock,
   touchComfort,
 }: {
@@ -1865,6 +2081,8 @@ function InspectorBlockTabContent({
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
   onPatchBlockDateAnnotation?: (next: StoryBlockDateAnnotation | undefined) => void;
+  onPatchRichTextMeta?: (patch: StoryRichTextMetaPatch) => void;
+  onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
   onDeleteBlock?: () => void;
   touchComfort?: boolean;
 }) {
@@ -1897,21 +2115,55 @@ function InspectorBlockTabContent({
         </HelperCard>
       ) : selectedBlock?.type === "richText" ? (
         <div className="space-y-4">
-          <HelperCard title="Rich text">
-            Use the toolbar for bold, headings, lists, links, tables, and verse (code block). Output follows the site
-            theme.
-          </HelperCard>
-          <StoryBlockRowLayoutInspector
-            rowLayout={effectiveRowLayoutForRichText(selectedBlock.rowLayout)}
-            onPatch={(patch) =>
-              onPatchBlockRowLayout({ ...patch, displayMode: "block", float: undefined })
-            }
-            allowFloat={false}
-            touchComfort={touchComfort}
-          />
+          {onPatchRichTextMeta ? (
+            <>
+              <HelperCard title="Rich text">
+                Use the global toolbar for inline formatting (bold, links, highlight). Preset controls the block role and
+                editor styling—structural TipTap commands stay in the canvas, not here.
+              </HelperCard>
+              <RichTextBlockInspector
+                block={selectedBlock}
+                onPatch={onPatchRichTextMeta}
+                onPatchRowLayout={onPatchBlockRowLayout}
+                touchComfort={touchComfort}
+              />
+            </>
+          ) : (
+            <StoryBlockRowLayoutInspector
+              rowLayout={effectiveRowLayoutForRichText(selectedBlock.rowLayout)}
+              onPatch={(patch) => onPatchBlockRowLayout({ ...patch, displayMode: "block", float: undefined })}
+              touchComfort={touchComfort}
+            />
+          )}
         </div>
       ) : selectedBlock?.type === "divider" ? (
-        <HelperCard title="Divider">A subtle horizontal rule between blocks. It has no extra settings.</HelperCard>
+        <div className="space-y-4">
+          {onPatchDividerMeta ? (
+            <>
+              <HelperCard title="Divider / spacer">
+                Spacers publish as whitespace only. Line, ornamental, and section break render visibly on the live site.
+              </HelperCard>
+              <DividerBlockInspector
+                block={selectedBlock}
+                onPatch={onPatchDividerMeta}
+                onPatchRowLayout={onPatchBlockRowLayout}
+                touchComfort={touchComfort}
+              />
+            </>
+          ) : (
+            <HelperCard title="Divider">Select this block on the canvas to adjust presets when the editor provides patch handlers.</HelperCard>
+          )}
+        </div>
+      ) : selectedBlock?.type === "table" ? (
+        <HelperCard title="Table (custom grid)">
+          Scaffold block: rows, columns, and plain-text cells. Editing tools will be added later; content is stored as
+          plain strings (safe for preview).
+        </HelperCard>
+      ) : selectedBlock?.type === "splitContent" ? (
+        <HelperCard title="Split content">
+          Primary rich text plus a supporting rail for media, embeds, tables, and layout blocks. Wrap-around layout is
+          scaffolded for a later pass.
+        </HelperCard>
       ) : columnsLayoutBlock ? null : (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-content/15 bg-base-100/40 px-4 py-12 text-center">
           <div className="flex size-12 items-center justify-center rounded-full bg-base-200/80 ring-1 ring-base-content/10">
@@ -1982,6 +2234,8 @@ export function StoryCreatorInspector({
   onPatchBlockRowLayout,
   onPatchBlockDesign,
   onPatchBlockDateAnnotation,
+  onPatchRichTextMeta,
+  onPatchDividerMeta,
   onTitleChange,
   onExcerptChange,
   onStoryMetaChange,
@@ -2009,6 +2263,8 @@ export function StoryCreatorInspector({
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
   onPatchBlockDateAnnotation?: (next: StoryBlockDateAnnotation | undefined) => void;
+  onPatchRichTextMeta?: (patch: StoryRichTextMetaPatch) => void;
+  onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
   onTitleChange: (title: string) => void;
   onExcerptChange: (excerpt: string) => void;
   onStoryMetaChange?: (patch: StoryDocumentMetaPatch) => void;
@@ -2034,6 +2290,8 @@ export function StoryCreatorInspector({
             onPatchBlockRowLayout={onPatchBlockRowLayout}
             onPatchBlockDesign={onPatchBlockDesign}
             onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
+            onPatchRichTextMeta={onPatchRichTextMeta}
+            onPatchDividerMeta={onPatchDividerMeta}
             onDeleteBlock={onDeleteBlock}
             touchComfort
           />
@@ -2137,6 +2395,8 @@ export function StoryCreatorInspector({
             onPatchBlockRowLayout={onPatchBlockRowLayout}
             onPatchBlockDesign={onPatchBlockDesign}
             onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
+            onPatchRichTextMeta={onPatchRichTextMeta}
+            onPatchDividerMeta={onPatchDividerMeta}
             onDeleteBlock={onDeleteBlock}
           />
         )}
@@ -2162,12 +2422,10 @@ const ROW_ALIGN_OPTIONS: { value: StoryBlockRowAlignment; label: string; icon: t
 function StoryBlockRowLayoutInspector({
   rowLayout,
   onPatch,
-  allowFloat,
   touchComfort,
 }: {
   rowLayout: StoryBlockRowLayout | undefined;
   onPatch: (patch: Partial<StoryBlockRowLayout>) => void;
-  allowFloat: boolean;
   touchComfort?: boolean;
 }) {
   const rl = effectiveRowLayout(rowLayout);
@@ -2186,8 +2444,8 @@ function StoryBlockRowLayoutInspector({
     <div className="space-y-4">
       <CollapsibleFormSection title="Block width" defaultOpen>
         <p className="mb-3 text-xs leading-relaxed text-base-content/55">
-          Controls how wide this block sits in the story column. For media and embed blocks, this is separate from the
-          frame “Size” preset in the sections below.
+          Controls how wide this block sits in the story column. Media and embed blocks use the Size & alignment section
+          instead.
         </p>
         <FieldLabel>Width preset</FieldLabel>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -2259,57 +2517,26 @@ function StoryBlockRowLayoutInspector({
           </div>
         </div>
       </CollapsibleFormSection>
-
-      {allowFloat ? (
-        <CollapsibleFormSection title="Layout" defaultOpen>
-          <p className="mb-3 text-xs leading-relaxed text-base-content/55">
-            “Wrap following text” floats this block so the next text block wraps beside it (not inside the editor).
-          </p>
-          <FieldLabel>Row behavior</FieldLabel>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={chipBtn(rl.displayMode !== "float")}
-              onClick={() => onPatch({ displayMode: "block", float: undefined })}
-            >
-              Own row
-            </button>
-            <button
-              type="button"
-              className={chipBtn(rl.displayMode === "float")}
-              onClick={() => onPatch({ displayMode: "float", float: rl.float ?? "left" })}
-            >
-              Wrap following text
-            </button>
-          </div>
-          {rl.displayMode === "float" ? (
-            <div className="mt-4">
-              <FieldLabel>Float side</FieldLabel>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={chipBtn((rl.float ?? "left") === "left")}
-                  onClick={() => onPatch({ float: "left" })}
-                >
-                  Float left
-                </button>
-                <button
-                  type="button"
-                  className={chipBtn(rl.float === "right")}
-                  onClick={() => onPatch({ float: "right" })}
-                >
-                  Float right
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </CollapsibleFormSection>
-      ) : null}
     </div>
   );
 }
 
-function MediaEmbedLayoutInspectorSection({
+const MEDIA_EMBED_STANDALONE_SIZE_OPTIONS: { value: StoryEmbedWidthPreset; label: string; hint: string }[] = [
+  { value: "full", label: "Full", hint: "Full story column width" },
+  { value: "large", label: "Large", hint: "Default emphasis width" },
+  { value: "medium", label: "Medium", hint: "Comfortable reading width" },
+  { value: "small", label: "Small", hint: "Narrow inset" },
+  { value: "content", label: "Content", hint: "Matches text column" },
+];
+
+const STORY_MEDIA_EMBED_LAYOUT_ALIGN_OPTIONS: { value: StoryEmbedLayoutAlign; label: string; icon: typeof AlignLeft }[] = [
+  { value: "left", label: "Left", icon: AlignLeft },
+  { value: "center", label: "Center", icon: AlignCenter },
+  { value: "right", label: "Right", icon: AlignRight },
+];
+
+/** Standalone media/embed: size + column alignment only (no text wrap / float row controls). */
+function StandaloneMediaEmbedLayoutInspectorSection({
   block,
   onPatchLayout,
   touchComfort,
@@ -2318,71 +2545,44 @@ function MediaEmbedLayoutInspectorSection({
   onPatchLayout: (p: Partial<StoryMediaBlock> | Partial<StoryEmbedBlock>) => void;
   touchComfort?: boolean;
 }) {
-  const rl = effectiveMediaEmbedInspectorRowLayout(block);
+  const width = block.widthPreset ?? "large";
+  const layoutAlign = block.layoutAlign ?? "center";
   const controlH = touchComfort ? "min-h-11 h-11" : "h-10";
-  const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
-  const chipBtn = (active: boolean) =>
-    cn(
-      "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
-      chip,
-      active
-        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
-        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
-    );
-
-  const apply = (patch: Partial<StoryBlockRowLayout>) => {
-    onPatchLayout(mergeMediaEmbedRowLayoutPatch(block, patch));
-  };
 
   return (
-    <CollapsibleFormSection title="Layout" defaultOpen>
+    <CollapsibleFormSection title="Size & alignment" defaultOpen>
       <p className="mb-3 text-xs leading-relaxed text-base-content/55">
-        Choose whether this block uses a full row or floats beside the next text block, then set alignment and width.
-        Older stories keep legacy size fields in sync automatically.
+        Standalone blocks use a simple column width and alignment. For text flowing around media or embeds, add a{" "}
+        <span className="font-medium text-base-content/75">Split content</span> block instead.
       </p>
-      <FieldLabel>Display mode</FieldLabel>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={chipBtn(rl.displayMode !== "float")}
-          onClick={() => apply({ displayMode: "block", float: undefined })}
-        >
-          Full width / own row
-        </button>
-        <button
-          type="button"
-          className={chipBtn(rl.displayMode === "float")}
-          onClick={() => apply({ displayMode: "float", float: rl.float ?? "left" })}
-        >
-          Text wrap
-        </button>
-      </div>
-      {rl.displayMode === "float" ? (
-        <div className="mt-4">
-          <FieldLabel>Float direction</FieldLabel>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" className={chipBtn((rl.float ?? "left") === "left")} onClick={() => apply({ float: "left" })}>
-              Left
-            </button>
-            <button type="button" className={chipBtn(rl.float === "right")} onClick={() => apply({ float: "right" })}>
-              Right
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <FieldLabel>Size</FieldLabel>
+      <p className="mb-2 text-[11px] leading-relaxed text-base-content/50">How wide the frame appears in the story column.</p>
+      <select
+        className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+        value={width}
+        onChange={(e) =>
+          onPatchLayout(standaloneMediaEmbedLayoutPatch(block, { widthPreset: e.target.value as StoryEmbedWidthPreset }))
+        }
+      >
+        {MEDIA_EMBED_STANDALONE_SIZE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label} — {o.hint}
+          </option>
+        ))}
+      </select>
       <div className="mt-4">
-        <FieldLabel>Alignment</FieldLabel>
+        <FieldLabel>Alignment in column</FieldLabel>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {ROW_ALIGN_OPTIONS.map(({ value, label, icon: Icon }) => (
+          {STORY_MEDIA_EMBED_LAYOUT_ALIGN_OPTIONS.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
               type="button"
               title={label}
-              onClick={() => apply({ alignment: value })}
+              onClick={() => onPatchLayout(standaloneMediaEmbedLayoutPatch(block, { layoutAlign: value }))}
               className={cn(
                 "flex flex-col items-center gap-1.5 rounded-lg border text-[10px] font-semibold uppercase tracking-wide transition-colors",
                 touchComfort ? "min-h-[44px] py-2" : "py-2.5",
-                rl.alignment === value
+                layoutAlign === value
                   ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
                   : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
               )}
@@ -2392,49 +2592,6 @@ function MediaEmbedLayoutInspectorSection({
             </button>
           ))}
         </div>
-      </div>
-      <div className="mt-4">
-        <FieldLabel>Width</FieldLabel>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {ROW_WIDTH_MODE_OPTIONS.map(({ value, label }) => (
-            <button key={value} type="button" className={chipBtn(rl.widthMode === value)} onClick={() => apply({ widthMode: value })}>
-              {label}
-            </button>
-          ))}
-        </div>
-        {rl.widthMode === "custom" ? (
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <div className="min-w-0 flex-1">
-              <FieldLabel>Value</FieldLabel>
-              <Input
-                type="number"
-                min={1}
-                max={9999}
-                step={1}
-                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-                value={rl.widthValue ?? 100}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  apply({ widthValue: Number.isFinite(n) ? n : undefined });
-                }}
-              />
-            </div>
-            <div className="w-28">
-              <FieldLabel>Unit</FieldLabel>
-              <select
-                className={cn(
-                  "select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100",
-                  controlH,
-                )}
-                value={rl.widthUnit ?? "%"}
-                onChange={(e) => apply({ widthUnit: e.target.value as StoryBlockWidthUnit })}
-              >
-                <option value="%">%</option>
-                <option value="px">px</option>
-              </select>
-            </div>
-          </div>
-        ) : null}
       </div>
     </CollapsibleFormSection>
   );
@@ -2546,7 +2703,7 @@ function MediaBlockInspector({
           <FieldLabel>Caption</FieldLabel>
           <textarea
             className={cn(
-              "textarea textarea-bordered textarea-sm mt-1 min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed",
+              "textarea textarea-bordered textarea-sm mt-1 min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500",
               touchComfort && "min-h-[100px]",
             )}
             placeholder="Optional caption shown with the media…"
@@ -2572,7 +2729,7 @@ function MediaBlockInspector({
         </div>
       </CollapsibleFormSection>
 
-      <MediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryMediaBlock>)} touchComfort={touchComfort} />
+      <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryMediaBlock>)} touchComfort={touchComfort} />
 
       <CollapsibleFormSection title="Appearance" defaultOpen={false}>
         <FieldLabel>Media height</FieldLabel>
@@ -2701,7 +2858,7 @@ function OtherEmbedInspector({
           <FieldLabel>Caption</FieldLabel>
           <textarea
             className={cn(
-              "textarea textarea-bordered textarea-sm mt-1 min-h-[80px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed",
+              "textarea textarea-bordered textarea-sm mt-1 min-h-[80px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500",
               touchComfort && "min-h-[100px]",
             )}
             placeholder="Optional caption…"
@@ -2727,7 +2884,7 @@ function OtherEmbedInspector({
         </div>
       </CollapsibleFormSection>
 
-      <MediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryEmbedBlock>)} touchComfort={touchComfort} />
+      <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryEmbedBlock>)} touchComfort={touchComfort} />
 
       <CollapsibleFormSection title="Appearance" defaultOpen={false}>
         <FieldLabel>Embed height</FieldLabel>

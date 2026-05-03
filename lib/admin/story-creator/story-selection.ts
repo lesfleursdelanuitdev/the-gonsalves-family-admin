@@ -34,6 +34,16 @@ function findBlockInColumnCellContext(
     }
     return best;
   }
+  if (b.type === "splitContent") {
+    if (b.text.id === id) {
+      return { columnsBlock, columnIndex, block: b.text as StoryColumnNestedBlock, depth: depth + 1 };
+    }
+    for (const sb of b.supporting.blocks) {
+      const hit = findBlockInColumnCellContext(sb as StoryBlock, columnsBlock, columnIndex, depth + 1, id);
+      if (hit) return hit;
+    }
+    return null;
+  }
   if (b.type === "columns") {
     return findInnermostColumnSelection(b, id, depth + 1);
   }
@@ -76,6 +86,14 @@ function findInStoryBlock(b: StoryBlock, id: string): StoryBlock | null {
   if (b.type === "container") {
     return findInStoryBlockFromChildren(b.children, id);
   }
+  if (b.type === "splitContent") {
+    if (b.text.id === id) return b.text as StoryBlock;
+    for (const sb of b.supporting.blocks) {
+      const h = findInStoryBlock(sb as StoryBlock, id);
+      if (h) return h;
+    }
+    return null;
+  }
   if (b.type === "columns") {
     for (const slot of b.columns) {
       for (const nb of slot.blocks) {
@@ -89,6 +107,14 @@ function findInStoryBlock(b: StoryBlock, id: string): StoryBlock | null {
 
 function findInColumnNested(nb: StoryColumnNestedBlock, id: string): StoryColumnNestedBlock | null {
   if (nb.id === id) return nb;
+  if (nb.type === "splitContent") {
+    if (nb.text.id === id) return nb.text as StoryColumnNestedBlock;
+    for (const sb of nb.supporting.blocks) {
+      const h = findInStoryBlock(sb as StoryBlock, id);
+      if (h) return h as StoryColumnNestedBlock;
+    }
+    return null;
+  }
   if (nb.type === "container") {
     for (const c of nb.children) {
       const h = findInStoryBlock(c, id);

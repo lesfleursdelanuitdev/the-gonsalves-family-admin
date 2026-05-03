@@ -17,6 +17,10 @@ const EMBED_KIND_LABEL: Record<StoryEmbedBlock["embedKind"], string> = {
   map: "Map",
   tree: "Tree",
   graph: "Graph",
+  gallery: "Gallery",
+  personSpotlight: "Person spotlight",
+  familyGroup: "Family group",
+  event: "Event",
 };
 
 /**
@@ -35,14 +39,18 @@ export function EmbedBlockContentRenderer({
   onConfigure?: () => void;
 }) {
   const isEditor = variant === "editor";
+  const deferredPhase2 = block.embedKind === "map" || block.embedKind === "tree";
   const unsetTitle = isStoryEmbedUnconfigured(block);
   const alignClass = storyRowInnerTextAlignClass(effectiveMediaEmbedInspectorRowLayout(block));
 
-  const displayTitle = unsetTitle && isEditor ? "Embed block" : block.label.trim() || EMBED_KIND_LABEL[block.embedKind];
+  const displayTitle =
+    unsetTitle && isEditor ? "Embed block" : block.label.trim() || EMBED_KIND_LABEL[block.embedKind];
+  const deferredNote = deferredPhase2 ? "Map and tree embeds are planned for a later phase." : null;
   const helper =
-    unsetTitle && isEditor
+    deferredNote ??
+    (unsetTitle && isEditor
       ? "Configure this block to add a slideshow, timeline, map, or external content."
-      : block.sublabel?.trim() || null;
+      : block.sublabel?.trim() || null);
 
   if (compact && isEditor && unsetTitle && onConfigure) {
     return (
@@ -70,7 +78,16 @@ export function EmbedBlockContentRenderer({
     );
   }
 
-  const embedAsset = (
+  const embedAsset = deferredPhase2 ? (
+    <div
+      className={cn(
+        storyEmbedMediaFrameClassNames(block.heightPreset),
+        "flex items-center justify-center border border-dashed border-base-content/20 bg-base-content/[0.04] ring-1 ring-base-content/[0.06]",
+      )}
+    >
+      <p className="px-4 text-center text-xs font-medium text-base-content/55">Coming in a later phase</p>
+    </div>
+  ) : (
     <div className={cn(storyEmbedMediaFrameClassNames(block.heightPreset), "ring-1 ring-base-content/[0.06]")}>
       <div
         className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_35%,rgba(255,255,255,0.035)_50%,transparent_65%)]"
@@ -118,11 +135,6 @@ export function EmbedBlockContentRenderer({
             <span className="badge badge-ghost badge-sm h-6 border border-base-content/10 px-2 text-[10px] font-medium uppercase tracking-wide text-base-content/60">
               {block.heightPreset ?? "default"}
             </span>
-            {block.textWrap ? (
-              <span className="badge badge-sm h-6 border border-primary/35 bg-primary/10 px-2 text-[10px] font-medium uppercase tracking-wide text-primary">
-                Wrap
-              </span>
-            ) : null}
             {block.fullWidth ? (
               <span className="badge badge-sm h-6 border border-primary/35 bg-primary/10 px-2 text-[10px] font-medium uppercase tracking-wide text-primary">
                 Full width

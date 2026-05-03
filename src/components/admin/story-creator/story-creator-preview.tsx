@@ -5,13 +5,22 @@
  * interpretation of structured story data, but consuming websites may render the same data differently.
  */
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Moon, Sun } from "lucide-react";
 import { generateHTML } from "@tiptap/core";
 import type { Extensions, JSONContent } from "@tiptap/core";
 import { cn } from "@/lib/utils";
 import { createStoryTipTapExtensions } from "@/components/admin/story-creator/story-tiptap-extensions";
 import { normalizeStoryDocContent } from "@/components/admin/story-creator/story-tiptap-doc";
-import type { StoryBlock, StoryColumnNestedBlock, StoryContainerBlock, StoryDocument, StorySection } from "@/lib/admin/story-creator/story-types";
+import type {
+  StoryBlock,
+  StoryColumnNestedBlock,
+  StoryContainerBlock,
+  StoryDocument,
+  StoryRichTextBlock,
+  StorySection,
+} from "@/lib/admin/story-creator/story-types";
+import { getStoryDividerPreset, getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
 import { storyColumnStackStyle, storyColumnsGridStyle } from "@/lib/admin/story-creator/story-columns-layout";
 import { EmbedBlockContentRenderer } from "@/components/admin/story-creator/story-block-embed-content";
 import { MediaBlockContentRenderer } from "@/components/admin/story-creator/story-block-media-content";
@@ -24,7 +33,52 @@ import { mediaThumbSrc, resolveMediaImageSrc } from "@/lib/admin/mediaPreview";
 import type { StoryMediaDetail } from "@/hooks/useStoryMediaById";
 import { useStoryMediaById } from "@/hooks/useStoryMediaById";
 import { resolveStoryImages, storyCoverAndProfileAreSameRef } from "@/lib/admin/story-creator/story-images-resolve";
+import {
+  getContainerCustomBackgroundStyle,
+  getContainerPresetShellClassName,
+} from "@/lib/admin/story-creator/story-container-preset-styles";
 import "./story-reference-preview.css";
+import "./story-preview-themes.css";
+
+const PREVIEW_THEME_LS = "story-creator-preview-theme";
+const PREVIEW_TOC_LS = "story-creator-preview-toc-open";
+
+export type StoryPreviewReadingTheme = "light" | "dark";
+
+function readStoredPreviewTheme(): StoryPreviewReadingTheme {
+  if (typeof window === "undefined") return "light";
+  const raw = localStorage.getItem(PREVIEW_THEME_LS);
+  if (raw === "dark" || raw === "light") return raw;
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+function readStoredTocOpen(): boolean {
+  if (typeof window === "undefined") return true;
+  const raw = localStorage.getItem(PREVIEW_TOC_LS);
+  if (raw === "0") return false;
+  if (raw === "1") return true;
+  return true;
+}
+
+const StoryPreviewReadingThemeContext = createContext<StoryPreviewReadingTheme>("light");
+
+export function useStoryPreviewReadingTheme(): StoryPreviewReadingTheme {
+  return useContext(StoryPreviewReadingThemeContext);
+}
+
+function previewBlockProseClass(theme: StoryPreviewReadingTheme) {
+  return cn(
+    "story-preview-block-content story-tiptap prose prose-sm max-w-none",
+    "prose-headings:font-heading prose-p:my-2 prose-headings:my-3",
+    theme === "dark"
+      ? "prose-invert"
+      : "prose-neutral text-neutral-800 prose-headings:text-neutral-900 prose-strong:text-neutral-900",
+  );
+}
 
 function storyPreviewThumbFromDetail(data: StoryMediaDetail | undefined, width: number): string | null {
   const fileRef = data?.fileRef?.trim() ? data.fileRef : "";
@@ -52,25 +106,17 @@ function useStoryPreviewMobile() {
   return useContext(StoryPreviewMobileContext);
 }
 
-function containerPreviewClass(block: StoryContainerBlock): string {
-  const p = block.props;
-  const pad =
-    p.padding === "none"
-      ? "p-0"
-      : p.padding === "sm"
-        ? "p-2"
-        : p.padding === "lg"
-          ? "p-6"
-          : "p-4";
-  const border =
-    p.border === "none"
-      ? "border-transparent"
-      : p.border === "dashed"
-        ? "border border-dashed border-base-content/20"
-        : "border border-base-content/12";
-  const align = p.align === "center" ? "text-center" : p.align === "right" ? "text-right" : "text-left";
-  const bg = p.background === "subtle" ? "bg-base-content/[0.04]" : "";
-  return cn("rounded-xl", pad, border, align, bg);
+function storyRichTextPresetPreviewClass(block: StoryRichTextBlock): string {
+  const preset = getStoryRichTextPreset(block);
+  return cn(
+    preset === "verse" && "whitespace-pre-wrap font-serif text-[0.95rem] leading-[1.75]",
+    preset === "heading" && "text-2xl font-bold tracking-tight",
+    preset === "quote" &&
+      ((block.quoteStyle ?? "simple") === "card"
+        ? "rounded-lg border border-base-content/10 bg-base-content/[0.04] p-4"
+        : "border-l-4 border-base-content/30 pl-4 italic"),
+    preset === "list" && "",
+  );
 }
 
 function StoryPreviewCoverBanner({ doc }: { doc: StoryDocument }) {
@@ -116,7 +162,7 @@ function StoryPreviewCoverBanner({ doc }: { doc: StoryDocument }) {
           </div>
         </div>
       ) : showCoverSkeleton ? (
-        <div className="story-preview-cover story-preview-cover--loading flex items-center justify-center text-sm text-base-content/45">
+        <div className="story-preview-cover story-preview-cover--loading preview-toolbar-tools flex items-center justify-center text-sm">
           Loading cover…
         </div>
       ) : null}
@@ -191,34 +237,27 @@ function StoryMetadataFooter({ doc }: { doc: StoryDocument }) {
 function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNestedBlock; nestedDepth: number }) {
   const richHtml = useStoryPreviewRichHtml();
   const previewMobile = useStoryPreviewMobile();
+  const readingTheme = useStoryPreviewReadingTheme();
+  const proseClass = previewBlockProseClass(readingTheme);
   if (block.type === "richText") {
+    const preset = getStoryRichTextPreset(block);
     return (
-      <div
-        className={cn(
-          "story-preview-block-content story-tiptap prose prose-sm prose-invert max-w-none",
-          "prose-headings:font-heading prose-p:my-2 prose-headings:my-3",
-          "[&_.story-field--empty]:text-muted-foreground/45",
-        )}
-        dangerouslySetInnerHTML={{ __html: richHtml(block.doc) }}
-      />
+      <div className={cn("min-w-0", storyRichTextPresetPreviewClass(block))}>
+        <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.doc) }} />
+        {preset === "quote" && block.quoteAttribution?.trim() ? (
+          <p className="story-preview-statusline mt-2 text-right text-xs font-medium">— {block.quoteAttribution.trim()}</p>
+        ) : null}
+      </div>
     );
   }
   if (block.type === "container") {
-    const customBg =
-      block.props.background === "custom" && block.props.customBackground
-        ? { background: block.props.customBackground }
-        : undefined;
+    const shellStyle = getContainerCustomBackgroundStyle(block.props);
     return (
       <StoryBlockRowDesignWrap block={block} floated={false} referencePreviewMobile={previewMobile}>
-        <div className={containerPreviewClass(block)} style={customBg}>
-          {block.props.label ? (
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{block.props.label}</p>
-          ) : null}
-          <div className="space-y-3">
-            {block.children.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground">Empty container</p>
-            ) : (
-              groupStoryBlocksForLayout(block.children).map((group) => {
+        <div className={getContainerPresetShellClassName(block.props, "preview")} style={shellStyle ?? undefined}>
+          {block.children.length === 0 ? null : (
+            <div className="space-y-3">
+              {groupStoryBlocksForLayout(block.children).map((group) => {
                 if (group.kind === "float-wrap") {
                   return (
                     <div key={`${group.float.id}-${group.text.id}`} className="flow-root min-w-0">
@@ -236,9 +275,9 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
                     <BlockPreview block={group.block} />
                   </StoryBlockRowDesignWrap>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       </StoryBlockRowDesignWrap>
     );
@@ -255,7 +294,7 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
           <div key={slot.id} className={cellClass}>
             <div className="flex min-h-0 flex-1 flex-col" style={storyColumnStackStyle(slot)}>
               {slot.blocks.length === 0 ? (
-                <p className="text-center text-xs text-muted-foreground">Empty column</p>
+                <p className="preview-empty-hint rounded-md px-2 py-3 text-center text-xs">Empty column</p>
               ) : (
                 groupColumnNestedBlocksForLayout(slot.blocks).map((grp) => {
                   if (grp.kind === "float-wrap") {
@@ -291,6 +330,61 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+  if (block.type === "table") {
+    const rows = block.cells ?? [];
+    const hasHeader = block.hasHeaderRow ?? false;
+    return (
+      <div className="story-preview-table-outer overflow-x-auto rounded-lg border p-3 text-sm">
+        <table className="w-full border-collapse">
+          <tbody>
+            {rows.map((row, ri) => (
+              <tr key={ri} className={cn(hasHeader && ri === 0 && "bg-base-300/40 font-medium")}>
+                {row.map((cell, ci) => (
+                  <td key={ci} className="border border-base-content/10 px-2 py-1">
+                    {cell?.trim() ? cell : "\u00a0"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  if (block.type === "splitContent") {
+    const textPreset = getStoryRichTextPreset(block.text);
+    const textCol = (
+      <div className={cn("min-w-0 flex-1", storyRichTextPresetPreviewClass(block.text))}>
+        <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.text.doc) }} />
+        {textPreset === "quote" && block.text.quoteAttribution?.trim() ? (
+          <p className="story-preview-statusline mt-2 text-right text-xs font-medium">— {block.text.quoteAttribution.trim()}</p>
+        ) : null}
+      </div>
+    );
+    const rail = (
+      <div className="preview-split-rail mt-4 w-full shrink-0 space-y-3 rounded-lg border p-3 md:mt-0 md:w-[min(38%,320px)]">
+        {block.supporting.blocks.length === 0 ? (
+          <p className="preview-empty-hint rounded-md px-2 py-3 text-center text-xs">Supporting area</p>
+        ) : (
+          block.supporting.blocks.map((sb) => <ColumnNestedBlockPreview key={sb.id} block={sb} nestedDepth={nestedDepth + 1} />)
+        )}
+      </div>
+    );
+    if (block.supportingSide === "left") {
+      return (
+        <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          {rail}
+          {textCol}
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+        {textCol}
+        {rail}
       </div>
     );
   }
@@ -361,9 +455,39 @@ function BlockPreview({ block }: { block: StoryBlock }) {
     return <ColumnNestedBlockPreview block={block} nestedDepth={0} />;
   }
   if (block.type === "divider") {
+    const pr = getStoryDividerPreset(block);
+    const thickness = Math.min(6, Math.max(1, block.dividerThicknessPx ?? 1));
+    if (pr === "spacer") {
+      return (
+        <StoryBlockRowDesignWrap block={block} floated={false} referencePreviewMobile={previewMobile}>
+          <div style={{ minHeight: `${block.spacerRem ?? 2}rem` }} aria-hidden />
+        </StoryBlockRowDesignWrap>
+      );
+    }
+    if (pr === "ornamental") {
+      return (
+        <StoryBlockRowDesignWrap block={block} floated={false} referencePreviewMobile={previewMobile}>
+          <div className="flex items-center justify-center gap-3 py-4" aria-hidden>
+            <div className="h-px min-w-[2rem] flex-1 max-w-[5rem] bg-gradient-to-r from-transparent to-muted-foreground/35" style={{ height: thickness }} />
+            <span className="text-muted-foreground/40">◇</span>
+            <div className="h-px min-w-[2rem] flex-1 max-w-[5rem] bg-gradient-to-l from-transparent to-muted-foreground/35" style={{ height: thickness }} />
+          </div>
+        </StoryBlockRowDesignWrap>
+      );
+    }
+    if (pr === "sectionBreak") {
+      return (
+        <StoryBlockRowDesignWrap block={block} floated={false} referencePreviewMobile={previewMobile}>
+          <div className="space-y-3 py-8" aria-hidden>
+            <div className="h-px w-full bg-muted-foreground/25" style={{ height: thickness }} />
+            <div className="h-px w-full bg-muted-foreground/15" />
+          </div>
+        </StoryBlockRowDesignWrap>
+      );
+    }
     return (
       <StoryBlockRowDesignWrap block={block} floated={false} referencePreviewMobile={previewMobile}>
-        <hr className="story-preview-divider" />
+        <hr className="story-preview-divider" style={{ borderTopWidth: thickness }} />
       </StoryBlockRowDesignWrap>
     );
   }
@@ -371,6 +495,9 @@ function BlockPreview({ block }: { block: StoryBlock }) {
     return <ColumnNestedBlockPreview block={block} nestedDepth={0} />;
   }
   if (block.type === "media") {
+    return <ColumnNestedBlockPreview block={block} nestedDepth={0} />;
+  }
+  if (block.type === "table" || block.type === "splitContent") {
     return <ColumnNestedBlockPreview block={block} nestedDepth={0} />;
   }
   if (block.type !== "embed") return null;
@@ -389,7 +516,30 @@ export function StoryCreatorPreview({
   onPickSection: (sectionId: string) => void;
 }) {
   const [viewport, setViewport] = useState<StoryPreviewViewport>("desktop");
+  const [previewTheme, setPreviewTheme] = useState<StoryPreviewReadingTheme>("light");
+  const [tocOpen, setTocOpen] = useState(true);
   const previewMobile = viewport === "mobile";
+
+  useEffect(() => {
+    setPreviewTheme(readStoredPreviewTheme());
+    setTocOpen(readStoredTocOpen());
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREVIEW_THEME_LS, previewTheme);
+    } catch {
+      /* ignore quota */
+    }
+  }, [previewTheme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREVIEW_TOC_LS, tocOpen ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [tocOpen]);
 
   const previewTipTapExtensions = useMemo(
     () =>
@@ -413,68 +563,127 @@ export function StoryCreatorPreview({
   return (
     <StoryPreviewRichHtmlProvider value={previewRichHtml}>
       <StoryPreviewMobileProvider value={previewMobile}>
-        <div
-          className={cn(
-            "story-preview flex min-h-0 flex-1 flex-col overflow-hidden",
-            previewMobile ? "story-preview-mobile" : "story-preview-desktop",
-          )}
-        >
-          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-            <aside className="hidden w-56 shrink-0 overflow-y-auto border-r border-base-content/10 bg-base-200/30 px-3 py-4 lg:block">
-              <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Contents</p>
-              <nav className="mt-3 space-y-0.5">
-                <SectionTocList sections={doc.sections} depth={0} activeSectionId={activeSectionId} onPickSection={onPickSection} />
-              </nav>
-            </aside>
-            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-              <div className="story-preview-article-shell px-3 py-4 md:px-6 md:py-6">
-                <div className="story-preview-toolbar">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Viewport</span>
-                  <div className="inline-flex rounded-lg border border-base-content/12 bg-base-200/40 p-0.5">
-                    <button
-                      type="button"
-                      className={cn(
-                        "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                        viewport === "desktop"
-                          ? "bg-base-100 text-base-content shadow-sm"
-                          : "text-base-content/55 hover:bg-base-content/[0.06] hover:text-base-content",
-                      )}
-                      onClick={() => setViewport("desktop")}
-                    >
-                      Desktop
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(
-                        "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                        viewport === "mobile"
-                          ? "bg-base-100 text-base-content shadow-sm"
-                          : "text-base-content/55 hover:bg-base-content/[0.06] hover:text-base-content",
-                      )}
-                      onClick={() => setViewport("mobile")}
-                    >
-                      Mobile
-                    </button>
+        <StoryPreviewReadingThemeContext.Provider value={previewTheme}>
+          <div
+            className={cn(
+              "preview-root story-preview flex min-h-0 flex-1 flex-col overflow-hidden",
+              previewTheme === "light" ? "theme-light" : "theme-dark",
+              previewMobile ? "story-preview-mobile" : "story-preview-desktop",
+            )}
+          >
+            <div className="preview-background flex min-h-0 flex-1 flex-col">
+              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+                <div
+                  className={cn(
+                    "preview-sidebar-rail shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+                    tocOpen ? "w-56" : "w-0",
+                  )}
+                  aria-hidden={!tocOpen}
+                >
+                  <div className="preview-sidebar-surface flex h-full min-h-0 w-56 flex-col border-r">
+                    <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-4">
+                      <p className="preview-sidebar-label">Contents</p>
+                      <button
+                        type="button"
+                        className="preview-toc-collapse-btn size-8 shrink-0 rounded-lg"
+                        title="Hide contents"
+                        aria-label="Hide contents panel"
+                        onClick={() => setTocOpen(false)}
+                      >
+                        <ChevronLeft className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                      </button>
+                    </div>
+                    <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+                      <SectionTocList sections={doc.sections} depth={0} activeSectionId={activeSectionId} onPickSection={onPickSection} />
+                    </nav>
                   </div>
                 </div>
-                <article className="story-preview-article w-full min-w-0 pb-12">
-                  <StoryPreviewCoverBanner doc={doc} />
-                  <p className="mb-8 text-xs text-muted-foreground">
-                    {doc.status === "published" ? "Published preview" : "Draft preview"}
-                  </p>
-                  <div className="space-y-12">
-                    {doc.sections.map((sec) => (
-                      <section key={sec.id} className="scroll-mt-20">
-                        <SectionTreePreview section={sec} depth={0} />
-                      </section>
-                    ))}
+
+                {!tocOpen ? (
+                  <button
+                    type="button"
+                    className="preview-toc-reopen-tab"
+                    title="Show contents"
+                    aria-label="Open contents panel"
+                    onClick={() => setTocOpen(true)}
+                  >
+                    <ChevronRight className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                  </button>
+                ) : null}
+
+                <div className="preview-scroll min-h-0 min-w-0 flex-1 overflow-y-auto">
+                  <div className="story-preview-article-shell px-3 py-4 md:px-6 md:py-6">
+                    <div className="story-preview-toolbar">
+                      <div className="preview-toolbar-cluster">
+                        <span className="preview-segment-label">Viewport</span>
+                        <div className="preview-segment-track" role="group" aria-label="Preview viewport">
+                          <button
+                            type="button"
+                            className={cn("preview-segment-btn", viewport === "desktop" && "preview-segment-btn--active")}
+                            aria-pressed={viewport === "desktop"}
+                            onClick={() => setViewport("desktop")}
+                          >
+                            Desktop
+                          </button>
+                          <button
+                            type="button"
+                            className={cn("preview-segment-btn", viewport === "mobile" && "preview-segment-btn--active")}
+                            aria-pressed={viewport === "mobile"}
+                            onClick={() => setViewport("mobile")}
+                          >
+                            Mobile
+                          </button>
+                        </div>
+                      </div>
+                      <div className="preview-toolbar-cluster">
+                        <span className="preview-segment-label">Theme</span>
+                        <div className="preview-segment-track" role="group" aria-label="Preview theme">
+                          <button
+                            type="button"
+                            className={cn(
+                              "preview-segment-btn inline-flex items-center gap-1.5",
+                              previewTheme === "light" && "preview-segment-btn--active",
+                            )}
+                            aria-pressed={previewTheme === "light"}
+                            onClick={() => setPreviewTheme("light")}
+                          >
+                            <Sun className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                            Light
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(
+                              "preview-segment-btn inline-flex items-center gap-1.5",
+                              previewTheme === "dark" && "preview-segment-btn--active",
+                            )}
+                            aria-pressed={previewTheme === "dark"}
+                            onClick={() => setPreviewTheme("dark")}
+                          >
+                            <Moon className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                            Dark
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="story-canvas">
+                      <article className="story-preview-article w-full min-w-0 pb-12">
+                        <StoryPreviewCoverBanner doc={doc} />
+                        <div className="space-y-12">
+                          {doc.sections.map((sec) => (
+                            <section key={sec.id} className="scroll-mt-20">
+                              <SectionTreePreview section={sec} depth={0} />
+                            </section>
+                          ))}
+                        </div>
+                        <StoryMetadataFooter doc={doc} />
+                      </article>
+                    </div>
                   </div>
-                  <StoryMetadataFooter doc={doc} />
-                </article>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </StoryPreviewReadingThemeContext.Provider>
       </StoryPreviewMobileProvider>
     </StoryPreviewRichHtmlProvider>
   );
@@ -504,10 +713,7 @@ function SectionTocList({
                 const el = document.getElementById(`story-sec-${sec.id}`);
                 el?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
-              className={cn(
-                "block w-full truncate rounded px-1.5 py-1 text-left text-xs transition-colors",
-                active ? "bg-primary/15 font-medium text-primary" : "text-muted-foreground hover:bg-base-content/[0.06] hover:text-foreground",
-              )}
+              className={cn("preview-sidebar-item truncate", active && "preview-sidebar-item--active font-medium")}
             >
               {sec.title}
             </button>

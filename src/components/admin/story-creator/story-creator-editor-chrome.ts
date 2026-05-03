@@ -1,33 +1,33 @@
 /**
- * Story Creator canvas chrome — uses the same DaisyUI / admin tokens as the rest of the panel
- * (`base-*`, `primary`, `error`) so the editor matches {@link AdminChrome} and story shell styling.
+ * Story Creator block chrome — tuned for the **white document page** in the editor
+ * (neutral surfaces + primary accents), not the dark admin shell.
  */
-export const storyEditorElevated = "bg-base-300/95";
+export const storyEditorElevated = "bg-white/95";
 
-export const storyEditorBorder = "border-base-content/12";
+export const storyEditorBorder = "border-neutral-200/95";
 
-/** Active block: one surface, primary accent, soft depth (no custom hex stack). */
+/** Selected block: light wash + primary border (reads on white paper). */
 export const storyActiveBlockFrame =
-  "rounded-xl border border-primary/45 bg-base-200/55 shadow-lg shadow-primary/10 ring-1 ring-primary/15 transition-[box-shadow,border-color,background-color,ring-color] duration-200 focus-within:border-primary/55 focus-within:shadow-xl focus-within:shadow-primary/15 focus-within:ring-primary/25";
+  "rounded-xl border border-primary/40 bg-primary/[0.07] shadow-sm shadow-neutral-900/5 ring-1 ring-primary/15 transition-[box-shadow,border-color,background-color,ring-color] duration-200 focus-within:border-primary/55 focus-within:bg-primary/[0.09] focus-within:shadow-md focus-within:ring-primary/25";
 
 export const storyIdleBlockFrame =
   "rounded-xl border border-transparent bg-transparent transition-[box-shadow,border-color,background-color] duration-200";
 
 export const storyBlockFrameHover =
-  "hover:border-base-content/15 hover:bg-base-200/40";
+  "hover:border-neutral-200/90 hover:bg-neutral-50/90";
 
-export const storyBlockFrameQuietHover = "hover:border-base-content/10 hover:bg-base-200/25";
+export const storyBlockFrameQuietHover = "hover:border-neutral-200/60 hover:bg-neutral-50/60";
 
-/** Floating block toolbar: elevated pill aligned with admin surfaces. */
+/** Floating block toolbar: light pill on the document. */
 export const storyFloatingBlockToolbar =
-  `${storyEditorElevated} rounded-full border ${storyEditorBorder} px-1 py-0.5 shadow-md shadow-base-content/10 backdrop-blur-md`;
+  `${storyEditorElevated} rounded-full border ${storyEditorBorder} px-1 py-0.5 shadow-md shadow-neutral-900/10 backdrop-blur-sm`;
 
-/** Muted toolbar icon; hover uses theme primary. */
+/** Muted toolbar icon on paper. */
 export const storyToolbarIcon =
-  "text-base-content/50 hover:bg-primary/15 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-0";
+  "text-neutral-500 hover:bg-primary/12 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-0 focus-visible:ring-offset-white";
 
 export const storyToolbarIconDanger =
-  "text-error/85 hover:bg-error/10 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/35 focus-visible:ring-offset-0";
+  "text-error/85 hover:bg-error/10 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/35 focus-visible:ring-offset-0 focus-visible:ring-offset-white";
 
 export const storyFloatingMenuContent =
-  `${storyEditorElevated} min-w-[11rem] rounded-xl border ${storyEditorBorder} p-1.5 text-base-content shadow-lg`;
+  `${storyEditorElevated} min-w-[11rem] rounded-xl border ${storyEditorBorder} p-1.5 text-neutral-800 shadow-lg shadow-neutral-900/12`;

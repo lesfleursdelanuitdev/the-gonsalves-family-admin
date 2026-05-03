@@ -52,7 +52,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { StoryTiptapToolbarDensity } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
-import { StoryTipTapGlobalToolbar } from "@/components/admin/story-creator/story-tiptap-editor-toolbar";
+import {
+  StoryTipTapGlobalToolbar,
+  ToolbarButton,
+  ToolbarSeparator,
+} from "@/components/admin/story-creator/story-tiptap-editor-toolbar";
 import {
   adjustStoryFontSize,
   blockTextAlign,
@@ -122,85 +126,35 @@ function StoryTipTapToolbarIdle({
         role="toolbar"
         aria-label="Formatting toolbar (focus a text block to enable)"
       >
-        <button
-          type="button"
-          disabled
-          aria-hidden
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "pointer-events-none shrink-0 gap-1 opacity-40",
-            touchUi
-              ? "h-11 min-h-[44px] rounded-lg px-3 text-sm font-medium text-base-content/80"
-              : "h-9 rounded-lg px-2.5 text-sm font-medium text-base-content/80",
-          )}
-        >
-          Paragraph
-          <ChevronDown className="size-3.5 opacity-70" aria-hidden />
-        </button>
-        <span className="mx-0.5 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
-        <ToolbarBtn touch={touchUi} disabled label="Bold" onClick={noop}>
+        <ToolbarButton touch={touchUi} disabled label="Bold" onClick={noop}>
           <Bold className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Italic" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Italic" onClick={noop}>
           <Italic className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Underline" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Underline" onClick={noop}>
           <Underline className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Strikethrough" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Strikethrough" onClick={noop}>
           <Strikethrough className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Inline code" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Inline code" onClick={noop}>
           <Code className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Insert link" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <ToolbarButton touch={touchUi} disabled label="Highlight" onClick={noop}>
+          <Highlighter className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Link" onClick={noop}>
           <Link2 className="size-4" />
-        </ToolbarBtn>
-        <span className="mx-0.5 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
-        <ToolbarBtn touch={touchUi} disabled label="Bullet list" onClick={noop}>
-          <List className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Numbered list" onClick={noop}>
-          <ListOrdered className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Blockquote" onClick={noop}>
-          <Quote className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Verse (preserve whitespace)" onClick={noop}>
-          <Code2 className="size-4" />
-        </ToolbarBtn>
-        <span className="mx-0.5 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
-        <ToolbarBtn touch={touchUi} disabled label="Align left" onClick={noop}>
-          <AlignLeft className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Align center" onClick={noop}>
-          <AlignCenter className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Align right" onClick={noop}>
-          <AlignRight className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Justify" onClick={noop}>
-          <AlignJustify className="size-4" />
-        </ToolbarBtn>
-        <span className="mx-0.5 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
-        <ToolbarBtn touch={touchUi} disabled label="Undo" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <ToolbarButton touch={touchUi} disabled label="Undo" onClick={noop}>
           <Undo2 className="size-4" />
-        </ToolbarBtn>
-        <ToolbarBtn touch={touchUi} disabled label="Redo" onClick={noop}>
+        </ToolbarButton>
+        <ToolbarButton touch={touchUi} disabled label="Redo" onClick={noop}>
           <Redo2 className="size-4" />
-        </ToolbarBtn>
-        <button
-          type="button"
-          disabled
-          aria-hidden
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "pointer-events-none shrink-0 rounded-lg p-0 opacity-40",
-            touchUi ? "h-11 w-11 min-h-[44px] min-w-[44px]" : "h-9 w-9",
-          )}
-        >
-          <MoreHorizontal className="size-4" strokeWidth={2} aria-hidden />
-        </button>
+        </ToolbarButton>
       </div>
     </div>
   );
