@@ -16,7 +16,7 @@ export default function AdminEditNotePage() {
   const note = data?.note as Record<string, unknown> | undefined;
 
   const shell = (body: ReactNode) => (
-    <NoteEditorPageLayout backHref="/admin/notes" backLabel="Notes" hideBackLink>
+    <NoteEditorPageLayout backHref="/admin/notes" backLabel="Notes" fullWidth hideBackLink>
       {body}
     </NoteEditorPageLayout>
   );

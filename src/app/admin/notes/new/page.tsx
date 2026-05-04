@@ -32,6 +32,11 @@ function initialLinksFromSearchParams(sp: URLSearchParams): SelectedNoteLink[] {
     const label = sp.get("familyLabel")?.trim() || "Family";
     links.push({ kind: "family", id: famId, label });
   }
+  const eventId = sp.get("eventId")?.trim();
+  if (eventId) {
+    const label = sp.get("eventLabel")?.trim() || "Event";
+    links.push({ kind: "event", id: eventId, label });
+  }
   return links;
 }
 
@@ -51,7 +56,7 @@ function AdminNewNotePageInner() {
   }, [qs]);
 
   return (
-    <NoteEditorPageLayout backHref={backHref} backLabel={backLabel} hideBackLink>
+    <NoteEditorPageLayout backHref={backHref} backLabel={backLabel} fullWidth hideBackLink>
       <NoteForm
         hideBackLink
         mode="create"
@@ -68,7 +73,7 @@ export default function AdminNewNotePage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-3xl pb-20 text-sm text-muted-foreground md:pb-24">Loading…</div>
+        <div className="w-full max-w-none pb-20 text-sm text-muted-foreground md:pb-24">Loading…</div>
       }
     >
       <AdminNewNotePageInner />
