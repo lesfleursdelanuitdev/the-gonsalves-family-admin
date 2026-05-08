@@ -8,7 +8,8 @@
  *   pm2 save
  *   pm2 startup   # follow the printed command if needed
  *
- * Later deploys: npm run deploy (build + pm2 restart)
+ * Later deploys: npm run deploy (migrations + build + pm2 restart).
+ * DATABASE_URL must be available to the deploy shell (see scripts/deploy.sh).
  */
 const path = require("node:path");
 

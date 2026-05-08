@@ -16,9 +16,13 @@ import type {
 import { FAMILY_DETAIL_EVENTS_PAGE_SIZE } from "@/constants/admin";
 import { useAdminFamily, useUpdateFamily } from "@/hooks/useAdminFamilies";
 import { useAdminFamilyEvents, type AdminFamilyEventRow } from "@/hooks/useAdminFamilyEvents";
-import { useCreateIndividual } from "@/hooks/useAdminIndividuals";
 import { useFamilyMembershipMutation } from "@/hooks/useFamilyMembershipMutation";
-import { buildMiniIndividualEditorBody, type MiniIndividualFields } from "@/lib/forms/family-mini-individual-payload";
+import {
+  buildMiniIndividualEditorBody,
+  emptyMiniIndividualFields,
+  miniIndividualHasNameParts,
+  type MiniIndividualFields,
+} from "@/lib/forms/family-mini-individual-payload";
 import {
   emptyKeyFactFormState,
   enrichKeyFactFromDenormalized,
@@ -29,16 +33,6 @@ import {
 import { ApiError } from "@/lib/infra/api";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { editFamilyPageTitle } from "@/lib/gedcom/family-page-title";
-
-function emptyMiniFields(): MiniIndividualFields {
-  return {
-    givenNamesLine: "",
-    surnameLine: "",
-    sex: "",
-    birth: emptyKeyFactFormState(),
-    death: emptyKeyFactFormState(),
-  };
-}
 
 function miniFieldsDisplayName(fields: MiniIndividualFields): string {
   const parts = [fields.givenNamesLine.trim(), fields.surnameLine.trim()].filter(Boolean);
@@ -257,10 +251,10 @@ function useFamilyMarriageDivorceState(args: {
 function useFamilyMemberPanelsState(familyId: string) {
   const [parentAddStep, setParentAddStep] = useState<FamilyMemberAddStep | null>(null);
   const [parentSearchQ, setParentSearchQ] = useState("");
-  const [miniParent, setMiniParent] = useState<MiniIndividualFields>(() => emptyMiniFields());
+  const [miniParent, setMiniParent] = useState<MiniIndividualFields>(() => emptyMiniIndividualFields());
   const [childAddStep, setChildAddStep] = useState<FamilyMemberAddStep | null>(null);
   const [childSearchQ, setChildSearchQ] = useState("");
-  const [miniChild, setMiniChild] = useState<MiniIndividualFields>(() => emptyMiniFields());
+  const [miniChild, setMiniChild] = useState<MiniIndividualFields>(() => emptyMiniIndividualFields());
   const [childRelationshipType, setChildRelationshipType] = useState("biological");
   const [childBirthOrder, setChildBirthOrder] = useState("");
   const [parentSlotRulesOpen, setParentSlotRulesOpen] = useState(false);
@@ -268,11 +262,11 @@ function useFamilyMemberPanelsState(familyId: string) {
 
   const resetParentPanel = useCallback(() => {
     setParentSearchQ("");
-    setMiniParent(emptyMiniFields());
+    setMiniParent(emptyMiniIndividualFields());
   }, []);
   const resetChildPanel = useCallback(() => {
     setChildSearchQ("");
-    setMiniChild(emptyMiniFields());
+    setMiniChild(emptyMiniIndividualFields());
     setChildRelationshipType("biological");
     setChildBirthOrder("");
   }, []);
@@ -337,7 +331,6 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
   const familyDetailLoading = Boolean(familyId) && familyDetailPending;
   const membership = useFamilyMembershipMutation(familyId);
   const updateFamily = useUpdateFamily();
-  const createIndividual = useCreateIndividual();
   const {
     fam,
     husband,
@@ -404,11 +397,6 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     membership.error instanceof Error ? membership.error.message : "";
   const updateErr =
     updateFamily.error instanceof Error ? updateFamily.error.message : "";
-  const createIndErr =
-    mode === "create" && createIndividual.error instanceof Error
-      ? createIndividual.error.message
-      : "";
-
   const saveMarriageAndDivorce = useCallback(async () => {
     const marriageVal = keyFactToApiValue(marriageFact);
     const divorceVal = keyFactToApiValue(divorceFact);
@@ -432,25 +420,26 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
   const onCreateParent = useCallback(async () => {
     const sx = miniParent.sex.trim().toUpperCase();
     if (!isMiniParentSexChosen(sx)) {
+      toast.error("Choose a sex for this parent (Male, Female, or Unknown U/X).");
+      return;
+    }
+    if (!miniIndividualHasNameParts(miniParent)) {
+      toast.error("Enter at least one given name or a surname.");
       return;
     }
     const name = miniFieldsDisplayName(miniParent);
     const body = buildMiniIndividualEditorBody({ ...miniParent, sex: sx });
-    if (mode === "create") {
-      await createIndividual.mutateAsync(body);
-      toast.success(`Created ${name}`, {
-        description: "Use Add partner to search the tree and link them.",
+    try {
+      await membership.mutateAsync({
+        action: "createParentAndAdd",
+        individual: body,
       });
+      toast.success(`Created and added ${name} as a parent.`);
       closeParentAdd();
-      return;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create parent.");
     }
-    await membership.mutateAsync({
-      action: "createParentAndAdd",
-      individual: body,
-    });
-    toast.success(`Created and added ${name} as a parent.`);
-    closeParentAdd();
-  }, [miniParent, mode, createIndividual, membership, closeParentAdd]);
+  }, [miniParent, membership, closeParentAdd]);
 
   const onRemoveParent = useCallback(
     async (slot: "husband" | "wife") => {
@@ -477,28 +466,28 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
   );
 
   const onCreateChild = useCallback(async () => {
-    const name = miniFieldsDisplayName(miniChild);
-    const body = buildMiniIndividualEditorBody(miniChild);
-    if (mode === "create") {
-      await createIndividual.mutateAsync(body);
-      toast.success(`Created ${name}`, {
-        description: "Use Add child to search the tree and link them.",
-      });
-      closeChildAdd();
+    if (!miniIndividualHasNameParts(miniChild)) {
+      toast.error("Enter at least one given name or a surname.");
       return;
     }
+    const name = miniFieldsDisplayName(miniChild);
+    const body = buildMiniIndividualEditorBody(miniChild);
     const birthOrderRaw = childBirthOrder.trim();
     const birthOrder =
       birthOrderRaw === "" ? null : Math.trunc(Number(birthOrderRaw));
-    await membership.mutateAsync({
-      action: "createChildAndAdd",
-      individual: body,
-      relationshipType: childRelationshipType,
-      ...(birthOrder != null && Number.isFinite(birthOrder) ? { birthOrder } : {}),
-    });
-    toast.success(`Created and added ${name} as a child.`);
-    closeChildAdd();
-  }, [miniChild, mode, createIndividual, membership, childBirthOrder, childRelationshipType, closeChildAdd]);
+    try {
+      await membership.mutateAsync({
+        action: "createChildAndAdd",
+        individual: body,
+        relationshipType: childRelationshipType,
+        ...(birthOrder != null && Number.isFinite(birthOrder) ? { birthOrder } : {}),
+      });
+      toast.success(`Created and added ${name} as a child.`);
+      closeChildAdd();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create child.");
+    }
+  }, [miniChild, membership, childBirthOrder, childRelationshipType, closeChildAdd]);
 
   const onCreateNewFamily = useCallback(async () => {
     if (!husband?.id && !wife?.id) {
@@ -544,12 +533,13 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     [familyChildren, membership],
   );
 
-  const pending =
-    membership.isPending ||
-    updateFamily.isPending ||
-    (mode === "create" && createIndividual.isPending);
+  const pending = membership.isPending || updateFamily.isPending;
 
   const onMediaAttached = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  const onNotesChanged = useCallback(() => {
     void refetch();
   }, [refetch]);
 
@@ -620,11 +610,11 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     parentSlotRulesPanelId,
     membershipApi,
     updateErr,
-    createIndErr,
     finalizeErr,
     finalizeBusy,
     onCreateNewFamily,
     pending,
     onMediaAttached,
+    onNotesChanged,
   };
 }

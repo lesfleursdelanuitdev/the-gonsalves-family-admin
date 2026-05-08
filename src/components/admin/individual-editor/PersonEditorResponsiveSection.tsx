@@ -11,9 +11,11 @@ export type PersonEditorAccordionKey =
   | "person-names"
   | "person-events"
   | "person-relationships"
+  | "person-associates"
   | "person-notes"
   | "person-media"
   | "person-sources"
+  | "person-open-questions"
   | "person-advanced";
 
 type Props = {

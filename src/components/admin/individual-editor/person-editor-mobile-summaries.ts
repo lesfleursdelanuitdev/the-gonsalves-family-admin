@@ -1,4 +1,4 @@
-import type { KeyFactFormState, NameFormEditorRow } from "@/lib/forms/individual-editor-form";
+import type { KeyFactFormState, NameFormEditorRow, SpouseFamilyFormRow } from "@/lib/forms/individual-editor-form";
 
 function sexLabel(sex: string): string {
   switch (sex) {
@@ -76,9 +76,52 @@ export function personEditorSourcesSummary(count: number): string {
   return `${count} source${count === 1 ? "" : "s"}`;
 }
 
-export function personEditorRelationshipsSummary(parentRows: number, partnerFamilies: number): string {
-  if (parentRows === 0 && partnerFamilies === 0) {
+export function personEditorAssociatesSummary(count: number): string {
+  if (count === 0) return "No associates";
+  return `${count} associate${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * Unique children linked under spouse/partner families (from loaded lists + unsaved pending rows).
+ * Excludes the edited person when they appear as the “this person” row in a child list.
+ */
+export function countChildrenAcrossSpouseFamilies(
+  familiesAsSpouse: SpouseFamilyFormRow[],
+  subjectIndividualId: string,
+): number {
+  const subject = subjectIndividualId.trim();
+  const seen = new Set<string>();
+  for (const row of familiesAsSpouse) {
+    for (const ch of row.childrenInFamily ?? []) {
+      const id = ch.individualId.trim();
+      if (!id || id === subject) continue;
+      seen.add(id);
+    }
+    for (const pch of row.pendingSpouseFamilyChildren ?? []) {
+      if (pch.kind === "existing") {
+        const id = pch.childIndividualId.trim();
+        if (!id || id === subject) continue;
+        seen.add(id);
+      }
+    }
+  }
+  let pendingNew = 0;
+  for (const row of familiesAsSpouse) {
+    for (const pch of row.pendingSpouseFamilyChildren ?? []) {
+      if (pch.kind === "new") pendingNew += 1;
+    }
+  }
+  return seen.size + pendingNew;
+}
+
+export function personEditorRelationshipsSummary(
+  parentRows: number,
+  partnerFamilies: number,
+  childCount: number,
+): string {
+  if (parentRows === 0 && partnerFamilies === 0 && childCount === 0) {
     return "Parents, partners, and children";
   }
-  return `${parentRows} parent link${parentRows === 1 ? "" : "s"} · ${partnerFamilies} partner`;
+  const childPart = `${childCount} child${childCount === 1 ? "" : "ren"}`;
+  return `${parentRows} parent link${parentRows === 1 ? "" : "s"} · ${partnerFamilies} partner · ${childPart}`;
 }

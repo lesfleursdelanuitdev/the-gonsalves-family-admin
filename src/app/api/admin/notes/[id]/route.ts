@@ -8,6 +8,7 @@ import {
   validateNoteLinksForFile,
 } from "@/lib/admin/admin-note-links";
 import { newBatchId, logUpdate, logDelete, setBatchSummary, type ChangeCtx } from "@/lib/admin/changelog";
+import { sanitizeNoteMarkdownForPersistence } from "@/lib/notes/sanitize-note-markdown";
 
 const primaryNameFormSelect = {
   where: { isPrimary: true },
@@ -91,7 +92,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
     if (typeof body.content !== "string") {
       return NextResponse.json({ error: "content must be a string" }, { status: 400 });
     }
-    data.content = body.content;
+    data.content = sanitizeNoteMarkdownForPersistence(body.content);
   }
   if ("isTopLevel" in body) {
     data.isTopLevel = body.isTopLevel === true;

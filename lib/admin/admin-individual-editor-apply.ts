@@ -2,6 +2,7 @@ import type { Prisma } from "@ligneous/prisma";
 import {
   canonicalSpouseSlotsForPair,
   findExistingCoupleFamilyId,
+  findReusableSingleParentFamilyForParentNotYetChild,
   normalizeChildRelationshipType,
   recomputeIndividualFamilyFlags,
   rebuildSpouseRowsForFamily,
@@ -85,6 +86,17 @@ export type NewChildFamilyFromNewParentsPayload =
   | NewChildFamilyFromNewParentsPairPayload
   | NewChildFamilyFromNewParentsSinglePayload;
 
+/** Link this individual as a child to a new or reused family from one or two existing parent individuals. */
+export type NewChildFamilyLinkExistingParentsPayload = {
+  parent1IndividualId: string;
+  parent2IndividualId?: string | null;
+  relationshipToParent1: string;
+  relationshipToParent2?: string | null;
+  pedigreeToParent1?: string | null;
+  pedigreeToParent2?: string | null;
+  birthOrder?: number | null;
+};
+
 /** Link an existing individual as a child of a family where the edited person is a spouse. */
 export type AddExistingChildToSpouseFamilyPayload = {
   kind: "existing";
@@ -108,6 +120,12 @@ export type AddNewChildToSpouseFamilyPayload = {
 export type AddChildToSpouseFamilyPayload =
   | AddExistingChildToSpouseFamilyPayload
   | AddNewChildToSpouseFamilyPayload;
+
+/** GEDCOM ASSO MVP: subject is the edited individual; associate is another person in the same file. */
+export type IndividualAssociationSyncRow = {
+  associateIndividualId: string;
+  rela: string;
+};
 
 export type IndividualEditorPayload = {
   sex?: string | null;
@@ -137,12 +155,63 @@ export type IndividualEditorPayload = {
   }[];
   /** New parental families: one or two new individuals + FAM, then link this person as child. */
   newChildFamiliesFromNewParents?: NewChildFamilyFromNewParentsPayload[];
+  /** Reuse or create FAM rows from existing parent individuals, then link this person as child (processed like new parents). */
+  newChildFamiliesLinkExistingParents?: NewChildFamilyLinkExistingParentsPayload[];
   /**
    * Add children to families where this individual is husband or wife. Server verifies spouse membership.
    * Processed after spouse-family sync so only applies to families that already exist in this request.
    */
   addChildrenToSpouseFamilies?: AddChildToSpouseFamilyPayload[];
+  /** Full replace of record-level INDI→INDI associations when present (including empty array). */
+  associates?: IndividualAssociationSyncRow[];
 };
+
+async function syncIndividualAssociations(
+  tx: Tx,
+  fileUuid: string,
+  subjectIndividualId: string,
+  rows: IndividualAssociationSyncRow[] | undefined,
+) {
+  if (rows === undefined) return;
+
+  const cleaned: IndividualAssociationSyncRow[] = [];
+  const seenPair = new Set<string>();
+  for (const r of rows) {
+    const aid = r.associateIndividualId.trim();
+    const rela = r.rela.trim();
+    if (!aid || !rela) continue;
+    if (aid === subjectIndividualId) {
+      throw new Error("An associate cannot be the same person as the subject");
+    }
+    const k = `${aid}\t${rela}`;
+    if (seenPair.has(k)) continue;
+    seenPair.add(k);
+    cleaned.push({ associateIndividualId: aid, rela });
+  }
+
+  const uniqueIds = [...new Set(cleaned.map((c) => c.associateIndividualId))];
+  if (uniqueIds.length > 0) {
+    const n = await tx.gedcomIndividual.count({
+      where: { fileUuid, id: { in: uniqueIds } },
+    });
+    if (n !== uniqueIds.length) {
+      throw new Error("One or more associates are not in this tree");
+    }
+  }
+
+  await tx.gedcomIndividualAssociation.deleteMany({ where: { subjectIndividualId } });
+  for (let i = 0; i < cleaned.length; i++) {
+    await tx.gedcomIndividualAssociation.create({
+      data: {
+        fileUuid,
+        subjectIndividualId,
+        associateIndividualId: cleaned[i].associateIndividualId,
+        rela: cleaned[i].rela,
+        sortOrder: i,
+      },
+    });
+  }
+}
 
 async function loadCurrentSpouseFamilyIds(
   tx: Tx,
@@ -671,6 +740,62 @@ export async function createNewChildFamiliesFromNewParentsRecords(
   return out;
 }
 
+export async function createChildFamilyRowsForLinkExistingParents(
+  ctx: ChangeCtx,
+  childIndividualId: string,
+  entries: NewChildFamilyLinkExistingParentsPayload[],
+): Promise<ChildFamilySyncPayloadRow[]> {
+  const { tx, fileUuid } = ctx;
+  const out: ChildFamilySyncPayloadRow[] = [];
+  for (const e of entries) {
+    const p1 = e.parent1IndividualId.trim();
+    const p2 = (e.parent2IndividualId ?? "").trim();
+    if (!p1) continue;
+    if (p2 && p1 === p2) {
+      throw new Error("Parent 1 and Parent 2 cannot be the same individual");
+    }
+    const rel1 = normalizeChildRelationshipType(e.relationshipToParent1);
+    const rel2 = normalizeChildRelationshipType(e.relationshipToParent2 ?? e.relationshipToParent1);
+    const ped1 = trimPedigreePayload(e.pedigreeToParent1 ?? null);
+    const ped2 = trimPedigreePayload(e.pedigreeToParent2 ?? null);
+    const birthOrder =
+      e.birthOrder != null && Number.isFinite(e.birthOrder) ? Math.trunc(e.birthOrder) : null;
+
+    let familyId: string;
+    if (!p2) {
+      const reuse = await findReusableSingleParentFamilyForParentNotYetChild(tx, fileUuid, p1, childIndividualId);
+      familyId = reuse ?? (await createNewFamilyWithSingleParent(ctx, p1));
+    } else {
+      familyId = await createNewFamilyLinkingPair(ctx, p1, p2);
+    }
+
+    const fam = await tx.gedcomFamily.findFirst({
+      where: { id: familyId, fileUuid },
+      select: { husbandId: true, wifeId: true },
+    });
+    if (!fam) throw new Error("Parental family not found after create/reuse");
+
+    const relH =
+      fam.husbandId === p1 ? rel1 : fam.husbandId === p2 ? rel2 : normalizeChildRelationshipType("biological");
+    const relW =
+      fam.wifeId === p1 ? rel1 : fam.wifeId === p2 ? rel2 : normalizeChildRelationshipType("biological");
+    const pedH = fam.husbandId === p1 ? ped1 : fam.husbandId === p2 ? ped2 : null;
+    const pedW = fam.wifeId === p1 ? ped1 : fam.wifeId === p2 ? ped2 : null;
+
+    out.push({
+      familyId,
+      relationshipType: rel1,
+      relationshipToHusband: fam.husbandId ? relH : "biological",
+      relationshipToWife: fam.wifeId ? relW : "biological",
+      pedigree: ped1 ?? ped2,
+      pedigreeToHusband: fam.husbandId ? pedH : null,
+      pedigreeToWife: fam.wifeId ? pedW : null,
+      birthOrder,
+    });
+  }
+  return out;
+}
+
 /** After addParentToFamily, overlay form relationship + pedigree for the new parent’s slot only. */
 function mergePedigreeAndRelForNewParentInFamily(
   row: ChildFamilySyncPayloadRow,
@@ -843,19 +968,33 @@ export async function applyIndividualEditorPayload(
   }
 
   let childPayload: ChildFamilySyncPayloadRow[] | undefined;
-  if (payload.newChildFamiliesFromNewParents && payload.newChildFamiliesFromNewParents.length > 0) {
-    const createdRows = await createNewChildFamiliesFromNewParentsRecords(
-      ctx,
-      payload.newChildFamiliesFromNewParents,
-      individualId,
-    );
+  const hasNewChildFromParents =
+    !!payload.newChildFamiliesFromNewParents && payload.newChildFamiliesFromNewParents.length > 0;
+  const hasLinkExistingParents =
+    !!payload.newChildFamiliesLinkExistingParents && payload.newChildFamiliesLinkExistingParents.length > 0;
+  if (hasNewChildFromParents || hasLinkExistingParents || payload.familiesAsChild != null) {
+    const createdRows = hasNewChildFromParents
+      ? await createNewChildFamiliesFromNewParentsRecords(
+          ctx,
+          payload.newChildFamiliesFromNewParents!,
+          individualId,
+        )
+      : [];
+    const linkedRows = hasLinkExistingParents
+      ? await createChildFamilyRowsForLinkExistingParents(
+          ctx,
+          individualId,
+          payload.newChildFamiliesLinkExistingParents!,
+        )
+      : [];
     const baseRows =
       payload.familiesAsChild != null
         ? payload.familiesAsChild.map(editorChildFamilyPayloadToSyncRow)
         : await loadCurrentChildFamilyRows(tx, fileUuid, individualId);
-    childPayload = mergeChildFamilySyncRowsByFamilyId(baseRows, createdRows);
-  } else if (payload.familiesAsChild) {
-    childPayload = payload.familiesAsChild.map(editorChildFamilyPayloadToSyncRow);
+    childPayload = mergeChildFamilySyncRowsByFamilyId(
+      mergeChildFamilySyncRowsByFamilyId(baseRows, createdRows),
+      linkedRows,
+    );
   }
   if (childPayload) {
     await syncIndividualChildFamilies(ctx, individualId, childPayload);
@@ -863,6 +1002,10 @@ export async function applyIndividualEditorPayload(
 
   if (spousePayload || childPayload) {
     await recomputeIndividualFamilyFlags(ctx, individualId);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "associates")) {
+    await syncIndividualAssociations(tx, fileUuid, individualId, payload.associates);
   }
 }
 
@@ -907,6 +1050,49 @@ export async function registerXrefInFileObjects(
 }
 
 /**
+ * Create a minimal new person and add them as ASSO on `subjectIndividualId`,
+ * merging with existing ASSO rows in one `syncIndividualAssociations` pass (same semantics as PATCH `associates`).
+ */
+export async function createAssociateIndividualAndMergeSyncAssociations(
+  ctx: ChangeCtx,
+  subjectIndividualId: string,
+  miniPayload: IndividualEditorPayload,
+  rela: string,
+): Promise<string> {
+  const { tx, fileUuid } = ctx;
+  const subj = subjectIndividualId.trim();
+  if (!subj) throw new Error("subjectIndividualId is required");
+
+  const p: IndividualEditorPayload = { ...miniPayload };
+  delete (p as { familiesAsSpouse?: unknown }).familiesAsSpouse;
+  delete (p as { familiesAsChild?: unknown }).familiesAsChild;
+  delete (p as { newSpouseFamilies?: unknown }).newSpouseFamilies;
+  delete (p as { newChildFamiliesFromNewParents?: unknown }).newChildFamiliesFromNewParents;
+  delete (p as { newChildFamiliesLinkExistingParents?: unknown }).newChildFamiliesLinkExistingParents;
+  delete (p as { addChildrenToSpouseFamilies?: unknown }).addChildrenToSpouseFamilies;
+  delete (p as { associates?: unknown }).associates;
+
+  const newIndividualId = await createIndividualFromEditorPayload(ctx, p);
+
+  const existing = await tx.gedcomIndividualAssociation.findMany({
+    where: { fileUuid, subjectIndividualId: subj },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  const merged: IndividualAssociationSyncRow[] = existing.map((row) => ({
+    associateIndividualId: row.associateIndividualId.trim(),
+    rela: row.rela.trim() || "ASSO",
+  }));
+  merged.push({
+    associateIndividualId: newIndividualId.trim(),
+    rela: rela.trim() || "ASSO",
+  });
+
+  await syncIndividualAssociations(tx, fileUuid, subj, merged);
+  return newIndividualId;
+}
+
+/**
  * Create a new individual and apply editor payload (names, birth, death, sex, living),
  * then attach spouse/child links when provided (including `newSpouseFamilies`).
  */
@@ -919,12 +1105,14 @@ export async function createIndividualFromEditorPayload(
   const childLinks = payload.familiesAsChild ?? [];
   const newSpouse = payload.newSpouseFamilies ?? [];
   const newChildFromParents = payload.newChildFamiliesFromNewParents ?? [];
+  const newChildLinkExisting = payload.newChildFamiliesLinkExistingParents ?? [];
 
   const p: IndividualEditorPayload = { ...payload };
   delete (p as { familiesAsSpouse?: unknown }).familiesAsSpouse;
   delete (p as { familiesAsChild?: unknown }).familiesAsChild;
   delete (p as { newSpouseFamilies?: unknown }).newSpouseFamilies;
   delete (p as { newChildFamiliesFromNewParents?: unknown }).newChildFamiliesFromNewParents;
+  delete (p as { newChildFamiliesLinkExistingParents?: unknown }).newChildFamiliesLinkExistingParents;
 
   const nameForms = p.nameForms?.length
     ? p.nameForms
@@ -978,8 +1166,15 @@ export async function createIndividualFromEditorPayload(
     newChildFromParents,
     ind.id,
   );
+  const fromLinkExisting =
+    newChildLinkExisting.length > 0
+      ? await createChildFamilyRowsForLinkExistingParents(ctx, ind.id, newChildLinkExisting)
+      : [];
   const baseChildSync = childLinks.map(editorChildFamilyPayloadToSyncRow);
-  const allChild = mergeChildFamilySyncRowsByFamilyId(baseChildSync, fromNewParents);
+  const allChild = mergeChildFamilySyncRowsByFamilyId(
+    mergeChildFamilySyncRowsByFamilyId(baseChildSync, fromNewParents),
+    fromLinkExisting,
+  );
   if (allChild.length > 0) {
     await syncIndividualChildFamilies(ctx, ind.id, allChild);
   }

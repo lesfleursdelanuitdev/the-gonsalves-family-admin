@@ -1,6 +1,18 @@
 /** Shared Prisma include for admin individual GET + PATCH response. */
 import type { Prisma } from "@ligneous/prisma";
 import { gedcomMediaWithAppTagsInclude } from "@/lib/admin/gedcom-media-with-tags-include";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
+
+/** Parent–child links for nested family payloads (child lists + adoption icons). */
+const ADMIN_NESTED_FAMILY_PARENT_CHILD_RELS = {
+  select: {
+    childId: true,
+    parentId: true,
+    familyId: true,
+    relationshipType: true,
+    pedigree: true,
+  },
+} as const;
 
 export const ADMIN_INDIVIDUAL_CHILD_SELECT = {
   id: true,
@@ -14,6 +26,7 @@ export const ADMIN_INDIVIDUAL_CHILD_SELECT = {
   deathDateDisplay: true,
   deathPlaceDisplay: true,
   deathYear: true,
+  ...gedcomIndividualNlDenormSelect,
   individualNameForms: {
     where: { isPrimary: true },
     take: 1,
@@ -80,6 +93,38 @@ export const ADMIN_INDIVIDUAL_DETAIL_INCLUDE = {
               child: { select: ADMIN_INDIVIDUAL_CHILD_SELECT },
             },
           },
+          parentChildRels: ADMIN_NESTED_FAMILY_PARENT_CHILD_RELS,
+        },
+      },
+    },
+  },
+  associationsAsSubject: {
+    orderBy: { sortOrder: "asc" as const },
+    select: {
+      id: true,
+      rela: true,
+      sortOrder: true,
+      associateIndividual: {
+        select: {
+          id: true,
+          xref: true,
+          fullName: true,
+          sex: true,
+          ...gedcomIndividualNlDenormSelect,
+          individualNameForms: {
+            where: { isPrimary: true },
+            take: 1,
+            select: {
+              givenNames: {
+                orderBy: { position: "asc" as const },
+                select: { givenName: { select: { givenName: true } } },
+              },
+              surnames: {
+                orderBy: { position: "asc" as const },
+                select: { surname: { select: { surname: true } } },
+              },
+            },
+          },
         },
       },
     },
@@ -92,6 +137,7 @@ export const ADMIN_INDIVIDUAL_DETAIL_INCLUDE = {
         include: { child: { select: ADMIN_INDIVIDUAL_CHILD_SELECT } },
         orderBy: { birthOrder: "asc" as const },
       },
+      parentChildRels: ADMIN_NESTED_FAMILY_PARENT_CHILD_RELS,
     },
   },
   wifeInFamilies: {
@@ -102,6 +148,7 @@ export const ADMIN_INDIVIDUAL_DETAIL_INCLUDE = {
         include: { child: { select: ADMIN_INDIVIDUAL_CHILD_SELECT } },
         orderBy: { birthOrder: "asc" as const },
       },
+      parentChildRels: ADMIN_NESTED_FAMILY_PARENT_CHILD_RELS,
     },
   },
 } satisfies Prisma.GedcomIndividualInclude;

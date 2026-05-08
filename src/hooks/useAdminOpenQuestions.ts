@@ -17,6 +17,12 @@ export interface AdminOpenQuestionsListResponse {
 export interface UseAdminOpenQuestionsOpts {
   status?: "open" | "resolved" | "archived" | "";
   q?: string;
+  linkedIndividualId?: string;
+  linkedFamilyId?: string;
+  linkedEventId?: string;
+  linkedMediaId?: string;
+  linkedSourceId?: string;
+  linkedNoteId?: string;
   limit?: number;
   offset?: number;
 }
@@ -25,6 +31,12 @@ function buildParams(opts: UseAdminOpenQuestionsOpts): URLSearchParams {
   const params = new URLSearchParams();
   if (opts.status) params.set("status", opts.status);
   if (opts.q?.trim()) params.set("q", opts.q.trim());
+  if (opts.linkedIndividualId?.trim()) params.set("linkedIndividualId", opts.linkedIndividualId.trim());
+  if (opts.linkedFamilyId?.trim()) params.set("linkedFamilyId", opts.linkedFamilyId.trim());
+  if (opts.linkedEventId?.trim()) params.set("linkedEventId", opts.linkedEventId.trim());
+  if (opts.linkedMediaId?.trim()) params.set("linkedMediaId", opts.linkedMediaId.trim());
+  if (opts.linkedSourceId?.trim()) params.set("linkedSourceId", opts.linkedSourceId.trim());
+  if (opts.linkedNoteId?.trim()) params.set("linkedNoteId", opts.linkedNoteId.trim());
   params.set("limit", String(opts.limit ?? 50));
   params.set("offset", String(opts.offset ?? 0));
   return params;
@@ -33,7 +45,20 @@ function buildParams(opts: UseAdminOpenQuestionsOpts): URLSearchParams {
 export function useAdminOpenQuestions(opts: UseAdminOpenQuestionsOpts) {
   const params = buildParams(opts);
   return useQuery({
-    queryKey: [...QK, "list", opts.status ?? "", opts.q ?? "", opts.limit ?? 50, opts.offset ?? 0] as const,
+    queryKey: [
+      ...QK,
+      "list",
+      opts.status ?? "",
+      opts.q ?? "",
+      opts.linkedIndividualId ?? "",
+      opts.linkedFamilyId ?? "",
+      opts.linkedEventId ?? "",
+      opts.linkedMediaId ?? "",
+      opts.linkedSourceId ?? "",
+      opts.linkedNoteId ?? "",
+      opts.limit ?? 50,
+      opts.offset ?? 0,
+    ] as const,
     queryFn: () =>
       fetchJson<AdminOpenQuestionsListResponse>(`/api/admin/open-questions?${params.toString()}`),
   });

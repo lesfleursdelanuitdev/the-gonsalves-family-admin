@@ -1,8 +1,9 @@
 import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
 
-export type NotePickerLinkedBlock = { heading: string; lines: string[] };
+export type NotePickerLinkedBlock = { heading: string; lines: string[]; overflow?: number };
 
 /** “Linked to” sections for picker UI (Individuals / Families / Events / Sources). */
 export function notePickerLinkedBlocks(note: AdminNoteListItem): NotePickerLinkedBlock[] {
@@ -12,7 +13,9 @@ export function notePickerLinkedBlocks(note: AdminNoteListItem): NotePickerLinke
     .map((row) => stripSlashesFromName(row.individual?.fullName))
     .filter((s): s is string => Boolean(s?.trim()));
   if (individuals.length) {
-    blocks.push({ heading: "Individuals", lines: individuals });
+    const lines = individuals.slice(0, NOTE_LINKED_LIST_VISIBLE_MAX);
+    const overflow = individuals.length - lines.length;
+    blocks.push({ heading: "Individuals", lines, ...(overflow > 0 ? { overflow } : {}) });
   }
 
   const families = (note.familyNotes ?? []).map((fn) => {
@@ -22,27 +25,31 @@ export function notePickerLinkedBlocks(note: AdminNoteListItem): NotePickerLinke
     return label || "Family";
   });
   if (families.length) {
-    blocks.push({ heading: "Families", lines: families });
+    const lines = families.slice(0, NOTE_LINKED_LIST_VISIBLE_MAX);
+    const overflow = families.length - lines.length;
+    blocks.push({ heading: "Families", lines, ...(overflow > 0 ? { overflow } : {}) });
   }
 
   const events = (note.eventNotes ?? [])
     .map((en) => {
       const et = en.event?.eventType;
       if (!et) return "";
-      const base = labelGedcomEventType(et);
-      const custom = (en.event?.customType ?? "").trim();
-      return custom ? `${base} (${custom})` : base;
+      return formatNoteLinkedEventLabel(et, en.event?.customType ?? null);
     })
     .filter(Boolean);
   if (events.length) {
-    blocks.push({ heading: "Events", lines: events });
+    const lines = events.slice(0, NOTE_LINKED_LIST_VISIBLE_MAX);
+    const overflow = events.length - lines.length;
+    blocks.push({ heading: "Events", lines, ...(overflow > 0 ? { overflow } : {}) });
   }
 
   const sources = (note.sourceNotes ?? [])
     .map((sn) => sn.source?.title?.trim() || sn.source?.xref?.trim() || "")
     .filter(Boolean);
   if (sources.length) {
-    blocks.push({ heading: "Sources", lines: sources });
+    const lines = sources.slice(0, NOTE_LINKED_LIST_VISIBLE_MAX);
+    const overflow = sources.length - lines.length;
+    blocks.push({ heading: "Sources", lines, ...(overflow > 0 ? { overflow } : {}) });
   }
 
   return blocks;

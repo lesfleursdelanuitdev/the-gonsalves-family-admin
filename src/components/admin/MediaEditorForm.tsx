@@ -11,6 +11,7 @@ import {
   Calendar,
   CalendarDays,
   ChevronDown,
+  CircleHelp,
   Cog,
   FileText,
   Image as ImageIcon,
@@ -51,6 +52,7 @@ import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgres
 import { PersonEditorMobileFormHeader } from "@/components/admin/individual-editor/PersonEditorMobileFormHeader";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { MediaDeleteConfirmDialog } from "@/components/admin/MediaDeleteConfirmDialog";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 
 type MediaEditorFormProps =
@@ -79,6 +81,7 @@ type MediaMobileSectionKey =
   | "media-location"
   | "media-events"
   | "media-organization"
+  | "media-open-questions"
   | "media-advanced"
   | "media-danger";
 
@@ -422,7 +425,18 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
   const placeSummary = stagedPlaces.length ? stagedPlaces[0]?.label ?? "Added" : "Not set";
   const eventSummary = stagedEvents.length ? `${stagedEvents.length} linked` : "None linked";
   const organizationSummary = `${stagedTags.length} tags · ${stagedAlbums.length} albums`;
+  const openQuestionsSummary = "Add new or link existing";
   const advancedSummary = showAdvancedDetails ? "Expanded" : "Collapsed";
+
+  const openQuestionEntityLabel = useMemo(() => {
+    if (mode !== "edit" || !mediaId) return "";
+    return (
+      file.title.trim() ||
+      file.fileRef.trim() ||
+      (typeof initial?.xref === "string" && initial.xref.trim()) ||
+      mediaId
+    );
+  }, [mode, mediaId, file.title, file.fileRef, initial?.xref]);
 
   return (
     <div className="space-y-6 pb-24">
@@ -1319,6 +1333,41 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
             </div>
           )}
         </section>
+
+        {mode === "edit" && activeScope === "family-tree" ? (
+          <>
+            <MobileSectionToggle
+              isDesktop={isDesktop}
+              sectionKey="media-open-questions"
+              mobileExpanded={mobileExpanded}
+              onToggle={onMobileToggle}
+              icon={CircleHelp}
+              title="Open questions"
+              summary={openQuestionsSummary}
+            />
+            <section
+              className={cn(
+                "rounded-xl border border-base-content/10 bg-card/60 p-4 shadow-sm sm:p-6",
+                !isDesktop && mobileExpanded !== "media-open-questions" && "hidden",
+              )}
+            >
+              {isDesktop ? (
+                <MediaSectionHeader
+                  icon={CircleHelp}
+                  title="Open questions"
+                  description="Track research, attribution, or verification for this media. Add a new question or link an existing one from your tree."
+                />
+              ) : null}
+              <EntityOpenQuestionsSection
+                entityType="media"
+                entityId={mediaId}
+                variant="edit"
+                entityLabel={openQuestionEntityLabel}
+                hideIntro
+              />
+            </section>
+          </>
+        ) : null}
 
         {mode === "edit" ? (
           <>

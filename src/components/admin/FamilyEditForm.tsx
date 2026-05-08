@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { FamilyEditorAdvancedFamilyPanel } from "@/components/admin/family-editor/FamilyEditorAdvancedFamilyPanel";
 import { FamilyEditorChildrenTabPanel } from "@/components/admin/family-editor/FamilyEditorChildrenTabPanel";
 import { FamilyEditorEventsTabPanel } from "@/components/admin/family-editor/FamilyEditorEventsTabPanel";
@@ -12,7 +13,11 @@ import { FamilyEditorMediaTabPanel } from "@/components/admin/family-editor/Fami
 import { FamilyEditorMobileSectionSelect } from "@/components/admin/family-editor/FamilyEditorMobileSectionSelect";
 import { FamilyEditorNotesTabPanel } from "@/components/admin/family-editor/FamilyEditorNotesTabPanel";
 import { FamilyEditorParentsTabPanel } from "@/components/admin/family-editor/FamilyEditorParentsTabPanel";
-import { FAMILY_EDITOR_NAV, type FamilyEditorSectionId } from "@/components/admin/family-editor/family-editor-nav";
+import {
+  FAMILY_EDITOR_NAV,
+  familyEditorNavIconFor,
+  type FamilyEditorSectionId,
+} from "@/components/admin/family-editor/family-editor-nav";
 import {
   familyEditorChildrenSummary,
   familyEditorMediaSummary,
@@ -31,6 +36,7 @@ import { PersonEditorMobileFormHeader } from "@/components/admin/individual-edit
 import { buttonVariants } from "@/components/ui/button";
 import { useFamilyEditorState } from "@/hooks/useFamilyEditorState";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
+import { buildChildNonBirthIndicatorMap, type ParentChildRelForChildIndicator } from "@/lib/gedcom/pedigree-display";
 import { cn } from "@/lib/utils";
 
 export function FamilyEditForm({
@@ -43,6 +49,16 @@ export function FamilyEditForm({
 }) {
   const e = useFamilyEditorState({ familyId, mode });
   const isDesktop = useMediaQueryMinLg();
+  const childNonBirthById = useMemo(
+    () =>
+      buildChildNonBirthIndicatorMap(
+        ((e.fam as Record<string, unknown> | undefined)?.parentChildRels as ParentChildRelForChildIndicator[]) ?? [],
+        e.familyId,
+        e.husband?.id,
+        e.wife?.id,
+      ),
+    [e.fam, e.familyId, e.husband?.id, e.wife?.id],
+  );
   const [activeSection, setActiveSection] = useState<FamilyEditorSectionId>("family-partners");
   const [mobileExpanded, setMobileExpanded] = useState<FamilyEditorAccordionKey | null>("family-partners");
 
@@ -100,6 +116,15 @@ export function FamilyEditForm({
   const mediaSummary = useMemo(() => familyEditorMediaSummary(e.familyMedia.length), [e.familyMedia.length]);
   const sourcesSummary = useMemo(() => familyEditorSourcesSummary(e.familySources.length), [e.familySources.length]);
   const advancedSummary = "GEDCOM and technical fields";
+  const openQuestionsSummary = "Add new or link existing";
+
+  const openQuestionEntityLabel = useMemo(() => {
+    const t = e.editModeFamilyTitle?.trim();
+    if (t) return t;
+    return e.familyId.trim();
+  }, [e.editModeFamilyTitle, e.familyId]);
+
+  const familyNavIcon = familyEditorNavIconFor;
 
   const cancelHref = e.mode === "edit" ? `/admin/families/${e.familyId}` : "/admin/families";
   const mobileBackHref = e.mode === "edit" ? `/admin/families/${e.familyId}` : "/admin/families";
@@ -198,8 +223,8 @@ export function FamilyEditForm({
 
   const childrenBody = (
     <FamilyEditorChildrenTabPanel
-      mode={e.mode}
       familyChildren={e.familyChildren}
+      childNonBirthById={childNonBirthById}
       pending={e.pending}
       onRemoveChild={e.onRemoveChild}
       childAddStep={e.childAddStep}
@@ -228,6 +253,7 @@ export function FamilyEditForm({
       familyId={e.familyId}
       familyNewEventLabel={e.familyNewEventLabel}
       familyNotes={e.familyNotes}
+      onNotesChanged={e.onNotesChanged}
     />
   );
 
@@ -247,6 +273,16 @@ export function FamilyEditForm({
   );
 
   const sourcesBody = <FamilyEditorSourcesTabPanel mode={e.mode} familySources={e.familySources} />;
+
+  const openQuestionsBody = (
+    <EntityOpenQuestionsSection
+      entityType="family"
+      entityId={e.familyId}
+      variant="edit"
+      entityLabel={openQuestionEntityLabel}
+      hideIntro
+    />
+  );
 
   const advancedBody = (
     <FamilyEditorAdvancedFamilyPanel
@@ -275,7 +311,7 @@ export function FamilyEditForm({
         sectionKey="family-partners"
         title="Partners"
         description="The people in this relationship."
-        icon={FAMILY_EDITOR_NAV[0]!.icon}
+        icon={familyNavIcon("family-partners")}
         summary={partnersSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -288,7 +324,7 @@ export function FamilyEditForm({
         sectionKey="family-timeline"
         title="Relationship timeline"
         description="Marriage, divorce, and custom events."
-        icon={FAMILY_EDITOR_NAV[1]!.icon}
+        icon={familyNavIcon("family-timeline")}
         summary={timelineSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -301,7 +337,7 @@ export function FamilyEditForm({
         sectionKey="family-children"
         title="Children"
         description="Children linked to this relationship."
-        icon={FAMILY_EDITOR_NAV[2]!.icon}
+        icon={familyNavIcon("family-children")}
         summary={childrenSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -314,7 +350,7 @@ export function FamilyEditForm({
         sectionKey="family-notes"
         title="Notes"
         description="Notes about this family."
-        icon={FAMILY_EDITOR_NAV[3]!.icon}
+        icon={familyNavIcon("family-notes")}
         summary={notesSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -327,7 +363,7 @@ export function FamilyEditForm({
         sectionKey="family-media"
         title="Media"
         description="Photos and documents."
-        icon={FAMILY_EDITOR_NAV[4]!.icon}
+        icon={familyNavIcon("family-media")}
         summary={mediaSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -340,7 +376,7 @@ export function FamilyEditForm({
         sectionKey="family-sources"
         title="Sources"
         description="Source citations for this family."
-        icon={FAMILY_EDITOR_NAV[5]!.icon}
+        icon={familyNavIcon("family-sources")}
         summary={sourcesSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -349,11 +385,24 @@ export function FamilyEditForm({
         {sourcesBody}
       </FamilyEditorResponsiveSection>
       <FamilyEditorResponsiveSection
+        id="family-open-questions"
+        sectionKey="family-open-questions"
+        title="Open questions"
+        description="Track research, attribution, or verification for this family."
+        icon={familyNavIcon("family-open-questions")}
+        summary={openQuestionsSummary}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        {openQuestionsBody}
+      </FamilyEditorResponsiveSection>
+      <FamilyEditorResponsiveSection
         id="family-advanced"
         sectionKey="family-advanced"
         title="Advanced details"
         description="GEDCOM identifiers, flags, and other events."
-        icon={FAMILY_EDITOR_NAV[6]!.icon}
+        icon={familyNavIcon("family-advanced")}
         summary={advancedSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -376,8 +425,8 @@ export function FamilyEditForm({
       hideBackLink={!isDesktop && Boolean(e.fam)}
     >
       <div className="w-full pb-32">
-        {(e.membershipApi || e.updateErr || e.createIndErr) && (
-          <p className="mb-4 text-sm text-destructive">{e.membershipApi || e.updateErr || e.createIndErr}</p>
+        {(e.membershipApi || e.updateErr) && (
+          <p className="mb-4 text-sm text-destructive">{e.membershipApi || e.updateErr}</p>
         )}
 
         {isDesktop ? desktopHeader : null}

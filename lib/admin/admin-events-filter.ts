@@ -11,6 +11,8 @@ export function parseLinkTypeParam(raw: string | null): AdminEventsLinkTypeParam
 
 export interface AdminEventsStructuredFilters {
   eventType: string | null;
+  /** Substring match on `custom_type` (GEDCOM TYPE / custom tag text). */
+  customTypeContains: string | null;
   placeContains: string | null;
   dateYearMin: number | null;
   dateYearMax: number | null;
@@ -35,6 +37,7 @@ export interface AdminEventsStructuredFilters {
 export function hasStructuredEventFilters(f: AdminEventsStructuredFilters): boolean {
   return !!(
     f.eventType ||
+    f.customTypeContains ||
     f.placeContains ||
     f.dateYearMin != null ||
     f.dateYearMax != null ||
@@ -74,6 +77,11 @@ export function buildAdminEventsWhere(
 
   if (filters.eventType) {
     where.eventType = filters.eventType;
+  }
+
+  const customTypeTrim = filters.customTypeContains?.trim() || "";
+  if (customTypeTrim) {
+    and.push({ customType: { contains: customTypeTrim, mode: "insensitive" } });
   }
 
   const placeTrim = filters.placeContains?.trim() || "";

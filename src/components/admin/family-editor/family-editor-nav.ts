@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Baby, BookOpen, CalendarDays, Image, Lock, StickyNote, Users } from "lucide-react";
+import { Baby, BookOpen, CalendarDays, CircleHelp, Image, Lock, StickyNote, Users } from "lucide-react";
 
 export type FamilyEditorSectionId =
   | "family-partners"
@@ -8,6 +8,7 @@ export type FamilyEditorSectionId =
   | "family-notes"
   | "family-media"
   | "family-sources"
+  | "family-open-questions"
   | "family-advanced";
 
 export type FamilyEditorNavItem = {
@@ -30,9 +31,20 @@ export const FAMILY_EDITOR_NAV: readonly FamilyEditorNavItem[] = [
   { id: "family-media", label: "Media", description: "Photos and documents", icon: Image },
   { id: "family-sources", label: "Sources", description: "Source citations", icon: BookOpen },
   {
+    id: "family-open-questions",
+    label: "Open questions",
+    description: "Research and verification",
+    icon: CircleHelp,
+  },
+  {
     id: "family-advanced",
     label: "Advanced details",
     description: "GEDCOM and technical fields",
     icon: Lock,
   },
 ] as const;
+
+/** Icon for a section; falls back if nav and section IDs ever drift (e.g. stale chunk). */
+export function familyEditorNavIconFor(id: FamilyEditorSectionId): LucideIcon {
+  return FAMILY_EDITOR_NAV.find((n) => n.id === id)?.icon ?? CircleHelp;
+}

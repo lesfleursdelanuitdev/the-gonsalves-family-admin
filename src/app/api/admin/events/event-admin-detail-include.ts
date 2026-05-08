@@ -1,6 +1,7 @@
 /** Shared Prisma include for admin event GET / PATCH / profile-media responses. */
 import type { Prisma } from "@ligneous/prisma";
 import { gedcomMediaWithAppTagsInclude } from "@/lib/admin/gedcom-media-with-tags-include";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 const primaryNameFormSelect = {
   where: { isPrimary: true },
@@ -23,6 +24,7 @@ const individualForEventLink = {
     fullName: true,
     xref: true,
     sex: true,
+    ...gedcomIndividualNlDenormSelect,
     individualNameForms: primaryNameFormSelect,
   },
 } as const;

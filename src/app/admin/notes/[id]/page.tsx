@@ -1,18 +1,21 @@
 "use client";
 
+import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Pencil, StickyNote } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminNote } from "@/hooks/useAdminNotes";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
+import { PaginatedNoteLinkList } from "@/components/admin/PaginatedNoteLinkList";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { LinkedIndividualLink } from "@/components/admin/LinkedIndividualLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NoteContentMarkdown } from "@/components/admin/NoteContentMarkdown";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 
 export default function AdminNoteDetailPage() {
   const params = useParams();
@@ -39,6 +42,92 @@ export default function AdminNoteDetailPage() {
     familyNotes.length > 0 ||
     eventNotes.length > 0 ||
     sourceNotes.length > 0;
+
+  type LinkedRow = { key: string; node: ReactNode };
+
+  const linkedByKind = useMemo(() => {
+    const people: LinkedRow[] = [];
+    const families: LinkedRow[] = [];
+    const events: LinkedRow[] = [];
+    const sources: LinkedRow[] = [];
+
+    for (const row of individualNotes) {
+      const iid = String(row.individual.id);
+      people.push({
+        key: `ind-${iid}`,
+        node: <LinkedIndividualLink ind={row.individual} />,
+      });
+    }
+    for (const row of familyNotes) {
+      const fam = row.family;
+      const famId = fam.id as string;
+      const famXref = (fam.xref as string) ?? "";
+      const h = fam.husband as Record<string, unknown> | null;
+      const w = fam.wife as Record<string, unknown> | null;
+      families.push({
+        key: `fam-${famId}`,
+        node: (
+          <div className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 shadow-sm shadow-black/15">
+            <p className="mb-3 font-mono text-xs">
+              <span className="text-muted-foreground">Family </span>
+              <Link href={`/admin/families/${famId}`} className="link link-primary">
+                {famXref || famId}
+              </Link>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Partner</p>
+                {h ? <LinkedIndividualLink ind={h} /> : <p className="text-sm text-muted-foreground">—</p>}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Partner</p>
+                {w ? <LinkedIndividualLink ind={w} /> : <p className="text-sm text-muted-foreground">—</p>}
+              </div>
+            </div>
+          </div>
+        ),
+      });
+    }
+    for (const row of eventNotes) {
+      const ev = row.event;
+      const evId = ev.id as string;
+      const eventType = (ev.eventType as string) ?? "";
+      const customType = ((ev.customType as string) ?? "").trim();
+      const label = formatNoteLinkedEventLabel(eventType, customType || null);
+      events.push({
+        key: `evt-${evId}`,
+        node: (
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 shrink-0">
+              <GedcomEventTypeIcon eventType={eventType} />
+            </span>
+            <div className="min-w-0">
+              <Link href={`/admin/events/${evId}`} className="link link-primary font-medium">
+                {label}
+              </Link>
+              <p className="font-mono text-xs text-muted-foreground">{eventType}</p>
+            </div>
+          </div>
+        ),
+      });
+    }
+    for (const row of sourceNotes) {
+      const s = row.source;
+      const sid = s.id as string;
+      const title = String(s.title ?? s.xref ?? "Source");
+      const sx = String(s.xref ?? "");
+      sources.push({
+        key: `src-${sid}`,
+        node: (
+          <div className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15">
+            <p className="font-medium">{title}</p>
+            {sx ? <p className="font-mono text-xs text-muted-foreground">{sx}</p> : null}
+          </div>
+        ),
+      });
+    }
+    return { people, families, events, sources };
+  }, [individualNotes, familyNotes, eventNotes, sourceNotes]);
 
   return (
     <DetailPageShell
@@ -103,79 +192,57 @@ export default function AdminNoteDetailPage() {
             <p className="text-sm text-muted-foreground">Not linked to any record (top-level note).</p>
           ) : null}
 
-          {individualNotes.map((row) => (
-            <LinkedIndividualLink key={String(row.individual.id)} ind={row.individual} />
-          ))}
-
-          {familyNotes.map((row) => {
-            const fam = row.family;
-            const famId = fam.id as string;
-            const famXref = (fam.xref as string) ?? "";
-            const h = fam.husband as Record<string, unknown> | null;
-            const w = fam.wife as Record<string, unknown> | null;
-            return (
-              <div
-                key={famId}
-                className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 shadow-sm shadow-black/15"
-              >
-                <p className="mb-3 font-mono text-xs">
-                  <span className="text-muted-foreground">Family </span>
-                  <Link href={`/admin/families/${famId}`} className="link link-primary">
-                    {famXref || famId}
-                  </Link>
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Partner</p>
-                    {h ? <LinkedIndividualLink ind={h} /> : <p className="text-sm text-muted-foreground">—</p>}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Partner</p>
-                    {w ? <LinkedIndividualLink ind={w} /> : <p className="text-sm text-muted-foreground">—</p>}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {eventNotes.map((row) => {
-            const ev = row.event;
-            const evId = ev.id as string;
-            const eventType = (ev.eventType as string) ?? "";
-            const customType = ((ev.customType as string) ?? "").trim();
-            const label = labelGedcomEventType(eventType);
-            return (
-              <div key={evId} className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0">
-                  <GedcomEventTypeIcon eventType={eventType} />
-                </span>
-                <div className="min-w-0">
-                  <Link href={`/admin/events/${evId}`} className="link link-primary font-medium">
-                    {label}
-                    {customType ? (
-                      <span className="font-normal text-muted-foreground"> ({customType})</span>
-                    ) : null}
-                  </Link>
-                  <p className="font-mono text-xs text-muted-foreground">{eventType}</p>
-                </div>
-              </div>
-            );
-          })}
-
-          {sourceNotes.map((row) => {
-            const s = row.source;
-            const sid = s.id as string;
-            const title = String(s.title ?? s.xref ?? "Source");
-            const sx = String(s.xref ?? "");
-            return (
-              <div key={sid} className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15">
-                <p className="font-medium">{title}</p>
-                {sx ? <p className="font-mono text-xs text-muted-foreground">{sx}</p> : null}
-              </div>
-            );
-          })}
+          {linkedByKind.people.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">People</h3>
+              <PaginatedNoteLinkList
+                items={linkedByKind.people}
+                itemKey={(r) => r.key}
+                renderItem={(r) => r.node}
+              />
+            </div>
+          ) : null}
+          {linkedByKind.families.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Families</h3>
+              <PaginatedNoteLinkList
+                items={linkedByKind.families}
+                itemKey={(r) => r.key}
+                renderItem={(r) => r.node}
+              />
+            </div>
+          ) : null}
+          {linkedByKind.events.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events</h3>
+              <PaginatedNoteLinkList
+                items={linkedByKind.events}
+                itemKey={(r) => r.key}
+                renderItem={(r) => r.node}
+              />
+            </div>
+          ) : null}
+          {linkedByKind.sources.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sources</h3>
+              <PaginatedNoteLinkList
+                items={linkedByKind.sources}
+                itemKey={(r) => r.key}
+                renderItem={(r) => r.node}
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
+
+      {id ? (
+        <EntityOpenQuestionsSection
+          entityType="note"
+          entityId={id}
+          variant="view"
+          entityLabel={xref || content.trim().replace(/\s+/g, " ").slice(0, 80) || undefined}
+        />
+      ) : null}
     </DetailPageShell>
   );
 }

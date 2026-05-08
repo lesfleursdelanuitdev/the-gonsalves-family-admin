@@ -1914,7 +1914,7 @@ function RichTextBlockInspector({
           <FieldLabel>Text preset</FieldLabel>
           <div className="mt-2 flex flex-wrap gap-2">
             {RICH_TEXT_PRESET_OPTIONS.map((p) => (
-              <button key={p} type="button" className={chipBtn(preset === p)} onClick={() => onPatch({ preset: p, textPreset: p })}>
+              <button key={p} type="button" className={chipBtn(preset === p)} onClick={() => onPatch({ preset: p })}>
                 {p}
               </button>
             ))}

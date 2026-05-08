@@ -11,6 +11,7 @@ import { AdminEditorSidebarNav } from "@/components/admin/editor-shell/AdminEdit
 import { AdminEditorStickySaveBar } from "@/components/admin/editor-shell/AdminEditorStickySaveBar";
 import { PersonEditorLayout } from "@/components/admin/individual-editor/PersonEditorLayout";
 import { SourceCitationsPanel } from "@/components/admin/source-editor/SourceCitationsPanel";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { SOURCE_EDITOR_NAV, type SourceEditorSectionId } from "@/components/admin/source-editor/source-editor-nav";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -170,6 +171,23 @@ export function SourceEditForm(props: SourceEditFormProps) {
     [isCreate, xrefDisplay],
   );
 
+  const openQuestionsSummary = "Add new or link existing";
+
+  const openQuestionEntityLabel = useMemo(() => {
+    const t = title.trim();
+    if (t) return t;
+    const a = author.trim();
+    if (a) return a;
+    if (!isCreate && sourceId) return sourceId;
+    return "";
+  }, [title, author, isCreate, sourceId]);
+
+  const sourceNavIcon = (id: SourceEditorSectionId) => {
+    const item = SOURCE_EDITOR_NAV.find((n) => n.id === id);
+    if (!item) throw new Error(`Missing source editor nav item: ${id}`);
+    return item.icon;
+  };
+
   const cancelHref = "/admin/sources";
 
   const handleSubmit = async (e: FormEvent) => {
@@ -275,6 +293,16 @@ export function SourceEditForm(props: SourceEditFormProps) {
     <SourceCitationsPanel isCreate={isCreate} sourceId={sourceId} source={initialSource} />
   );
 
+  const openQuestionsBody = (
+    <EntityOpenQuestionsSection
+      entityType="source"
+      entityId={sourceId}
+      variant="edit"
+      entityLabel={openQuestionEntityLabel}
+      hideIntro
+    />
+  );
+
   const recordBody = isCreate ? (
     <div className="space-y-3 text-sm">
       <p className="text-muted-foreground">
@@ -308,7 +336,7 @@ export function SourceEditForm(props: SourceEditFormProps) {
         sectionKey="source-main"
         title="Publication"
         description="How this source is described when cited in the tree."
-        icon={SOURCE_EDITOR_NAV[0]!.icon}
+        icon={sourceNavIcon("source-main")}
         summary={mainSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -321,7 +349,7 @@ export function SourceEditForm(props: SourceEditFormProps) {
         sectionKey="source-repository"
         title="Repository"
         description="Archive, library, or film locator."
-        icon={SOURCE_EDITOR_NAV[1]!.icon}
+        icon={sourceNavIcon("source-repository")}
         summary={repositorySummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -334,7 +362,7 @@ export function SourceEditForm(props: SourceEditFormProps) {
         sectionKey="source-citations"
         title="Linked citations"
         description="Where this source is used in your data."
-        icon={SOURCE_EDITOR_NAV[2]!.icon}
+        icon={sourceNavIcon("source-citations")}
         summary={citeSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -343,11 +371,24 @@ export function SourceEditForm(props: SourceEditFormProps) {
         {citationsBody}
       </AdminEditorResponsiveSection>
       <AdminEditorResponsiveSection
+        id="source-open-questions"
+        sectionKey="source-open-questions"
+        title="Open questions"
+        description="Track research, attribution, or verification for this source."
+        icon={sourceNavIcon("source-open-questions")}
+        summary={openQuestionsSummary}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        {openQuestionsBody}
+      </AdminEditorResponsiveSection>
+      <AdminEditorResponsiveSection
         id="source-record"
         sectionKey="source-record"
         title="Record ids"
         description="Technical identifiers for support and imports."
-        icon={SOURCE_EDITOR_NAV[3]!.icon}
+        icon={sourceNavIcon("source-record")}
         summary={idsSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}

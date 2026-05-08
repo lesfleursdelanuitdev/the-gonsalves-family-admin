@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, type MouseEvent } from "react";
+import { useCallback, useMemo, type MouseEvent, type PointerEvent } from "react";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import {
@@ -121,11 +121,11 @@ function StoryTipTapToolbarIdle({
   const scrollRow =
     "flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
   const noop = () => {};
-  const preventToolbarFocusLoss = (e: MouseEvent) => {
+  const preventToolbarFocusLoss = (e: MouseEvent | PointerEvent) => {
     e.preventDefault();
   };
   return (
-    <div className="border-0 bg-transparent" onMouseDownCapture={preventToolbarFocusLoss}>
+    <div className="border-0 bg-transparent" onMouseDownCapture={preventToolbarFocusLoss} onPointerDownCapture={preventToolbarFocusLoss}>
       <div
         className={cn(scrollRow, touchUi ? "gap-1 px-2 py-2.5" : "gap-1 px-2 py-2")}
         role="toolbar"

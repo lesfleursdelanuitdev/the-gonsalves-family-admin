@@ -21,7 +21,12 @@ async function loadFamilyForAdminResponse(db: PrismaClient, fileUuid: string, id
   });
   if (!family) return null;
   const familyChildren = await mergeFamilyChildrenForApi(db, fileUuid, family);
-  return { ...family, familyChildren };
+  const { familyPartners, ...restFamily } = family;
+  return {
+    ...restFamily,
+    partnerIndividualIds: familyPartners.map((p) => p.individualId),
+    familyChildren,
+  };
 }
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {

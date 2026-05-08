@@ -1,4 +1,5 @@
 import type { ChangeCtx } from "@/lib/admin/changelog";
+import { syncIndividualNlDenormFields } from "@/lib/admin/sync-gedcom-nl-denorm";
 import { normalizeSurnamePieceType, type SurnamePayloadRow } from "@/lib/forms/individual-editor-form";
 
 const BIRTH_NAME_TYPE = "birth";
@@ -215,4 +216,5 @@ export async function syncIndividualNameForms(
       fullNameLower: fullName.toLowerCase(),
     },
   });
+  await syncIndividualNlDenormFields(tx, individualId);
 }

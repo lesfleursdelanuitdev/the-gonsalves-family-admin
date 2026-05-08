@@ -8,16 +8,12 @@ import { CircleHelp, Link2, Plus, RotateCcw, CheckCircle2, Archive, Unlink } fro
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import {
-  useOpenQuestionsByEntity,
-  usePatchOpenQuestion,
-  useAdminOpenQuestions,
-} from "@/hooks/useAdminOpenQuestions";
+import { useOpenQuestionsByEntity, usePatchOpenQuestion } from "@/hooks/useAdminOpenQuestions";
 import type { OpenQuestionEntityType } from "@/lib/admin/open-questions";
 import { OpenQuestionStatusBadge } from "@/components/admin/OpenQuestionStatusBadge";
+import { OpenQuestionsPicker } from "@/components/admin/OpenQuestionsPicker";
 import { ApiError } from "@/lib/infra/api";
 
 export function EntityOpenQuestionsSection({
@@ -26,11 +22,14 @@ export function EntityOpenQuestionsSection({
   variant,
   /** When variant is edit, used for “Add question” pre-link and “Link existing”. */
   entityLabel,
+  /** Hide the built-in title, icon, and subtitle (e.g. when a parent section already introduced “Open questions”). */
+  hideIntro,
 }: {
   entityType: OpenQuestionEntityType;
   entityId: string;
   variant: "view" | "edit";
   entityLabel?: string;
+  hideIntro?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -44,14 +43,6 @@ export function EntityOpenQuestionsSection({
   const [resolutionDraft, setResolutionDraft] = useState("");
 
   const [linkOpen, setLinkOpen] = useState(false);
-  const [linkSearch, setLinkSearch] = useState("");
-  const { data: searchData } = useAdminOpenQuestions({
-    status: "open",
-    q: linkSearch.trim() || undefined,
-    limit: 15,
-    offset: 0,
-  });
-  const searchRows = (searchData?.openQuestions ?? []) as Record<string, unknown>[];
 
   const sorted = useMemo(() => {
     const rank = (s: string) => (s === "open" ? 0 : s === "resolved" ? 1 : 2);
@@ -64,10 +55,13 @@ export function EntityOpenQuestionsSection({
 
   const newQuestionHref = useMemo(() => {
     const q = new URLSearchParams();
-    if (entityType === "individual") q.set("individualId", entityId);
-    if (entityType === "family") q.set("familyId", entityId);
-    if (entityType === "event") q.set("eventId", entityId);
-    if (entityType === "media") q.set("mediaId", entityId);
+    const id = entityId.trim();
+    if (entityType === "individual" && id) q.set("individualId", id);
+    if (entityType === "family" && id) q.set("familyId", id);
+    if (entityType === "event" && id) q.set("eventId", id);
+    if (entityType === "media" && id) q.set("mediaId", id);
+    if (entityType === "source" && id) q.set("sourceId", id);
+    if (entityType === "note" && id) q.set("noteId", id);
     if (entityLabel) q.set("label", entityLabel);
     const rtBase = pathname.startsWith("/admin/") ? pathname : "";
     if (rtBase) {
@@ -122,7 +116,6 @@ export function EntityOpenQuestionsSection({
           onSuccess: () => {
             toast.success("Linked.");
             setLinkOpen(false);
-            setLinkSearch("");
             void refetch();
           },
           onError: (e) => {
@@ -133,6 +126,15 @@ export function EntityOpenQuestionsSection({
     },
     [entityId, entityType, patch, refetch],
   );
+
+  const linkedQuestionIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const x of items) {
+      const id = String(x.id ?? "").trim();
+      if (id) s.add(id);
+    }
+    return s;
+  }, [items]);
 
   const onReopen = useCallback(
     (questionId: string) => {
@@ -170,39 +172,68 @@ export function EntityOpenQuestionsSection({
     [patch, refetch],
   );
 
+  const showDefaultIntro = !hideIntro;
+  const showEditActionsOnly = Boolean(hideIntro && variant === "edit");
+
+  if (variant === "edit" && !entityId.trim()) {
+    return (
+      <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-6 text-center text-sm text-muted-foreground">
+        <p>
+          Save this record first. After it exists in the tree, you can add a new open question or link an existing one
+          from here.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <Card className="border-base-content/10 bg-base-200/15 shadow-none">
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
-        <div className="flex min-w-0 items-start gap-2">
-          <CircleHelp className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg">Open Questions</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Research and verification items linked to this record.
-            </p>
+      {showDefaultIntro ? (
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="flex min-w-0 items-start gap-2">
+            <CircleHelp className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg">Open Questions</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Research and verification items linked to this record.
+              </p>
+            </div>
           </div>
-        </div>
-        {variant === "edit" ? (
-          <div className="flex flex-wrap gap-2">
-            <Link href={newQuestionHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              <Plus className="size-3.5" aria-hidden />
-              Add question
-            </Link>
-            <Button type="button" variant="outline" size="sm" onClick={() => setLinkOpen(true)}>
-              <Link2 className="size-3.5" aria-hidden />
-              Link existing question
-            </Button>
-          </div>
-        ) : null}
-      </CardHeader>
-      <CardContent className="space-y-3">
+          {variant === "edit" ? (
+            <div className="flex flex-wrap gap-2">
+              <Link href={newQuestionHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                <Plus className="size-3.5" aria-hidden />
+                Add question
+              </Link>
+              <Button type="button" variant="outline" size="sm" onClick={() => setLinkOpen(true)}>
+                <Link2 className="size-3.5" aria-hidden />
+                Link existing question
+              </Button>
+            </div>
+          ) : null}
+        </CardHeader>
+      ) : showEditActionsOnly ? (
+        <CardHeader className="flex flex-row flex-wrap items-center justify-end gap-2 space-y-0 pb-2 pt-0">
+          <Link href={newQuestionHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            <Plus className="size-3.5" aria-hidden />
+            Add question
+          </Link>
+          <Button type="button" variant="outline" size="sm" onClick={() => setLinkOpen(true)}>
+            <Link2 className="size-3.5" aria-hidden />
+            Link existing question
+          </Button>
+        </CardHeader>
+      ) : null}
+      <CardContent className={cn("space-y-3", hideIntro && variant === "view" && "pt-4")}>
         {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
         {error ? <p className="text-sm text-destructive">Could not load open questions.</p> : null}
         {!isLoading && !error && sorted.length === 0 ? (
           <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-6 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-base-content">No open questions yet.</p>
+            <p className="font-medium text-base-content">{hideIntro ? "None linked yet." : "No open questions yet."}</p>
             <p className="mt-1">
-              Add a question to track something that needs research or verification.
+              {hideIntro
+                ? "Use Add question or Link existing above to track research or verification."
+                : "Add a question to track something that needs research or verification."}
             </p>
           </div>
         ) : null}
@@ -348,41 +379,22 @@ export function EntityOpenQuestionsSection({
       </Dialog>
 
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <div className="space-y-2 pb-2">
             <DialogTitle>Link existing question</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Search by question text or filter by another linked record, then choose a question to attach here.
+            </p>
           </div>
           <div className="space-y-2 py-2">
-            <Label htmlFor="oq-link-search">Search open questions</Label>
-            <Input
-              id="oq-link-search"
-              value={linkSearch}
-              onChange={(e) => setLinkSearch(e.target.value)}
-              placeholder="Keyword in question or details"
+            <OpenQuestionsPicker
+              idPrefix="entity-oq-link"
+              selectedIds={linkedQuestionIds}
+              onPick={(oq) => {
+                const rid = String((oq as Record<string, unknown>).id ?? "").trim();
+                if (rid) onLinkExisting(rid);
+              }}
             />
-            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-base-content/10 p-2 text-sm">
-              {searchRows.map((row) => {
-                const rid = String(row.id ?? "");
-                const already = items.some((x) => String(x.id) === rid);
-                return (
-                  <li key={rid} className="flex items-center justify-between gap-2 rounded px-1 py-1 hover:bg-base-content/[0.04]">
-                    <span className="min-w-0 truncate">{String(row.question ?? rid)}</span>
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="outline"
-                      disabled={already || patch.isPending}
-                      onClick={() => onLinkExisting(rid)}
-                    >
-                      {already ? "Linked" : "Link"}
-                    </Button>
-                  </li>
-                );
-              })}
-              {searchRows.length === 0 ? (
-                <li className="px-2 py-4 text-center text-muted-foreground">No matches.</li>
-              ) : null}
-            </ul>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setLinkOpen(false)}>

@@ -9,7 +9,7 @@ import { useAdminOpenQuestion } from "@/hooks/useAdminOpenQuestions";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OpenQuestionStatusBadge } from "@/components/admin/OpenQuestionStatusBadge";
-import { summarizeOpenQuestionLinks } from "@/lib/admin/open-question-display";
+import { getOpenQuestionLinkedRecordRows } from "@/lib/admin/open-question-display";
 import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 
 export default function AdminOpenQuestionDetailPage() {
@@ -28,6 +28,8 @@ export default function AdminOpenQuestionDetailPage() {
       </div>
     );
   }
+
+  const linkedRecordRows = oq ? getOpenQuestionLinkedRecordRows(oq) : [];
 
   return (
     <DetailPageShell
@@ -80,8 +82,20 @@ export default function AdminOpenQuestionDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Linked records</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {oq ? summarizeOpenQuestionLinks(oq) : "—"}
+          <CardContent className="text-sm">
+            {linkedRecordRows.length === 0 ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <ul className="list-none space-y-1.5">
+                {linkedRecordRows.map((r, i) => (
+                  <li key={`${r.href}-${i}`}>
+                    <Link href={r.href} className="font-medium text-primary underline-offset-2 hover:underline">
+                      {r.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

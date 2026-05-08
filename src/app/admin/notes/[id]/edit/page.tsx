@@ -34,15 +34,17 @@ export default function AdminEditNotePage() {
   }
 
   return shell(
-    <NoteForm
-      key={id}
-      hideBackLink
-      mode="edit"
-      noteId={id}
-      initialContent={typeof note.content === "string" ? note.content : ""}
-      readOnlyXref={typeof note.xref === "string" ? note.xref : null}
-      initialIsTopLevel={Boolean(note.isTopLevel)}
-      initialLinks={noteDetailToSelectedLinks(note)}
-    />,
+    <div className="space-y-8">
+      <NoteForm
+        key={id}
+        hideBackLink
+        mode="edit"
+        noteId={id}
+        initialContent={typeof note.content === "string" ? note.content : ""}
+        readOnlyXref={typeof note.xref === "string" ? note.xref : null}
+        initialIsTopLevel={Boolean(note.isTopLevel)}
+        initialLinks={noteDetailToSelectedLinks(note)}
+      />
+    </div>,
   );
 }

@@ -95,6 +95,7 @@ export type StoryDbSerializedPayload = {
       sortOrder: number;
       slug: string | null;
       isChapter: boolean;
+      isPage: boolean;
       contentJson: StorySectionContentEnvelope;
     }>;
   }>;
@@ -250,6 +251,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
     const childList = root.children?.length ? root.children : null;
     if (childList) {
       const parentChapter = root.isChapter ?? false;
+      const parentPage = root.isPage ?? false;
       chapters.push({
         title: root.title,
         sortOrder: i,
@@ -259,6 +261,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
           sortOrder: j,
           slug: null,
           isChapter: j === 0 ? parentChapter : false,
+          isPage: j === 0 ? parentPage : false,
           contentJson: { blocks: ch.blocks ?? [] },
         })),
       });
@@ -273,6 +276,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
             sortOrder: 0,
             slug: null,
             isChapter: root.isChapter ?? false,
+            isPage: root.isPage ?? false,
             contentJson: { blocks: root.blocks ?? [] },
           },
         ],
@@ -336,15 +340,18 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
         title: s0.title,
         collapsed: false,
         isChapter: s0.isChapter ?? false,
+        isPage: s0.isPage ?? false,
         blocks: parseSectionContentJson(s0.contentJson),
       });
     } else {
       const chapterFlag = secs[0]?.isChapter ?? false;
+      const pageFlag = secs[0]?.isPage ?? false;
       roots.push({
         id: ch.id,
         title: ch.title,
         collapsed: false,
         isChapter: chapterFlag,
+        isPage: pageFlag,
         blocks: [],
         children: secs.map((s) => ({
           id: s.id,

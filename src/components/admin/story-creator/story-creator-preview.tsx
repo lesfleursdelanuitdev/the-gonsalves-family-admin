@@ -37,6 +37,7 @@ import {
   getContainerCustomBackgroundStyle,
   getContainerClasses,
 } from "@/lib/admin/story-creator/story-container-preset-styles";
+import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import "./story-reference-preview.css";
 import "./story-preview-themes.css";
 
@@ -518,7 +519,11 @@ export function StoryCreatorPreview({
   const [viewport, setViewport] = useState<StoryPreviewViewport>("desktop");
   const [previewTheme, setPreviewTheme] = useState<StoryPreviewReadingTheme>("light");
   const [tocOpen, setTocOpen] = useState(true);
-  const previewMobile = viewport === "mobile";
+  const isLg = useMediaQueryMinLg();
+  /** Story Creator shell is in “mobile” layout (matches `lg` breakpoint in the editor chrome). */
+  const isAppMobile = !isLg;
+  /** Simulated phone frame in preview on desktop; on a real narrow window, always use mobile layout. */
+  const previewMobile = isAppMobile ? true : viewport === "mobile";
 
   useEffect(() => {
     setPreviewTheme(readStoredPreviewTheme());
@@ -572,34 +577,85 @@ export function StoryCreatorPreview({
             )}
           >
             <div className="preview-background flex min-h-0 flex-1 flex-col">
-              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-                <div
-                  className={cn(
-                    "preview-sidebar-rail shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-                    tocOpen ? "w-56" : "w-0",
-                  )}
-                  aria-hidden={!tocOpen}
-                >
-                  <div className="preview-sidebar-surface flex h-full min-h-0 w-56 flex-col border-r">
-                    <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-4">
-                      <p className="preview-sidebar-label">Contents</p>
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+                {!isAppMobile ? (
+                  <>
+                    <div
+                      className={cn(
+                        "preview-sidebar-rail shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+                        tocOpen ? "w-56" : "w-0",
+                      )}
+                      aria-hidden={!tocOpen}
+                    >
+                      <div className="preview-sidebar-surface flex h-full min-h-0 w-56 flex-col border-r">
+                        <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-4">
+                          <p className="preview-sidebar-label">Contents</p>
+                          <button
+                            type="button"
+                            className="preview-toc-collapse-btn size-8 shrink-0 rounded-lg"
+                            title="Hide contents"
+                            aria-label="Hide contents panel"
+                            onClick={() => setTocOpen(false)}
+                          >
+                            <ChevronLeft className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                          </button>
+                        </div>
+                        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+                          <SectionTocList sections={doc.sections} depth={0} activeSectionId={activeSectionId} onPickSection={onPickSection} />
+                        </nav>
+                      </div>
+                    </div>
+
+                    {!tocOpen ? (
                       <button
                         type="button"
-                        className="preview-toc-collapse-btn size-8 shrink-0 rounded-lg"
-                        title="Hide contents"
-                        aria-label="Hide contents panel"
-                        onClick={() => setTocOpen(false)}
+                        className="preview-toc-reopen-tab"
+                        title="Show contents"
+                        aria-label="Open contents panel"
+                        onClick={() => setTocOpen(true)}
                       >
-                        <ChevronLeft className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                        <ChevronRight className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
                       </button>
-                    </div>
-                    <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
-                      <SectionTocList sections={doc.sections} depth={0} activeSectionId={activeSectionId} onPickSection={onPickSection} />
-                    </nav>
-                  </div>
-                </div>
+                    ) : null}
+                  </>
+                ) : null}
 
-                {!tocOpen ? (
+                {isAppMobile && tocOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      className="preview-toc-overlay-backdrop absolute inset-0 z-[12]"
+                      aria-label="Close contents"
+                      onClick={() => setTocOpen(false)}
+                    />
+                    <div
+                      className="preview-sidebar-overlay absolute left-0 top-0 z-[13] flex h-full w-56 flex-col overflow-hidden rounded-r-2xl border-y border-r border-base-content/15 shadow-2xl"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Contents"
+                    >
+                      <div className="preview-sidebar-surface flex h-full min-h-0 w-full flex-1 flex-col border-0 shadow-none">
+                        <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-4">
+                          <p className="preview-sidebar-label">Contents</p>
+                          <button
+                            type="button"
+                            className="preview-toc-collapse-btn size-8 shrink-0 rounded-lg"
+                            title="Hide contents"
+                            aria-label="Hide contents panel"
+                            onClick={() => setTocOpen(false)}
+                          >
+                            <ChevronLeft className="mx-auto size-4" strokeWidth={2.25} aria-hidden />
+                          </button>
+                        </div>
+                        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+                          <SectionTocList sections={doc.sections} depth={0} activeSectionId={activeSectionId} onPickSection={onPickSection} />
+                        </nav>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                {isAppMobile && !tocOpen ? (
                   <button
                     type="button"
                     className="preview-toc-reopen-tab"
@@ -611,9 +667,10 @@ export function StoryCreatorPreview({
                   </button>
                 ) : null}
 
-                <div className="preview-scroll min-h-0 min-w-0 flex-1 overflow-y-auto">
+                <div className="preview-scroll relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
                   <div className="story-preview-article-shell px-3 py-4 md:px-6 md:py-6">
-                    <div className="story-preview-toolbar">
+                    <div className={cn("story-preview-toolbar", isAppMobile && "preview-toolbar--theme-only")}>
+                      {!isAppMobile ? (
                       <div className="preview-toolbar-cluster">
                         <span className="preview-segment-label">Viewport</span>
                         <div className="preview-segment-track" role="group" aria-label="Preview viewport">
@@ -635,6 +692,7 @@ export function StoryCreatorPreview({
                           </button>
                         </div>
                       </div>
+                      ) : null}
                       <div className="preview-toolbar-cluster">
                         <span className="preview-segment-label">Theme</span>
                         <div className="preview-segment-track" role="group" aria-label="Preview theme">

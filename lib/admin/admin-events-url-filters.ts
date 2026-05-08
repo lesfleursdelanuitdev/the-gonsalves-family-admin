@@ -4,6 +4,7 @@
 
 export const ADMIN_EVENTS_FILTER_QUERY_KEYS = [
   "eventType",
+  "customTypeContains",
   "placeContains",
   "dateYearMin",
   "dateYearMax",
@@ -14,6 +15,7 @@ export const ADMIN_EVENTS_FILTER_QUERY_KEYS = [
 
 export type AdminEventsUrlFilterState = {
   eventType: string;
+  customTypeContains: string;
   placeContains: string;
   dateYearMin: string;
   dateYearMax: string;
@@ -24,6 +26,7 @@ export type AdminEventsUrlFilterState = {
 
 export const ADMIN_EVENTS_FILTER_DEFAULTS: AdminEventsUrlFilterState = {
   eventType: "",
+  customTypeContains: "",
   placeContains: "",
   dateYearMin: "",
   dateYearMax: "",
@@ -46,6 +49,8 @@ export function parseAdminEventsFiltersFromSearchParams(
   };
   const et = get("eventType");
   if (et !== undefined) out.eventType = et;
+  const ctc = get("customTypeContains");
+  if (ctc !== undefined) out.customTypeContains = ctc;
   const pc = get("placeContains");
   if (pc !== undefined) out.placeContains = pc;
   const dmin = get("dateYearMin");
@@ -74,6 +79,7 @@ export function adminEventsFiltersToSearchParams(
   const p = new URLSearchParams();
   const t = (s: string) => s.trim();
   if (t(f.eventType)) p.set("eventType", t(f.eventType));
+  if (t(f.customTypeContains)) p.set("customTypeContains", t(f.customTypeContains));
   if (t(f.placeContains)) p.set("placeContains", t(f.placeContains));
   if (t(f.dateYearMin)) p.set("dateYearMin", t(f.dateYearMin));
   if (t(f.dateYearMax)) p.set("dateYearMax", t(f.dateYearMax));

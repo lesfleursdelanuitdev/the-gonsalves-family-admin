@@ -106,7 +106,10 @@ export function NotePicker({
                     {blocks.map((b) => (
                       <div key={b.heading}>
                         <span className="font-medium text-muted-foreground">{b.heading}: </span>
-                        <span>{b.lines.join("; ")}</span>
+                        <span>
+                          {b.lines.join("; ")}
+                          {b.overflow ? <span className="text-base-content/70"> +{b.overflow}</span> : null}
+                        </span>
                       </div>
                     ))}
                   </div>

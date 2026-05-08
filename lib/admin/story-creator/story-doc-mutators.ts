@@ -23,6 +23,7 @@ import {
   clampStoryRichTextHeadingLevel,
   inferFirstHeadingLevel,
   swapListVariantInDoc,
+  syncRichTextDocToPreset,
   transformRichTextDocToList,
   unwrapListItemsToParagraphDoc,
 } from "@/components/admin/story-creator/story-tiptap-doc";
@@ -255,11 +256,14 @@ export type StoryRichTextMetaPatch = Partial<
   >
 >;
 
+/** Merge patch so only canonical `preset` is applied; `textPreset` in the patch is treated as an alias for reads from older clients. */
 function mergeRichTextMetaPatch(patch: StoryRichTextMetaPatch): StoryRichTextMetaPatch {
-  const out = { ...patch };
-  if (patch.preset != null && patch.textPreset === undefined) out.textPreset = patch.preset;
-  if (patch.textPreset != null && patch.preset === undefined) out.preset = patch.textPreset;
-  return out;
+  const { textPreset, ...rest } = patch;
+  const unified = patch.preset ?? textPreset;
+  if (unified !== undefined) {
+    return { ...rest, preset: unified };
+  }
+  return rest as StoryRichTextMetaPatch;
 }
 
 /** Locked rich-text blocks cannot change text preset (inspector / future callers). */
@@ -273,8 +277,13 @@ function richTextMetaPatchRespectingPresetLocks(
   return rest;
 }
 
+function withoutLegacyRichTextTextPreset(block: StoryRichTextBlock): StoryRichTextBlock {
+  const { textPreset: _, ...rest } = block;
+  return rest as StoryRichTextBlock;
+}
+
 function applyStoryRichTextMetaPatchToBlock(b: StoryRichTextBlock, merged: StoryRichTextMetaPatch): StoryRichTextBlock {
-  let next: StoryRichTextBlock = { ...b, ...merged } as StoryRichTextBlock;
+  let next: StoryRichTextBlock = withoutLegacyRichTextTextPreset({ ...b, ...merged } as StoryRichTextBlock);
   const prevPreset = getStoryRichTextPreset(b);
   const preset = getStoryRichTextPreset(next);
   const presetTouched = merged.preset !== undefined || merged.textPreset !== undefined;
@@ -282,7 +291,14 @@ function applyStoryRichTextMetaPatchToBlock(b: StoryRichTextBlock, merged: Story
   if (prevPreset === "list" && preset !== "list" && presetTouched) {
     next = {
       ...next,
-      doc: unwrapListItemsToParagraphDoc(b.doc as JSONContent) as JSONContent,
+      doc: unwrapListItemsToParagraphDoc(next.doc as JSONContent) as JSONContent,
+    };
+  }
+
+  if (preset === "paragraph" && presetTouched && prevPreset !== "paragraph") {
+    next = {
+      ...next,
+      doc: syncRichTextDocToPreset(next.doc as JSONContent, "paragraph"),
     };
   }
 
@@ -291,13 +307,7 @@ function applyStoryRichTextMetaPatchToBlock(b: StoryRichTextBlock, merged: Story
   if (preset === "heading" && headingMetaTouched) {
     const lvl = clampStoryRichTextHeadingLevel(next.headingLevel);
     const doc = applyHeadingLevelToRichTextDoc(next.doc as JSONContent, lvl);
-    return {
-      ...next,
-      preset: next.preset ?? "heading",
-      textPreset: next.textPreset ?? "heading",
-      headingLevel: lvl,
-      doc,
-    };
+    return { ...next, preset: "heading", headingLevel: lvl, doc };
   }
 
   if (preset === "list") {
@@ -305,17 +315,11 @@ function applyStoryRichTextMetaPatchToBlock(b: StoryRichTextBlock, merged: Story
     const enteringList = prevPreset !== "list" && presetTouched;
 
     if (enteringList) {
-      const doc = transformRichTextDocToList(b.doc as JSONContent, listVariantNext);
-      return {
-        ...next,
-        preset: "list",
-        textPreset: "list",
-        listVariant: listVariantNext,
-        doc,
-      };
+      const doc = transformRichTextDocToList(next.doc as JSONContent, listVariantNext);
+      return { ...next, preset: "list", listVariant: listVariantNext, doc };
     }
     if (prevPreset === "list" && merged.listVariant !== undefined) {
-      const doc = swapListVariantInDoc(b.doc as JSONContent, listVariantNext);
+      const doc = swapListVariantInDoc(next.doc as JSONContent, listVariantNext);
       return { ...next, listVariant: listVariantNext, doc };
     }
     return next;
@@ -427,13 +431,10 @@ export function patchBlockRowLayoutInSection(
 
 function mergeContainerPropsPatch(prev: StoryContainerBlockProps, patch: Partial<StoryContainerBlockProps>): StoryContainerBlockProps {
   const next: StoryContainerBlockProps = { ...prev, ...patch };
-  if (patch.preset != null) {
-    next.preset = patch.preset;
-    next.containerPreset = patch.preset;
-  } else if (patch.containerPreset != null) {
-    next.containerPreset = patch.containerPreset;
-    next.preset = patch.containerPreset;
+  if (patch.preset !== undefined || patch.containerPreset !== undefined) {
+    next.preset = patch.preset ?? patch.containerPreset ?? prev.preset ?? prev.containerPreset ?? "default";
   }
+  delete (next as Record<string, unknown>).containerPreset;
   return next;
 }
 

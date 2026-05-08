@@ -1,82 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { ContentEditable } from "@lexical/react/LexicalContentEditable";
-import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
-import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
-import { ListPlugin } from "@lexical/react/LexicalListPlugin";
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
-import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { useCallback, type ReactNode } from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
 import {
-  $createParagraphNode,
-  $createTextNode,
-  $getRoot,
-  $getSelection,
-  $isRangeSelection,
-  FORMAT_TEXT_COMMAND,
-  REDO_COMMAND,
-  UNDO_COMMAND,
-  type EditorState,
-} from "lexical";
-import {
-  $convertFromMarkdownString,
-  $convertToMarkdownString,
-  ELEMENT_TRANSFORMERS,
-  LINK,
-  TEXT_FORMAT_TRANSFORMERS,
-} from "@lexical/markdown";
-import { $createHeadingNode, HeadingNode, $isHeadingNode } from "@lexical/rich-text";
-import { $createQuoteNode, QuoteNode } from "@lexical/rich-text";
-import { ListItemNode, ListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, REMOVE_LIST_COMMAND } from "@lexical/list";
-import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
-import { Bold, Italic, List, ListOrdered, Quote, Redo2, Undo2, Link2, Heading1, Pilcrow } from "lucide-react";
+  Bold,
+  Heading1,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Pilcrow,
+  Quote,
+  Redo2,
+  Undo2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const MARKDOWN_TRANSFORMERS = [
-  ...ELEMENT_TRANSFORMERS,
-  ...TEXT_FORMAT_TRANSFORMERS,
-  LINK,
-];
-
-function validateNoteLinkUrl(url: string): boolean {
-  const t = url.trim();
-  if (!t) return false;
-  if (t.startsWith("/") || t.startsWith("#") || t.startsWith("./") || t.startsWith("../")) return true;
-  try {
-    const u = new URL(t);
-    return u.protocol === "http:" || u.protocol === "https:" || u.protocol === "mailto:";
-  } catch {
-    return false;
-  }
-}
-
-function InitialMarkdownPlugin({ markdown }: { markdown: string }) {
-  const [editor] = useLexicalComposerContext();
-  useEffect(() => {
-    editor.update(() => {
-      const root = $getRoot();
-      root.clear();
-      if (markdown.trim()) {
-        $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS);
-      } else {
-        root.append($createParagraphNode().append($createTextNode("")));
-      }
-    });
-  }, [editor, markdown]);
-  return null;
-}
+import { isSafeNoteLinkHref, markdownToSafeHtml, safeHtmlToMarkdown } from "@/lib/notes/sanitize-note-markdown";
 
 function ToolbarButton({
   label,
   onClick,
+  active,
   children,
 }: {
   label: string;
   onClick: () => void;
+  active?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -85,116 +37,150 @@ function ToolbarButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-base-content/[0.08] hover:text-foreground"
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-base-content/[0.08] hover:text-foreground",
+        active && "text-primary",
+      )}
     >
       {children}
     </button>
   );
 }
 
-function LexicalToolbar() {
-  const [editor] = useLexicalComposerContext();
-  const [blockType, setBlockType] = useState<"paragraph" | "heading" | "quote">("paragraph");
-
-  useEffect(
-    () =>
-      editor.registerUpdateListener(({ editorState }) => {
-        editorState.read(() => {
-          const sel = $getSelection();
-          if (!$isRangeSelection(sel)) return;
-          const anchorNode = sel.anchor.getNode();
-          const top = anchorNode.getTopLevelElementOrThrow();
-          if ($isHeadingNode(top)) {
-            setBlockType("heading");
-            return;
-          }
-          if (top.getType() === "quote") {
-            setBlockType("quote");
-            return;
-          }
-          setBlockType("paragraph");
-        });
+function TiptapNoteEditorInner({
+  initialMarkdown,
+  onChange,
+  placeholderText,
+  className,
+}: {
+  initialMarkdown: string;
+  onChange: (markdown: string) => void;
+  placeholderText: string | null;
+  className?: string;
+}) {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
       }),
-    [editor],
-  );
-
-  const setParagraph = useCallback(() => {
-    editor.update(() => {
-      const sel = $getSelection();
-      if (!$isRangeSelection(sel)) return;
-      sel.getNodes().forEach((n) => {
-        const top = n.getTopLevelElementOrThrow();
-        top.replace($createParagraphNode(), true);
-      });
-    });
-  }, [editor]);
-
-  const setHeading = useCallback(() => {
-    editor.update(() => {
-      const sel = $getSelection();
-      if (!$isRangeSelection(sel)) return;
-      sel.getNodes().forEach((n) => {
-        const top = n.getTopLevelElementOrThrow();
-        top.replace($createHeadingNode("h2"), true);
-      });
-    });
-  }, [editor]);
-
-  const setQuote = useCallback(() => {
-    editor.update(() => {
-      const sel = $getSelection();
-      if (!$isRangeSelection(sel)) return;
-      sel.getNodes().forEach((n) => {
-        const top = n.getTopLevelElementOrThrow();
-        top.replace($createQuoteNode(), true);
-      });
-    });
-  }, [editor]);
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        defaultProtocol: "https",
+        protocols: ["http", "https", "mailto"],
+        isAllowedUri: (url) => isSafeNoteLinkHref(url),
+        HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
+      }),
+      ...(placeholderText
+        ? [
+            Placeholder.configure({
+              placeholder: placeholderText,
+            }),
+          ]
+        : []),
+    ],
+    content: markdownToSafeHtml(initialMarkdown),
+    editorProps: {
+      attributes: {
+        class:
+          "min-h-[280px] px-3 py-3 text-base-content outline-none [caret-color:var(--color-primary)] prose prose-sm max-w-none dark:prose-invert focus:outline-none",
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      onChange(safeHtmlToMarkdown(ed.getHTML()));
+    },
+  });
 
   const onAddLink = useCallback(() => {
-    const raw = window.prompt("Enter URL");
-    if (!raw) return;
+    if (!editor) return;
+    const prev = (editor.getAttributes("link").href as string | undefined) ?? "";
+    const raw = window.prompt("Enter URL", prev);
+    if (raw == null) return;
     const url = raw.trim();
-    if (!validateNoteLinkUrl(url)) return;
-    editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
+    if (!url) {
+      editor.chain().focus().unsetLink().run();
+      return;
+    }
+    if (!isSafeNoteLinkHref(url)) return;
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
+  if (!editor) {
+    return (
+      <div
+        className={cn(
+          "min-h-[280px] animate-pulse rounded-lg border border-base-content/10 bg-base-content/[0.04]",
+          className,
+        )}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-base-content/10 bg-base-200/40 px-2 py-1.5">
-      <ToolbarButton label="Undo" onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
-        <Undo2 className="size-4" />
-      </ToolbarButton>
-      <ToolbarButton label="Redo" onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
-        <Redo2 className="size-4" />
-      </ToolbarButton>
-      <span className="mx-1 h-5 w-px bg-base-content/20" />
-      <ToolbarButton label="Bold" onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")}>
-        <Bold className="size-4" />
-      </ToolbarButton>
-      <ToolbarButton label="Italic" onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic")}>
-        <Italic className="size-4" />
-      </ToolbarButton>
-      <ToolbarButton label="Heading" onClick={setHeading}>
-        <Heading1 className={cn("size-4", blockType === "heading" && "text-primary")} />
-      </ToolbarButton>
-      <ToolbarButton label="Paragraph" onClick={setParagraph}>
-        <Pilcrow className={cn("size-4", blockType === "paragraph" && "text-primary")} />
-      </ToolbarButton>
-      <ToolbarButton label="Quote" onClick={setQuote}>
-        <Quote className={cn("size-4", blockType === "quote" && "text-primary")} />
-      </ToolbarButton>
-      <ToolbarButton label="Bulleted list" onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}>
-        <List className="size-4" />
-      </ToolbarButton>
-      <ToolbarButton label="Numbered list" onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}>
-        <ListOrdered className="size-4" />
-      </ToolbarButton>
-      <ToolbarButton label="Remove list" onClick={() => editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)}>
-        <Pilcrow className="size-4" />
-      </ToolbarButton>
-      <ToolbarButton label="Link" onClick={onAddLink}>
-        <Link2 className="size-4" />
-      </ToolbarButton>
+    <div className={cn("flex flex-col overflow-hidden rounded-lg border border-base-content/20 bg-base-100", className)}>
+      <div className="flex flex-wrap items-center gap-1 border-b border-base-content/10 bg-base-200/40 px-2 py-1.5">
+        <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
+          <Undo2 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton label="Redo" onClick={() => editor.chain().focus().redo().run()}>
+          <Redo2 className="size-4" />
+        </ToolbarButton>
+        <span className="mx-1 h-5 w-px bg-base-content/20" />
+        <ToolbarButton
+          label="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
+          <Bold className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <Italic className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Heading"
+          active={editor.isActive("heading", { level: 1 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <Heading1 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Paragraph"
+          active={editor.isActive("paragraph")}
+          onClick={() => editor.chain().focus().setParagraph().run()}
+        >
+          <Pilcrow className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Quote"
+          active={editor.isActive("blockquote")}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        >
+          <Quote className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Bulleted list"
+          active={editor.isActive("bulletList")}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        >
+          <List className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Numbered list"
+          active={editor.isActive("orderedList")}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
+          <ListOrdered className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton label="Link" onClick={onAddLink}>
+          <Link2 className="size-4" />
+        </ToolbarButton>
+      </div>
+      <EditorContent editor={editor} />
     </div>
   );
 }
@@ -210,27 +196,10 @@ export function NoteContentEditor({
   onChange: (markdown: string) => void;
   /** Remount editor when switching notes (e.g. note UUID or \"new\"). */
   noteKey: string;
-  /** Optional empty-state hint; keep short — editor shell is `relative` so this stays inside the box. */
   placeholder?: ReactNode;
   className?: string;
 }) {
-  const initialConfig = {
-    namespace: `AdminNoteEditor-${noteKey}`,
-    onError: (error: Error) => {
-      console.error(error);
-    },
-    editable: true,
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode],
-  };
-
-  const onStateChange = useCallback(
-    (editorState: EditorState) => {
-      editorState.read(() => {
-        onChange($convertToMarkdownString(MARKDOWN_TRANSFORMERS));
-      });
-    },
-    [onChange],
-  );
+  const placeholderText = typeof placeholder === "string" ? placeholder : null;
 
   return (
     <div
@@ -239,31 +208,16 @@ export function NoteContentEditor({
         className,
       )}
     >
-      <LexicalComposer key={noteKey} initialConfig={initialConfig}>
-        <InitialMarkdownPlugin markdown={value} />
-        <LexicalToolbar />
-        <RichTextPlugin
-          contentEditable={
-            <ContentEditable
-              className="min-h-[280px] px-3 py-3 text-base-content outline-none [caret-color:var(--color-primary)]"
-              aria-label="Note body"
-            />
-          }
-          placeholder={
-            placeholder ? (
-              <div className="pointer-events-none absolute left-3 top-[52px] z-0 text-sm text-muted-foreground/60">
-                {placeholder}
-              </div>
-            ) : null
-          }
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <HistoryPlugin />
-        <ListPlugin />
-        <LinkPlugin validateUrl={validateNoteLinkUrl} />
-        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
-        <OnChangePlugin onChange={onStateChange} />
-      </LexicalComposer>
+      {typeof placeholder === "string" ? null : placeholder ? (
+        <div className="pointer-events-none absolute left-3 top-[52px] z-0 text-sm text-muted-foreground/60">{placeholder}</div>
+      ) : null}
+      <TiptapNoteEditorInner
+        key={noteKey}
+        initialMarkdown={value}
+        onChange={onChange}
+        placeholderText={placeholderText}
+        className="border-0"
+      />
     </div>
   );
 }

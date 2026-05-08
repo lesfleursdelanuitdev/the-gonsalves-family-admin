@@ -28,6 +28,14 @@ function AdminOpenQuestionNewPageInner() {
     if (med) {
       return { entityType: "media" as const, entityId: med, label: sp.get("label")?.trim() || undefined };
     }
+    const src = sp.get("sourceId")?.trim();
+    if (src) {
+      return { entityType: "source" as const, entityId: src, label: sp.get("label")?.trim() || undefined };
+    }
+    const note = sp.get("noteId")?.trim();
+    if (note) {
+      return { entityType: "note" as const, entityId: note, label: sp.get("label")?.trim() || undefined };
+    }
     return undefined;
   }, [sp]);
 

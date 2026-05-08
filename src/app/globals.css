@@ -605,8 +605,9 @@ body {
     drop-shadow(0 15px 60px rgba(0, 0, 0, 0.15));
 }
 
-/* Axis 1: Original centered axis - horizontal through middle (desktop), vertical through center (mobile) */
-.timeline::before {
+/* Journey strip axis only — do not target bare `.timeline` (DaisyUI admin timelines use that class too). */
+.journey-section .timeline::before,
+.journey-section-v2 .timeline::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -617,13 +618,15 @@ body {
   transform: translateY(-50%);
 }
 
-.dark .timeline::before {
+.dark .journey-section .timeline::before,
+.dark .journey-section-v2 .timeline::before {
   background: rgba(201, 168, 130, 0.18);
 }
 
 @media (max-width: 767px) {
   /* Axis: vertical through center on mobile */
-  .timeline.timeline-vertical::before {
+  .journey-section .timeline.timeline-vertical::before,
+  .journey-section-v2 .timeline.timeline-vertical::before {
     top: 0;
     bottom: 0;
     left: 50%;
@@ -634,12 +637,14 @@ body {
   }
 
   /* Left-align journey cards and arrows on mobile (v1) */
-  .timeline.timeline-vertical > * {
+  .journey-section .timeline.timeline-vertical > *,
+  .journey-section-v2 .timeline.timeline-vertical > * {
     align-self: flex-start;
   }
 
   /* v2: keep cards centered on mobile */
-  .journey-timeline-v2.timeline.timeline-vertical > * {
+  .journey-section .journey-timeline-v2.timeline.timeline-vertical > *,
+  .journey-section-v2 .journey-timeline-v2.timeline.timeline-vertical > * {
     align-self: center;
   }
 }
@@ -1065,6 +1070,11 @@ body {
   }
 }
 .admin-media-delete-progress-strip {
+  animation: admin-media-delete-progress 1.15s ease-in-out infinite;
+}
+
+/* Timeline admin — same motion as media delete strip */
+.admin-timeline-events-progress-thumb {
   animation: admin-media-delete-progress 1.15s ease-in-out infinite;
 }
 

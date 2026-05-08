@@ -28,14 +28,15 @@ export function StoryAddBlockPresetTypeGrid({
                   type="button"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
-                    "flex h-auto min-h-[4.25rem] w-full min-w-0 items-start justify-start gap-2 rounded-xl border-base-content/15 p-2 text-left font-medium lg:rounded-lg",
+                    "flex h-auto min-h-[5.25rem] w-full min-w-0 flex-col items-center justify-start gap-1.5 rounded-xl border-base-content/15 p-2 text-center font-medium",
+                    "sm:min-h-[4.25rem] sm:flex-row sm:items-start sm:justify-start sm:gap-2 sm:text-left lg:rounded-lg",
                   )}
                   onClick={() => onPick(item.id)}
                 >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:mt-0.5">
                     <Icon className="size-4 opacity-90" aria-hidden />
                   </span>
-                  <span className="min-w-0 flex-1 py-0.5">
+                  <span className="min-w-0 w-full py-0.5 sm:flex-1 sm:w-auto">
                     <span className="block text-xs font-semibold leading-snug text-base-content">{item.label}</span>
                     {item.description ? (
                       <span className="mt-0.5 line-clamp-2 block text-[10px] font-normal leading-snug text-base-content/50">

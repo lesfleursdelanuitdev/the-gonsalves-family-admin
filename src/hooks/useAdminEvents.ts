@@ -39,6 +39,8 @@ export interface UseAdminEventsOpts {
   q?: string;
   /** GEDCOM event tag, e.g. BIRT (also sent as legacy `type` for older clients). */
   eventType?: string;
+  /** Substring match on custom TYPE text (EVEN/CUST, etc.). */
+  customTypeContains?: string;
   type?: string;
   limit?: number;
   offset?: number;
@@ -65,6 +67,7 @@ export function buildEventsParams(opts: UseAdminEventsOpts): URLSearchParams {
   if (opts.q) params.set("q", opts.q);
   const et = opts.eventType || opts.type;
   if (et) params.set("eventType", et);
+  if (opts.customTypeContains?.trim()) params.set("customTypeContains", opts.customTypeContains.trim());
   if (opts.limit != null) params.set("limit", String(opts.limit));
   if (opts.offset != null) params.set("offset", String(opts.offset));
   if (opts.placeContains) params.set("placeContains", opts.placeContains);

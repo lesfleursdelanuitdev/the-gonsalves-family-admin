@@ -8,7 +8,13 @@ import type { PaginationState, Updater } from "@tanstack/react-table";
 import { useAdminFamily } from "@/hooks/useAdminFamilies";
 import { useAdminFamilyEvents } from "@/hooks/useAdminFamilyEvents";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { mergePedigreesForChild } from "@/lib/gedcom/pedigree-display";
+import {
+  buildChildNonBirthIndicatorMap,
+  filterParentChildRelsForFamilyList,
+  mergePedigreesForChild,
+  type ParentChildRelForChildIndicator,
+} from "@/lib/gedcom/pedigree-display";
+import { NonBirthChildIndicator } from "@/components/admin/NonBirthChildIndicator";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataViewerPagination } from "@/components/data-viewer/DataViewerPagination";
@@ -98,9 +104,11 @@ function ChildRowLink({ child }: { child: FamilyChild }) {
 function PaginatedChildrenList({
   rows,
   pedigreeByChild,
+  nonBirthByChild,
 }: {
   rows: { child: FamilyChild }[];
   pedigreeByChild: Map<string, string>;
+  nonBirthByChild: Map<string, boolean>;
 }) {
   const pageSize = FAMILY_DETAIL_CHILDREN_PAGE_SIZE;
   const [pagination, setPagination] = useState<PaginationState>(() => ({
@@ -144,6 +152,7 @@ function PaginatedChildrenList({
               className="flex flex-wrap items-baseline justify-between gap-2 rounded-box border border-base-content/[0.08] bg-base-content/[0.035] px-3 py-2 text-sm shadow-sm shadow-black/15"
             >
               <span className="flex items-center gap-2">
+                {nonBirthByChild.get(row.child.id) ? <NonBirthChildIndicator /> : null}
                 <SexIcon sex={row.child.sex} />
                 <ChildRowLink child={row.child} />
                 {row.child.birthYear != null ? (
@@ -215,9 +224,13 @@ export default function AdminFamilyViewPage() {
   const pedigreeByChild = useMemo(() => {
     const m = new Map<string, string>();
     if (!fam) return m;
-    const rels = (fam.parentChildRels as { childId: string; relationshipType: string | null; pedigree: string | null }[]) ?? [];
+    const fid = String(fam.id ?? "");
+    const hid = (fam.husband as Partner | null)?.id;
+    const wid = (fam.wife as Partner | null)?.id;
+    const rels = (fam.parentChildRels as ParentChildRelForChildIndicator[]) ?? [];
+    const scoped = filterParentChildRelsForFamilyList(rels, fid, hid, wid);
     const byChild = new Map<string, { relationshipType: string | null; pedigree: string | null }[]>();
-    for (const r of rels) {
+    for (const r of scoped) {
       if (!r.childId) continue;
       const list = byChild.get(r.childId) ?? [];
       list.push({ relationshipType: r.relationshipType, pedigree: r.pedigree });
@@ -231,6 +244,19 @@ export default function AdminFamilyViewPage() {
 
   const xref = (fam?.xref as string) ?? "";
   const uuid = fam?.id as string;
+
+  const nonBirthByChild = useMemo(() => {
+    if (!fam) return new Map<string, boolean>();
+    const fid = String(fam.id ?? "");
+    const hid = (fam.husband as Partner | null)?.id;
+    const wid = (fam.wife as Partner | null)?.id;
+    return buildChildNonBirthIndicatorMap(
+      (fam.parentChildRels as ParentChildRelForChildIndicator[]) ?? [],
+      fid,
+      hid,
+      wid,
+    );
+  }, [fam]);
   const marriageDateDisplay = (fam?.marriageDateDisplay as string) ?? "";
   const marriagePlaceDisplay = (fam?.marriagePlaceDisplay as string) ?? "";
   const marriageYear = fam?.marriageYear as number | null | undefined;
@@ -447,7 +473,11 @@ export default function AdminFamilyViewPage() {
           <p className="text-sm text-muted-foreground">Pedigree from parent–child links (birth, adopted, foster, etc.).</p>
         </CardHeader>
         <CardContent>
-          <PaginatedChildrenList rows={familyChildren} pedigreeByChild={pedigreeByChild} />
+          <PaginatedChildrenList
+            rows={familyChildren}
+            pedigreeByChild={pedigreeByChild}
+            nonBirthByChild={nonBirthByChild}
+          />
         </CardContent>
       </Card>
 

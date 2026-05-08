@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { AlignLeft, CalendarDays, Image, Link2, Lock, MapPin, Tag } from "lucide-react";
+import { AlignLeft, CalendarDays, CircleHelp, FileText, Image, Link2, Lock, MapPin, Tag } from "lucide-react";
 
 export type EventEditorSectionId =
   | "event-type"
@@ -7,7 +7,9 @@ export type EventEditorSectionId =
   | "event-place"
   | "event-details"
   | "event-linked"
+  | "event-notes"
   | "event-media"
+  | "event-open-questions"
   | "event-advanced";
 
 export type EventEditorNavItem = {
@@ -23,7 +25,14 @@ export const EVENT_EDITOR_NAV: readonly EventEditorNavItem[] = [
   { id: "event-place", label: "Place", description: "Where did it happen?", icon: MapPin },
   { id: "event-details", label: "Details", description: "Additional details about this event.", icon: AlignLeft },
   { id: "event-linked", label: "Linked records", description: "Individuals or families.", icon: Link2 },
+  { id: "event-notes", label: "Notes", description: "Research notes for this event.", icon: FileText },
   { id: "event-media", label: "Media", description: "Photos and documents.", icon: Image },
+  {
+    id: "event-open-questions",
+    label: "Open questions",
+    description: "Research and verification",
+    icon: CircleHelp,
+  },
   {
     id: "event-advanced",
     label: "Advanced details",

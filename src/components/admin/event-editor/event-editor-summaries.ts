@@ -44,6 +44,11 @@ export function eventLinkedSummary(links: SelectedNoteLink[]): string {
   return `${n} linked record${n === 1 ? "" : "s"}`;
 }
 
+export function eventNotesSummary(noteCount: number): string {
+  if (noteCount === 0) return "No notes yet";
+  return `${noteCount} note${noteCount === 1 ? "" : "s"}`;
+}
+
 export function eventMediaSummary(count: number): string {
   if (count === 0) return "No media added yet";
   return `${count} media item${count === 1 ? "" : "s"}`;

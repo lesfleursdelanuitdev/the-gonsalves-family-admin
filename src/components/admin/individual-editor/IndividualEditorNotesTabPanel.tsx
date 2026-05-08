@@ -1,10 +1,16 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
-import { buttonVariants } from "@/components/ui/button";
+import { NotesPicker } from "@/components/admin/NotesPicker";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { ApiError, postJson } from "@/lib/infra/api";
+import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
 import type { IndividualEditNoteJoin } from "@/components/admin/individual-editor/individual-editor-types";
 
 export type IndividualEditorNotesTabPanelProps = {
@@ -15,6 +21,8 @@ export type IndividualEditorNotesTabPanelProps = {
   individualId: string;
   individualNewEventLabel: string;
   individualNotes: IndividualEditNoteJoin[];
+  /** Called after a note is linked so the editor can refetch (e.g. `router.refresh()`). */
+  onNotesChanged?: () => void;
 };
 
 export function IndividualEditorNotesTabPanel({
@@ -24,8 +32,32 @@ export function IndividualEditorNotesTabPanel({
   individualId,
   individualNewEventLabel,
   individualNotes,
+  onNotesChanged,
 }: IndividualEditorNotesTabPanelProps) {
   const returnTo = `/admin/individuals/${individualId}/edit`;
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [attachBusy, setAttachBusy] = useState(false);
+
+  const linkedNoteIds = useMemo(
+    () => new Set(individualNotes.map((jn) => String(jn.note.id))),
+    [individualNotes],
+  );
+
+  const onPickExistingNote = async (note: AdminNoteListItem) => {
+    if (linkedNoteIds.has(note.id)) return;
+    setAttachBusy(true);
+    try {
+      await postJson(`/api/admin/individuals/${individualId}/notes`, { noteId: note.id });
+      toast.success(`Linked note ${note.xref?.trim() || note.id}.`);
+      setAttachOpen(false);
+      onNotesChanged?.();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not link note.";
+      toast.error(msg);
+    } finally {
+      setAttachBusy(false);
+    }
+  };
 
   const listBlock =
     mode === "create" ? (
@@ -50,19 +82,64 @@ export function IndividualEditorNotesTabPanel({
       })
     );
 
+  const addNoteHref = `/admin/notes/new?individualId=${encodeURIComponent(individualId)}&individualLabel=${encodeURIComponent(individualNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`;
+
+  const actionButtons =
+    mode === "edit" && individualId ? (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" className="min-h-11 shrink-0" onClick={() => setAttachOpen(true)}>
+          Attach existing note
+        </Button>
+        <Link href={addNoteHref} className={cn(buttonVariants({ variant: "default", size: "sm" }), "min-h-11 shrink-0")}>
+          Add new note
+        </Link>
+      </div>
+    ) : null;
+
+  const cardHeaderActions =
+    mode === "edit" && individualId ? (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setAttachOpen(true)}>
+          Attach existing
+        </Button>
+        <Link href={addNoteHref} className={cn(buttonVariants({ variant: "default", size: "sm" }), "shrink-0")}>
+          Add new note
+        </Link>
+      </div>
+    ) : null;
+
+  const attachDialog = (
+    <Dialog open={attachOpen} onOpenChange={(open) => setAttachOpen(open)}>
+      <DialogContent className="max-h-[min(90vh,720px)] max-w-2xl overflow-y-auto">
+        <DialogTitle>Attach an existing note</DialogTitle>
+        <DialogDescription>
+          Search by text, XREF, linked person, family, or event, then choose <strong>Add note</strong> on a result to
+          link it to this person.
+        </DialogDescription>
+        <div className={cn(attachBusy && "pointer-events-none opacity-60")}>
+          <NotesPicker
+            idPrefix={`ind-notes-${individualId}`}
+            excludeIds={linkedNoteIds}
+            onPick={onPickExistingNote}
+            limit={12}
+          />
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setAttachOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   const body = noCardShell ? (
     <>
       <div className="mb-4 flex flex-wrap items-start justify-end gap-3">
-        {mode === "edit" && individualId ? (
-          <Link
-            href={`/admin/notes/new?individualId=${encodeURIComponent(individualId)}&individualLabel=${encodeURIComponent(individualNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(buttonVariants({ variant: "default", size: "sm" }), "min-h-11 shrink-0")}
-          >
-            Add note
-          </Link>
-        ) : null}
+        {actionButtons}
       </div>
       <div className="space-y-3">{listBlock}</div>
+      {attachDialog}
     </>
   ) : (
     <Card>
@@ -73,16 +150,12 @@ export function IndividualEditorNotesTabPanel({
             Notes linked to this person. Edit content on each note&apos;s admin page.
           </p>
         </div>
-        {mode === "edit" && individualId ? (
-          <Link
-            href={`/admin/notes/new?individualId=${encodeURIComponent(individualId)}&individualLabel=${encodeURIComponent(individualNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
-          >
-            Add note
-          </Link>
-        ) : null}
+        {cardHeaderActions}
       </CardHeader>
-      <CardContent className="space-y-3">{listBlock}</CardContent>
+      <CardContent className="space-y-3">
+        {listBlock}
+        {attachDialog}
+      </CardContent>
     </Card>
   );
 

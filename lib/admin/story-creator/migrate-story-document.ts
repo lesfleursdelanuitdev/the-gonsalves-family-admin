@@ -1,4 +1,11 @@
-import { EMPTY_STORY_DOC, storyDocJsonEquals } from "@/components/admin/story-creator/story-tiptap-doc";
+import type { JSONContent } from "@tiptap/core";
+import {
+  clampStoryRichTextHeadingLevel,
+  EMPTY_STORY_DOC,
+  inferFirstHeadingLevel,
+  storyDocJsonEquals,
+  syncRichTextDocToPreset,
+} from "@/components/admin/story-creator/story-tiptap-doc";
 import type {
   StoryBlock,
   StoryColumnNestedBlock,
@@ -124,7 +131,7 @@ function normalizeContainerWidth(raw: StoryContainerBlockProps["width"] | undefi
 }
 
 function defaultContainerProps(raw: StoryContainerBlockProps | undefined): StoryContainerBlockProps {
-  const presetVal = raw?.preset ?? raw?.containerPreset;
+  const presetVal = raw?.preset ?? raw?.containerPreset ?? "default";
   return {
     background: raw?.background ?? "none",
     padding: raw?.padding ?? "md",
@@ -134,7 +141,6 @@ function defaultContainerProps(raw: StoryContainerBlockProps | undefined): Story
     label: raw?.label,
     customBackground: raw?.customBackground,
     preset: presetVal,
-    containerPreset: presetVal,
     rowLayout: raw?.rowLayout,
   };
 }
@@ -143,7 +149,17 @@ const MIGRATE_DIVIDER_VARIANTS: readonly StoryDividerVariant[] = ["line", "space
 
 function migrateRichTextBlock(b: StoryRichTextBlock): StoryRichTextBlock {
   const preset = b.preset ?? b.textPreset ?? "paragraph";
-  return { ...b, preset, textPreset: b.textPreset ?? preset };
+  const { textPreset: _, ...rest } = b;
+  let out: StoryRichTextBlock = { ...rest, preset };
+  const docOut = syncRichTextDocToPreset(out.doc as JSONContent, preset, {
+    headingLevel: out.headingLevel,
+    listVariant: out.listVariant,
+  });
+  out = { ...out, doc: docOut };
+  if (preset === "heading") {
+    out.headingLevel = clampStoryRichTextHeadingLevel(out.headingLevel ?? inferFirstHeadingLevel(docOut) ?? 2);
+  }
+  return out;
 }
 
 function migrateDividerBlock(b: StoryDividerBlock): StoryDividerBlock {
@@ -190,7 +206,6 @@ function tooDeepColumnPlaceholder(): StoryRichTextBlock {
     id: newStoryId(),
     type: "richText",
     preset: "paragraph",
-    textPreset: "paragraph",
     doc: {
       type: "doc",
       content: [

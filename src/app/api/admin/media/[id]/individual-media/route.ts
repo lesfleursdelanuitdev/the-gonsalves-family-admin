@@ -4,11 +4,13 @@ import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 const individualSelect = {
   id: true,
   fullName: true,
   xref: true,
+  ...gedcomIndividualNlDenormSelect,
 } as const;
 
 export const POST = withAdminAuth(async (request, user, ctx) => {

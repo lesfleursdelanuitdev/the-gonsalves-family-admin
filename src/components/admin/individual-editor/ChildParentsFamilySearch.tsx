@@ -50,7 +50,8 @@ export function ChildParentsFamilySearch({
   const l2 = p2Last.trim();
   const hasP1 = !!(g1 || l1);
   const hasP2 = !!(g2 || l2);
-  const enabled = hasP1 && hasP2;
+  /** Same as FamilySearchPicker / GET admin/families: any partner column with criteria runs the search. */
+  const enabled = hasP1 || hasP2;
 
   const searchUrl = useMemo(() => {
     const params = new URLSearchParams();
@@ -126,7 +127,9 @@ export function ChildParentsFamilySearch({
       </div>
       {!enabled ? (
         <p className="text-xs text-muted-foreground">
-          Enter at least one field for {FAMILY_PARTNER_1_LABEL} and one for {FAMILY_PARTNER_2_LABEL} to search.
+          Enter a given name or last name prefix under {FAMILY_PARTNER_1_LABEL} and/or {FAMILY_PARTNER_2_LABEL} to
+          search. When both columns have criteria, each must match one of the two parents (in either order); with
+          criteria on only one column, families where that person is a parent are listed.
         </p>
       ) : isFetching ? (
         <p className="text-xs text-muted-foreground">Searching…</p>

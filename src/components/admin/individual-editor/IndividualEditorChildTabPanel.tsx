@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Dispatch, SetStateAction } from "react";
 import { useState } from "react";
-import { ChevronDown, Star } from "lucide-react";
-import { CollapsibleFormSection } from "@/components/admin/individual-editor/CollapsibleFormSection";
+import { MoreHorizontal, Star } from "lucide-react";
+import { AddParentsWizardDialog } from "@/components/admin/individual-editor/AddParentsWizardDialog";
 import { ChildParentsFamilySearch } from "@/components/admin/individual-editor/ChildParentsFamilySearch";
 import { ParentSexIcon } from "@/components/admin/individual-editor/ParentSexIcon";
 import {
   NEW_PARENT_SEX_OPTIONS,
+  PEDIGREE_OPTIONS,
   RELATIONSHIP_OPTIONS,
 } from "@/components/admin/individual-editor/individual-editor-family-constants";
 import {
@@ -18,6 +20,13 @@ import {
 import type { ChildFamilyParentPickLabels } from "@/components/admin/individual-editor/individual-family-search-types";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { selectClassName } from "@/components/data-viewer/constants";
@@ -28,6 +37,16 @@ import {
 } from "@/lib/gedcom/family-partner-slots";
 import type { ChildFamilyFormRow, ChildInFamilySummary } from "@/lib/forms/individual-editor-form";
 import { cn } from "@/lib/utils";
+
+function relationshipUiLabel(value: string): string {
+  return RELATIONSHIP_OPTIONS.find((o) => o.value === value)?.label ?? value;
+}
+
+function parentFamilyCardTitle(husbandLabel: string, wifeLabel: string): string {
+  const a = husbandLabel.trim() || "Unknown";
+  const b = wifeLabel.trim() || "Unknown";
+  return `Family with ${a} and ${b}`;
+}
 
 export type IndividualEditorChildTabPanelProps = {
   hidden: boolean;
@@ -46,12 +65,13 @@ export type IndividualEditorChildTabPanelProps = {
     familyId: string,
     labels: ChildFamilyParentPickLabels,
   ) => Promise<{ mergedLabels: ChildFamilyParentPickLabels; children: ChildInFamilySummary[] | undefined }>;
-  addChildNewParentsDraftRow: () => void;
-  addChildSingleNewParentDraftRow: () => void;
   childFamilySearchSlots: ChildFamilySearchSlot[];
   setChildFamilySearchSlots: Dispatch<SetStateAction<ChildFamilySearchSlot[]>>;
   excludedChildSpouseFamilyIds: ReadonlySet<string>;
   spouseLinkOptionsForNewParent: { familyId: string; parentIndividualId: string; label: string }[];
+  mergeFamiliesAsChild: (fn: (prev: ChildFamilyFormRow[]) => ChildFamilyFormRow[]) => void;
+  /** Shown in the add-parents wizard review step. */
+  subjectDisplayName?: string;
 };
 
 export function IndividualEditorChildTabPanel({
@@ -64,14 +84,15 @@ export function IndividualEditorChildTabPanel({
   removeChildRow,
   addChildRow,
   enrichChildFamilyPick,
-  addChildNewParentsDraftRow,
-  addChildSingleNewParentDraftRow,
   childFamilySearchSlots,
   setChildFamilySearchSlots,
   excludedChildSpouseFamilyIds,
   spouseLinkOptionsForNewParent,
+  mergeFamiliesAsChild,
+  subjectDisplayName,
 }: IndividualEditorChildTabPanelProps) {
-  const [parentsAddOpen, setParentsAddOpen] = useState(false);
+  const router = useRouter();
+  const [parentsWizardOpen, setParentsWizardOpen] = useState(false);
 
   return (
     <div role="region" aria-label="Parents" hidden={hidden} className="space-y-8 pt-2">
@@ -83,17 +104,39 @@ export function IndividualEditorChildTabPanel({
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CollapsibleFormSection title="Advanced details">
-            <p className="text-sm text-muted-foreground">
-              Families store two partner slots (Partner 1 and Partner 2) for compatibility with standard genealogy
-              files. {FAMILY_PARTNER_SLOT_SUBTITLE} Use birth order when known.
-            </p>
-          </CollapsibleFormSection>
+          <p className="text-xs text-muted-foreground">
+            {FAMILY_PARTNER_SLOT_SUBTITLE} Relationship and pedigree are set per parent. Use <span className="font-medium text-base-content">+ Add parents</span> for a guided flow, or search by name below.
+          </p>
           {familiesAsChild.length > 0 ? (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-base-content">Existing families</h3>
               <ul className="space-y-4">
                 {familiesAsChild.map((row, i) => {
+                  if (row.pendingExistingParentsLink) {
+                    const L = row.pendingExistingParentsLink;
+                    return (
+                      <li
+                        key={`child-pending-existing-${i}`}
+                        className="space-y-3 rounded-xl border border-dashed border-success/30 bg-success/5 p-4 dark:bg-success/10"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-base-content">New parent link (saved with the person)</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {L.parent1Label}
+                              {L.parent2Label ? ` · ${L.parent2Label}` : ""}
+                            </p>
+                          </div>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeChildRow(i)}>
+                            Remove
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Relationship: {relationshipUiLabel(L.relationshipToParent1)}
+                          {L.parent2IndividualId ? ` / ${relationshipUiLabel(L.relationshipToParent2)}` : ""}
+                        </p>
+                      </li>
+                    );
+                  }
                   if (row.pendingNewParents) {
                     const d = row.pendingNewParents;
                     return (
@@ -332,44 +375,165 @@ export function IndividualEditorChildTabPanel({
                     husbandLabel !== "—";
                   const wifeLinked =
                     !!wifeId && !(mode === "edit" && wifeId === individualId) && wifeLabel !== "—";
+                  const cardTitle = parentFamilyCardTitle(husbandLabel, wifeLabel);
                   return (
-                  <li key={`child-${i}-${row.familyId}`} className="space-y-3 rounded-lg border border-base-content/10 p-3">
-                    <div className="space-y-1">
-                      <p className="text-lg font-semibold text-base-content">Parents</p>
-                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-normal leading-snug text-base-content/90">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            {FAMILY_PARTNER_1_LABEL}
-                          </span>
-                          <ParentSexIcon sex={row.parentHusbandSex} />
-                          {husbandLinked && husbandId ? (
-                            <Link href={`/admin/individuals/${husbandId}`} className="link link-primary font-medium">
-                              {husbandLabel}
-                            </Link>
-                          ) : (
-                            <span>{husbandLabel}</span>
+                  <li
+                    key={`child-${i}-${row.familyId}`}
+                    className="space-y-4 rounded-xl border border-base-content/12 bg-base-content/[0.02] p-4 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-sm font-semibold leading-snug text-base-content">{cardTitle}</p>
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Parent family</p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          type="button"
+                          className={cn(
+                            buttonVariants({ variant: "outline", size: "sm" }),
+                            "h-9 shrink-0 gap-1 px-2",
                           )}
-                        </span>
-                        <span className="text-muted-foreground" aria-hidden>
-                          ·
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            {FAMILY_PARTNER_2_LABEL}
-                          </span>
-                          <ParentSexIcon sex={row.parentWifeSex} />
-                          {wifeLinked && wifeId ? (
-                            <Link href={`/admin/individuals/${wifeId}`} className="link link-primary font-medium">
-                              {wifeLabel}
-                            </Link>
-                          ) : (
-                            <span>{wifeLabel}</span>
-                          )}
-                        </span>
-                      </p>
+                          aria-label="Family actions"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[11rem]">
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/admin/families/${row.familyId}`)}
+                          >
+                            Open family
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" onClick={() => removeChildRow(i)}>
+                            Remove from list
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-2 text-sm text-base-content/90">
+                      <span className="inline-flex min-w-0 items-center gap-1.5">
+                        <ParentSexIcon sex={row.parentHusbandSex} />
+                        {husbandLinked && husbandId ? (
+                          <Link href={`/admin/individuals/${husbandId}`} className="link link-primary truncate font-medium">
+                            {husbandLabel}
+                          </Link>
+                        ) : (
+                          <span className="truncate">{husbandLabel}</span>
+                        )}
+                      </span>
+                      <span className="text-muted-foreground" aria-hidden>
+                        ·
+                      </span>
+                      <span className="inline-flex min-w-0 items-center gap-1.5">
+                        <ParentSexIcon sex={row.parentWifeSex} />
+                        {wifeLinked && wifeId ? (
+                          <Link href={`/admin/individuals/${wifeId}`} className="link link-primary truncate font-medium">
+                            {wifeLabel}
+                          </Link>
+                        ) : (
+                          <span className="truncate">{wifeLabel}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="space-y-1 border-t border-base-content/10 pt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relationship to parents</p>
+                    </div>
+                    {husbandId ? (
+                      <div className="rounded-lg border border-base-content/10 bg-base-100/80 p-3 dark:bg-base-200/40">
+                        <p className="mb-2 text-xs font-medium text-base-content">To {husbandLabel}</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Relationship to child</Label>
+                            <select
+                              className={selectClassName}
+                              value={row.relationshipToHusband}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                updateChildRow(i, {
+                                  relationshipToHusband: v,
+                                  relationshipType: v,
+                                });
+                              }}
+                            >
+                              {RELATIONSHIP_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Pedigree</Label>
+                            <select
+                              className={selectClassName}
+                              value={row.pedigreeToHusband.trim()}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                updateChildRow(i, {
+                                  pedigreeToHusband: v,
+                                  pedigree: v || row.pedigreeToWife || row.pedigree,
+                                });
+                              }}
+                            >
+                              {PEDIGREE_OPTIONS.map((o) => (
+                                <option key={o.value || "__empty"} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    {wifeId ? (
+                      <div className="rounded-lg border border-base-content/10 bg-base-100/80 p-3 dark:bg-base-200/40">
+                        <p className="mb-2 text-xs font-medium text-base-content">To {wifeLabel}</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Relationship to child</Label>
+                            <select
+                              className={selectClassName}
+                              value={row.relationshipToWife}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                updateChildRow(i, {
+                                  relationshipToWife: v,
+                                  relationshipType: husbandId ? row.relationshipType : v,
+                                });
+                              }}
+                            >
+                              {RELATIONSHIP_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Pedigree</Label>
+                            <select
+                              className={selectClassName}
+                              value={row.pedigreeToWife.trim()}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                updateChildRow(i, {
+                                  pedigreeToWife: v,
+                                  pedigree: row.pedigreeToHusband || v || row.pedigree,
+                                });
+                              }}
+                            >
+                              {PEDIGREE_OPTIONS.map((o) => (
+                                <option key={o.value || "__emptyw"} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="space-y-1">
-                      <p className="text-lg font-semibold text-base-content">Children in family</p>
+                      <p className="text-xs font-semibold text-base-content">Children in family</p>
                       {row.childrenInFamily === undefined ? (
                         <p className="text-sm text-muted-foreground">
                           Sibling list not loaded. Add this family via search above, or open the family page to see
@@ -408,7 +572,7 @@ export function IndividualEditorChildTabPanel({
                         </ul>
                       )}
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2 border-t border-base-content/10 pt-3 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label className="text-xs">Family id</Label>
                         <Input
@@ -418,7 +582,7 @@ export function IndividualEditorChildTabPanel({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Birth order</Label>
+                        <Label className="text-xs">Birth order (optional)</Label>
                         <Input
                           value={row.birthOrder}
                           onChange={(e) => updateChildRow(i, { birthOrder: e.target.value })}
@@ -426,87 +590,6 @@ export function IndividualEditorChildTabPanel({
                           placeholder="Optional"
                         />
                       </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Relationship — {FAMILY_PARTNER_1_LABEL}</Label>
-                        <select
-                          className={selectClassName}
-                          disabled={!husbandId}
-                          value={row.relationshipToHusband}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            updateChildRow(i, {
-                              relationshipToHusband: v,
-                              relationshipType: v,
-                            });
-                          }}
-                        >
-                          {RELATIONSHIP_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Pedigree — {FAMILY_PARTNER_1_LABEL} (optional)</Label>
-                        <Input
-                          value={row.pedigreeToHusband}
-                          onChange={(e) =>
-                            updateChildRow(i, {
-                              pedigreeToHusband: e.target.value,
-                              pedigree: e.target.value || row.pedigreeToWife || row.pedigree,
-                            })
-                          }
-                          placeholder="e.g. birth"
-                          disabled={!husbandId}
-                        />
-                      </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Relationship — {FAMILY_PARTNER_2_LABEL}</Label>
-                        <select
-                          className={selectClassName}
-                          disabled={!wifeId}
-                          value={row.relationshipToWife}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            updateChildRow(i, {
-                              relationshipToWife: v,
-                              relationshipType: husbandId ? row.relationshipType : v,
-                            });
-                          }}
-                        >
-                          {RELATIONSHIP_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Pedigree — {FAMILY_PARTNER_2_LABEL} (optional)</Label>
-                        <Input
-                          value={row.pedigreeToWife}
-                          onChange={(e) =>
-                            updateChildRow(i, {
-                              pedigreeToWife: e.target.value,
-                              pedigree: row.pedigreeToHusband || e.target.value || row.pedigree,
-                            })
-                          }
-                          placeholder="e.g. birth"
-                          disabled={!wifeId}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/admin/families/${row.familyId}`}
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                      >
-                        Open family
-                      </Link>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeChildRow(i)}>
-                        Remove
-                      </Button>
                     </div>
                   </li>
                   );
@@ -515,65 +598,39 @@ export function IndividualEditorChildTabPanel({
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-base-content/15 bg-base-content/[0.02] px-4 py-6 text-center">
-              <p className="text-sm text-muted-foreground">No parents added yet.</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Search for their family record, create one new parent with a family, or create two new parents at once.
-              </p>
+              <p className="text-sm text-muted-foreground">No parent families linked yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Use Add parents to start the guided flow.</p>
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              className="btn-success text-success-content min-h-11 w-full sm:w-auto sm:min-w-[12rem]"
+              onClick={() => setParentsWizardOpen(true)}
+            >
+              + Add parents
+            </Button>
             <Button
               type="button"
               variant="outline"
-              className="flex min-h-11 w-full items-center justify-between gap-2 sm:w-auto sm:min-w-[12rem]"
-              onClick={() => setParentsAddOpen((v) => !v)}
-              aria-expanded={parentsAddOpen}
+              size="sm"
+              className="min-h-11 w-full sm:w-auto"
+              onClick={() => setChildFamilySearchSlots((s) => [...s, createChildFamilySearchSlot()])}
             >
-              Add parents
-              <ChevronDown
-                className={cn("size-4 shrink-0 transition-transform", parentsAddOpen && "rotate-180")}
-                aria-hidden
-              />
+              Search family by name
             </Button>
-            {parentsAddOpen ? (
-              <div className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] p-3 sm:flex-row sm:flex-wrap">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-11 w-full justify-start sm:flex-1"
-                  onClick={() => {
-                    setChildFamilySearchSlots((s) => [...s, createChildFamilySearchSlot()]);
-                    setParentsAddOpen(false);
-                  }}
-                >
-                  Link to existing parents&apos; family
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-11 w-full justify-start sm:flex-1"
-                  onClick={() => {
-                    addChildSingleNewParentDraftRow();
-                    setParentsAddOpen(false);
-                  }}
-                >
-                  Create one new parent
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-11 w-full justify-start sm:flex-1"
-                  onClick={() => {
-                    addChildNewParentsDraftRow();
-                    setParentsAddOpen(false);
-                  }}
-                >
-                  Create two new parents
-                </Button>
-              </div>
-            ) : null}
           </div>
+
+          <AddParentsWizardDialog
+            open={parentsWizardOpen}
+            onOpenChange={setParentsWizardOpen}
+            individualId={individualId}
+            subjectDisplayName={subjectDisplayName}
+            excludedChildSpouseFamilyIds={excludedChildSpouseFamilyIds}
+            enrichChildFamilyPick={enrichChildFamilyPick}
+            mergeFamiliesAsChild={mergeFamiliesAsChild}
+          />
 
           <div className="space-y-3">
             {childFamilySearchSlots.map((slot) => (
@@ -641,11 +698,18 @@ export function IndividualEditorChildTabPanel({
             ))}
           </div>
 
-          {hasPendingNewParentsChild ? (
+          {hasPendingNewParentsChild ||
+          familiesAsChild.some((r) => r.pendingExistingParentsLink?.parent1IndividualId.trim()) ? (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground dark:bg-primary/10">
-              New parents and their family are stored when you save this person. Use{" "}
+              Pending parent links are applied when you save this person. Use{" "}
               <span className="font-medium text-foreground">Save person</span> at the bottom of the page.
             </div>
+          ) : null}
+
+          {familiesAsChild.length > 1 ? (
+            <p className="text-xs text-muted-foreground">
+              This person has multiple parent families. Add another with <span className="font-medium text-base-content">+ Add parents</span> if needed.
+            </p>
           ) : null}
         </CardContent>
       </Card>

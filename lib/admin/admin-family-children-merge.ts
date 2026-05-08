@@ -4,6 +4,9 @@
  */
 import { Prisma } from "@ligneous/prisma";
 import type { PrismaClient } from "@ligneous/prisma";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
+
+type NlScalars = keyof typeof gedcomIndividualNlDenormSelect;
 
 type ChildMini = {
   id: string;
@@ -11,7 +14,7 @@ type ChildMini = {
   fullName: string | null;
   sex: string | null;
   birthYear: number | null;
-};
+} & { [K in NlScalars]?: string | number | null };
 
 export type MergedFamilyChildRow = {
   id: string;
@@ -112,7 +115,14 @@ export async function mergeFamilyChildrenForApi(
 
   const extras = await prisma.gedcomIndividual.findMany({
     where: { id: { in: need }, fileUuid },
-    select: { id: true, xref: true, fullName: true, sex: true, birthYear: true },
+    select: {
+      id: true,
+      xref: true,
+      fullName: true,
+      sex: true,
+      birthYear: true,
+      ...gedcomIndividualNlDenormSelect,
+    },
   });
 
   for (const ind of extras) {

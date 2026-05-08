@@ -1,17 +1,24 @@
 /**
- * Builds the same event timeline as the public tree
- * `GET /api/tree/individuals/[xref]/detail/events` (the-gonsalves-family).
- * Keep in sync when that route changes.
+ * Builds the person-centric timeline for admin (`GET /api/admin/individuals/[id]/events`) and tools that reuse it.
+ * The public tree route `GET /api/tree/individuals/[xref]/detail/events` (the-gonsalves-family) is a separate
+ * implementation — mirror substantive query/filter changes there when behavior should match.
  */
 import { Prisma } from "@ligneous/prisma";
 import type { PrismaClient } from "@ligneous/prisma";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
+import { grandchildParentFromFamilyRow } from "@/lib/detail/grandchild-parent-from-family-row";
+import { attachTimelineEventPreviewMedia } from "@/lib/detail/timeline-event-preview-media";
+import { dedupeTimelineEvents } from "@/lib/detail/timeline-event-dedupe";
+import { filterEventsWithinSubjectLifespan, type LifespanYmd } from "@/lib/detail/timeline-lifespan";
+import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
 
 export type IndividualDetailEvent = {
   /** Present when this row is backed by a `gedcom_events_v2` row (admin deep-link). */
   eventId: string | null;
   eventType: string;
   customType: string | null;
+  /** From `gedcom_events_v2.event_label` when joined; null for synthetic rows. */
+  eventLabel: string | null;
   value: string | null;
   cause: string | null;
   dateOriginal: string | null;
@@ -36,6 +43,17 @@ export type IndividualDetailEvent = {
   /** Family partners on family-detail MARR/DIV (optional) */
   husbandIndividualId?: string | null;
   wifeIndividualId?: string | null;
+  /** Sex (GEDCOM `SEX`) of the related person for child / spouse / sibling / grandchild rows. */
+  relatedSex?: string | null;
+  parentSide?: "father" | "mother" | null;
+  grandparentSide?: "grandfather" | "grandmother" | null;
+  /** Husband / wife / child when `source === "member"` (family timeline). */
+  memberRole?: "husband" | "wife" | "child" | null;
+  /** Random raster `file_ref` from linked event media (set server-side). */
+  previewMediaFileRef?: string | null;
+  /** Grandchild's parent (subject's child) for richer grandchild copy. */
+  relatedParentName?: string | null;
+  relatedParentSex?: string | null;
 };
 
 type Row = Record<string, unknown>;
@@ -56,11 +74,46 @@ export async function buildIndividualDetailEvents(
   prisma: PrismaClient,
   fileUuid: string,
   personId: string,
-): Promise<{ events: IndividualDetailEvent[] }> {
+): Promise<{ events: IndividualDetailEvent[]; timelineSubject: TimelineSubject }> {
+  const anchorRows = await prisma.$queryRaw<Row[]>(
+    Prisma.sql`
+      SELECT ind.full_name AS person_name, ind.sex AS person_sex,
+             birth_d.year AS birth_year, birth_d.month AS birth_month, birth_d.day AS birth_day,
+             death_d.year AS death_year, death_d.month AS death_month, death_d.day AS death_day
+      FROM gedcom_individuals_v2 ind
+      LEFT JOIN gedcom_dates_v2 birth_d ON birth_d.id = ind.birth_date_id
+      LEFT JOIN gedcom_dates_v2 death_d ON death_d.id = ind.death_date_id
+      WHERE ind.file_uuid = ${fileUuid}::uuid AND ind.id = ${personId}::uuid
+    `,
+  );
+  const ar = anchorRows[0];
+  const timelineSubject: TimelineSubject = {
+    kind: "individual",
+    displayName: stripName(ar?.person_name as string | undefined) ?? "Unknown",
+    sex: ar?.person_sex != null && String(ar.person_sex).trim() !== "" ? String(ar.person_sex) : null,
+  };
+  const anchorBirth: LifespanYmd | null =
+    ar?.birth_year != null
+      ? {
+          year: Number(ar.birth_year),
+          month: ar.birth_month != null ? Number(ar.birth_month) : null,
+          day: ar.birth_day != null ? Number(ar.birth_day) : null,
+        }
+      : null;
+  const anchorDeath: LifespanYmd | null =
+    ar?.death_year != null
+      ? {
+          year: Number(ar.death_year),
+          month: ar.death_month != null ? Number(ar.death_month) : null,
+          day: ar.death_day != null ? Number(ar.death_day) : null,
+        }
+      : null;
+
   const [indEventRows, famSpouseRows] = await Promise.all([
     prisma.$queryRaw<Row[]>(
       Prisma.sql`
           SELECT e.id, e.event_type, e.custom_type, e.value, e.cause, e.sort_order,
+                 e.event_label AS event_label,
                  d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                  p.original AS place_original, p.name AS place_name
           FROM gedcom_individual_events_v2 ie
@@ -75,10 +128,14 @@ export async function buildIndividualDetailEvents(
       Prisma.sql`
           SELECT f.id AS family_id, f.xref AS family_xref,
                  spouse.id AS spouse_id, spouse.xref AS spouse_xref, spouse.full_name AS spouse_name,
+                 spouse.sex AS spouse_sex,
+                 spouse.birth_date_display AS spouse_birth_date, spouse.birth_place_display AS spouse_birth_place,
+                 spouse_birth_d.year AS spouse_birth_year, spouse_birth_d.month AS spouse_birth_month, spouse_birth_d.day AS spouse_birth_day,
+                 spouse_birth_d.date_type AS spouse_birth_date_type,
                  spouse.death_date_display AS spouse_death_date, spouse.death_place_display AS spouse_death_place,
                  spouse_death_d.year AS spouse_death_year, spouse_death_d.month AS spouse_death_month, spouse_death_d.day AS spouse_death_day,
                  spouse_death_d.date_type AS spouse_death_date_type,
-                 ch.id AS child_id, ch.xref AS child_xref, ch.full_name AS child_name,
+                 ch.id AS child_id, ch.xref AS child_xref, ch.full_name AS child_name, ch.sex AS child_sex,
                  ch.birth_date_display AS child_birth_date, ch.birth_place_display AS child_birth_place,
                  ch_birth_d.year AS child_birth_year, ch_birth_d.month AS child_birth_month, ch_birth_d.day AS child_birth_day,
                  ch_birth_d.date_type AS child_birth_date_type,
@@ -88,6 +145,7 @@ export async function buildIndividualDetailEvents(
           FROM gedcom_families_v2 f
           LEFT JOIN gedcom_individuals_v2 spouse ON (spouse.id = f.wife_id AND f.husband_id = ${personId}::uuid)
             OR (spouse.id = f.husband_id AND f.wife_id = ${personId}::uuid)
+          LEFT JOIN gedcom_dates_v2 spouse_birth_d ON spouse_birth_d.id = spouse.birth_date_id
           LEFT JOIN gedcom_dates_v2 spouse_death_d ON spouse_death_d.id = spouse.death_date_id
           LEFT JOIN gedcom_family_children_v2 fch ON fch.family_id = f.id AND fch.file_uuid = f.file_uuid
           LEFT JOIN gedcom_individuals_v2 ch ON ch.id = fch.child_id
@@ -107,6 +165,15 @@ export async function buildIndividualDetailEvents(
         id: string;
         name: string | null;
         xref: string;
+        sex?: string | null;
+        birth?: {
+          date: string | null;
+          place: string | null;
+          dateType?: string | null;
+          year?: number | null;
+          month?: number | null;
+          day?: number | null;
+        };
         death?: {
           date: string | null;
           place: string | null;
@@ -120,6 +187,7 @@ export async function buildIndividualDetailEvents(
         name: string | null;
         xref: string;
         id: string;
+        sex?: string | null;
         birth?: {
           date: string | null;
           place: string | null;
@@ -142,6 +210,12 @@ export async function buildIndividualDetailEvents(
   for (const r of famSpouseRows) {
     const fid = r.family_id as string;
     if (!spouseFamilyByKey.has(fid)) {
+      const hasSpouseBirth =
+        r.spouse_birth_date != null ||
+        r.spouse_birth_place != null ||
+        r.spouse_birth_year != null ||
+        r.spouse_birth_month != null ||
+        r.spouse_birth_day != null;
       const hasSpouseDeath =
         r.spouse_death_date != null ||
         r.spouse_death_place != null ||
@@ -154,6 +228,17 @@ export async function buildIndividualDetailEvents(
           id: (r.spouse_id as string) ?? "",
           name: stripName(r.spouse_name as string),
           xref: (r.spouse_xref as string) ?? "",
+          sex: r.spouse_sex != null && String(r.spouse_sex).trim() !== "" ? String(r.spouse_sex) : null,
+          birth: hasSpouseBirth
+            ? {
+                date: (r.spouse_birth_date as string) ?? null,
+                place: (r.spouse_birth_place as string) ?? null,
+                dateType: (r.spouse_birth_date_type as string) ?? null,
+                year: r.spouse_birth_year != null ? Number(r.spouse_birth_year) : null,
+                month: r.spouse_birth_month != null ? Number(r.spouse_birth_month) : null,
+                day: r.spouse_birth_day != null ? Number(r.spouse_birth_day) : null,
+              }
+            : undefined,
           death: hasSpouseDeath
             ? {
                 date: (r.spouse_death_date as string) ?? null,
@@ -186,6 +271,7 @@ export async function buildIndividualDetailEvents(
         id: (r.child_id as string) ?? "",
         name: stripName(r.child_name as string),
         xref: (r.child_xref as string) ?? "",
+        sex: r.child_sex != null && String(r.child_sex).trim() !== "" ? String(r.child_sex) : null,
         birth: hasBirth
           ? {
               date: (r.child_birth_date as string) ?? null,
@@ -218,6 +304,7 @@ export async function buildIndividualDetailEvents(
       ? await prisma.$queryRaw<Row[]>(
           Prisma.sql`
               SELECT fe.family_id, e.id AS event_id, e.event_type, e.custom_type, e.value, e.cause, e.sort_order,
+                     e.event_label AS event_label,
                      d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                      p.original AS place_original, p.name AS place_name
               FROM gedcom_family_events_v2 fe
@@ -245,11 +332,17 @@ export async function buildIndividualDetailEvents(
       spouseName?: string | null;
       spouseXref?: string;
       spouseIndividualId?: string | null;
+      relatedSex?: string | null;
+      parentSide?: "father" | "mother" | null;
+      grandparentSide?: "grandfather" | "grandmother" | null;
+      relatedParentName?: string | null;
+      relatedParentSex?: string | null;
     },
   ): IndividualDetailEvent => ({
     eventId: eventRowGedcomId(r),
     eventType: r.event_type as string,
     customType: (r.custom_type as string) ?? null,
+    eventLabel: (r.event_label as string | null | undefined) ?? null,
     value: (r.value as string) ?? null,
     cause: (r.cause as string) ?? null,
     dateOriginal: (r.date_original as string) ?? null,
@@ -268,6 +361,11 @@ export async function buildIndividualDetailEvents(
     spouseName: opts?.spouseName ?? null,
     spouseXref: opts?.spouseXref ?? null,
     spouseIndividualId: opts?.spouseIndividualId ?? null,
+    relatedSex: opts?.relatedSex ?? null,
+    parentSide: opts?.parentSide ?? null,
+    grandparentSide: opts?.grandparentSide ?? null,
+    relatedParentName: opts?.relatedParentName ?? null,
+    relatedParentSex: opts?.relatedParentSex ?? null,
   });
 
   const events: IndividualDetailEvent[] = [];
@@ -287,6 +385,37 @@ export async function buildIndividualDetailEvents(
     );
   }
   for (const fam of familiesAsSpouse) {
+    if (
+      fam.spouse.birth?.date ||
+      fam.spouse.birth?.place ||
+      fam.spouse.birth?.year != null ||
+      fam.spouse.birth?.month != null ||
+      fam.spouse.birth?.day != null
+    ) {
+      events.push(
+        eventItem(
+          {
+            event_type: "BIRT",
+            date_original: fam.spouse.birth.date,
+            date_type: fam.spouse.birth.dateType ?? null,
+            place_original: fam.spouse.birth.place,
+            place_name: fam.spouse.birth.place,
+            year: fam.spouse.birth.year ?? undefined,
+            month: fam.spouse.birth.month ?? undefined,
+            day: fam.spouse.birth.day ?? undefined,
+            sort_order: 0,
+          } as Row,
+          "spouseBirth",
+          {
+            familyId: fam.family.id,
+            spouseName: fam.spouse.name ?? null,
+            spouseXref: fam.spouse.xref,
+            spouseIndividualId: fam.spouse.id || null,
+            relatedSex: fam.spouse.sex ?? null,
+          },
+        ),
+      );
+    }
     if (
       fam.spouse.death?.date ||
       fam.spouse.death?.place ||
@@ -313,6 +442,7 @@ export async function buildIndividualDetailEvents(
             spouseName: fam.spouse.name ?? null,
             spouseXref: fam.spouse.xref,
             spouseIndividualId: fam.spouse.id || null,
+            relatedSex: fam.spouse.sex ?? null,
           },
         ),
       );
@@ -338,6 +468,7 @@ export async function buildIndividualDetailEvents(
               childXref: ch.xref,
               childName: ch.name ?? null,
               childIndividualId: ch.id || null,
+              relatedSex: ch.sex ?? null,
             },
           ),
         );
@@ -362,6 +493,7 @@ export async function buildIndividualDetailEvents(
               childXref: ch.xref,
               childName: ch.name ?? null,
               childIndividualId: ch.id || null,
+              relatedSex: ch.sex ?? null,
             },
           ),
         );
@@ -374,11 +506,12 @@ export async function buildIndividualDetailEvents(
     childIds.length > 0
       ? await prisma.$queryRaw<Row[]>(
           Prisma.sql`
-              SELECT f.id AS family_id, f.husband_id, f.wife_id,
+              SELECT e.id AS event_id, f.id AS family_id, f.husband_id, f.wife_id,
+                     e.event_label AS event_label,
                      d.original AS date_original, d.date_type AS date_type, d.year, d.month, d.day,
                      p.original AS place_original, p.name AS place_name,
-                     husb.xref AS husband_xref, husb.full_name AS husband_name,
-                     wife.xref AS wife_xref, wife.full_name AS wife_name
+                     husb.xref AS husband_xref, husb.full_name AS husband_name, husb.sex AS husband_sex,
+                     wife.xref AS wife_xref, wife.full_name AS wife_name, wife.sex AS wife_sex
               FROM gedcom_families_v2 f
               JOIN gedcom_family_events_v2 fe ON fe.family_id = f.id AND fe.file_uuid = f.file_uuid
               JOIN gedcom_events_v2 e ON e.id = fe.event_id AND e.file_uuid = fe.file_uuid AND e.event_type = 'MARR'
@@ -397,15 +530,23 @@ export async function buildIndividualDetailEvents(
     const husbandId = r.husband_id as string;
     const wifeId = r.wife_id as string;
     const isChildHusband = childIdSet.has(husbandId);
-    const isChildWife = childIdSet.has(wifeId);
     const childXref = (isChildHusband ? r.husband_xref : r.wife_xref) as string;
     const childName = stripName((isChildHusband ? r.husband_name : r.wife_name) as string);
     const spouseXref = (isChildHusband ? r.wife_xref : r.husband_xref) as string;
     const spouseName = stripName((isChildHusband ? r.wife_name : r.husband_name) as string);
+    const childSex = isChildHusband
+      ? r.husband_sex != null && String(r.husband_sex).trim() !== ""
+        ? String(r.husband_sex)
+        : null
+      : r.wife_sex != null && String(r.wife_sex).trim() !== ""
+        ? String(r.wife_sex)
+        : null;
     events.push(
       eventItem(
         {
+          event_id: r.event_id,
           event_type: "MARR",
+          event_label: r.event_label ?? null,
           date_original: r.date_original ?? null,
           date_type: r.date_type ?? null,
           place_original: r.place_original ?? null,
@@ -424,6 +565,7 @@ export async function buildIndividualDetailEvents(
           spouseXref,
           spouseName,
           spouseIndividualId: isChildHusband ? wifeId : husbandId,
+          relatedSex: childSex,
         },
       ),
     );
@@ -433,13 +575,19 @@ export async function buildIndividualDetailEvents(
     childIds.length > 0
       ? await prisma.$queryRaw<Row[]>(
           Prisma.sql`
-              SELECT f.id AS family_id, ch.id AS grandchild_id, ch.xref AS grandchild_xref, ch.full_name AS grandchild_name,
+              SELECT f.id AS family_id, f.husband_id AS rp_husband_id, f.wife_id AS rp_wife_id,
+                     rh.full_name AS rp_husband_name, rh.sex AS rp_husband_sex,
+                     rw.full_name AS rp_wife_name, rw.sex AS rp_wife_sex,
+                     ch.id AS grandchild_id, ch.xref AS grandchild_xref, ch.full_name AS grandchild_name,
+                     ch.sex AS grandchild_sex,
                      ch.birth_date_display AS grandchild_birth_date, ch.birth_place_display AS grandchild_birth_place,
                      ch_birth_d.year AS grandchild_birth_year, ch_birth_d.month AS grandchild_birth_month, ch_birth_d.day AS grandchild_birth_day,
                      ch_birth_d.date_type AS grandchild_birth_date_type
               FROM gedcom_families_v2 f
               JOIN gedcom_family_children_v2 fch ON fch.family_id = f.id AND fch.file_uuid = f.file_uuid
               JOIN gedcom_individuals_v2 ch ON ch.id = fch.child_id
+              LEFT JOIN gedcom_individuals_v2 rh ON rh.id = f.husband_id
+              LEFT JOIN gedcom_individuals_v2 rw ON rw.id = f.wife_id
               LEFT JOIN gedcom_dates_v2 ch_birth_d ON ch_birth_d.id = ch.birth_date_id
               WHERE f.file_uuid = ${fileUuid}::uuid
                 AND (f.husband_id IN (${Prisma.join(childIds.map((id) => Prisma.sql`${id}::uuid`), ", ")})
@@ -455,6 +603,7 @@ export async function buildIndividualDetailEvents(
       r.grandchild_birth_month != null ||
       r.grandchild_birth_day != null;
     if (hasBirth) {
+      const par = grandchildParentFromFamilyRow(r, childIdSet);
       events.push(
         eventItem(
           {
@@ -474,6 +623,72 @@ export async function buildIndividualDetailEvents(
             childXref: (r.grandchild_xref as string) ?? "",
             childName: stripName(r.grandchild_name as string),
             childIndividualId: (r.grandchild_id as string) ?? null,
+            relatedSex:
+              r.grandchild_sex != null && String(r.grandchild_sex).trim() !== "" ? String(r.grandchild_sex) : null,
+            relatedParentName: par.name,
+            relatedParentSex: par.sex,
+          },
+        ),
+      );
+    }
+  }
+
+  const grandchildDeathRows: Row[] =
+    childIds.length > 0
+      ? await prisma.$queryRaw<Row[]>(
+          Prisma.sql`
+              SELECT f.id AS family_id, f.husband_id AS rp_husband_id, f.wife_id AS rp_wife_id,
+                     rh.full_name AS rp_husband_name, rh.sex AS rp_husband_sex,
+                     rw.full_name AS rp_wife_name, rw.sex AS rp_wife_sex,
+                     ch.id AS grandchild_id, ch.xref AS grandchild_xref, ch.full_name AS grandchild_name,
+                     ch.sex AS grandchild_sex,
+                     ch.death_date_display AS grandchild_death_date, ch.death_place_display AS grandchild_death_place,
+                     ch_death_d.year AS grandchild_death_year, ch_death_d.month AS grandchild_death_month, ch_death_d.day AS grandchild_death_day,
+                     ch_death_d.date_type AS grandchild_death_date_type
+              FROM gedcom_families_v2 f
+              JOIN gedcom_family_children_v2 fch ON fch.family_id = f.id AND fch.file_uuid = f.file_uuid
+              JOIN gedcom_individuals_v2 ch ON ch.id = fch.child_id
+              LEFT JOIN gedcom_individuals_v2 rh ON rh.id = f.husband_id
+              LEFT JOIN gedcom_individuals_v2 rw ON rw.id = f.wife_id
+              LEFT JOIN gedcom_dates_v2 ch_death_d ON ch_death_d.id = ch.death_date_id
+              WHERE f.file_uuid = ${fileUuid}::uuid
+                AND (f.husband_id IN (${Prisma.join(childIds.map((id) => Prisma.sql`${id}::uuid`), ", ")})
+                     OR f.wife_id IN (${Prisma.join(childIds.map((id) => Prisma.sql`${id}::uuid`), ", ")}))
+            `,
+        )
+      : [];
+  for (const r of grandchildDeathRows) {
+    const hasDeath =
+      r.grandchild_death_date != null ||
+      r.grandchild_death_place != null ||
+      r.grandchild_death_year != null ||
+      r.grandchild_death_month != null ||
+      r.grandchild_death_day != null;
+    if (hasDeath) {
+      const par = grandchildParentFromFamilyRow(r, childIdSet);
+      events.push(
+        eventItem(
+          {
+            event_type: "DEAT",
+            date_original: r.grandchild_death_date ?? null,
+            date_type: r.grandchild_death_date_type ?? null,
+            place_original: r.grandchild_death_place ?? null,
+            place_name: r.grandchild_death_place ?? null,
+            year: r.grandchild_death_year ?? undefined,
+            month: r.grandchild_death_month ?? undefined,
+            day: r.grandchild_death_day ?? undefined,
+            sort_order: 0,
+          } as Row,
+          "grandchildDeath",
+          {
+            familyId: r.family_id as string,
+            childXref: (r.grandchild_xref as string) ?? "",
+            childName: stripName(r.grandchild_name as string),
+            childIndividualId: (r.grandchild_id as string) ?? null,
+            relatedSex:
+              r.grandchild_sex != null && String(r.grandchild_sex).trim() !== "" ? String(r.grandchild_sex) : null,
+            relatedParentName: par.name,
+            relatedParentSex: par.sex,
           },
         ),
       );
@@ -537,6 +752,7 @@ export async function buildIndividualDetailEvents(
               spouseName: stripName(r.father_name as string),
               spouseXref: (r.father_xref as string) ?? "",
               spouseIndividualId: (r.father_id as string) ?? null,
+              parentSide: "father",
             },
           ),
         );
@@ -567,6 +783,7 @@ export async function buildIndividualDetailEvents(
               spouseName: stripName(r.mother_name as string),
               spouseXref: (r.mother_xref as string) ?? "",
               spouseIndividualId: (r.mother_id as string) ?? null,
+              parentSide: "mother",
             },
           ),
         );
@@ -575,7 +792,7 @@ export async function buildIndividualDetailEvents(
 
     const siblingDeathRows = await prisma.$queryRaw<Row[]>(
       Prisma.sql`
-          SELECT fch.family_id, ch.id AS sibling_id, ch.xref AS sibling_xref, ch.full_name AS sibling_name,
+          SELECT fch.family_id, ch.id AS sibling_id, ch.xref AS sibling_xref, ch.full_name AS sibling_name, ch.sex AS sibling_sex,
                  ch.death_date_display AS sibling_death_date, ch.death_place_display AS sibling_death_place,
                  sibling_death_d.year AS sibling_death_year, sibling_death_d.month AS sibling_death_month, sibling_death_d.day AS sibling_death_day,
                  sibling_death_d.date_type AS sibling_death_date_type
@@ -614,6 +831,7 @@ export async function buildIndividualDetailEvents(
               childXref: (r.sibling_xref as string) ?? "",
               childName: stripName(r.sibling_name as string),
               childIndividualId: (r.sibling_id as string) ?? null,
+              relatedSex: r.sibling_sex != null && String(r.sibling_sex).trim() !== "" ? String(r.sibling_sex) : null,
             },
           ),
         );
@@ -694,6 +912,7 @@ export async function buildIndividualDetailEvents(
                   spouseName: stripName(r.grandfather_name as string),
                   spouseXref: (r.grandfather_xref as string) ?? "",
                   spouseIndividualId: (r.grandfather_id as string) ?? null,
+                  grandparentSide: "grandfather",
                 },
               ),
             );
@@ -724,6 +943,7 @@ export async function buildIndividualDetailEvents(
                   spouseName: stripName(r.grandmother_name as string),
                   spouseXref: (r.grandmother_xref as string) ?? "",
                   spouseIndividualId: (r.grandmother_id as string) ?? null,
+                  grandparentSide: "grandmother",
                 },
               ),
             );
@@ -733,7 +953,10 @@ export async function buildIndividualDetailEvents(
     }
   }
 
-  events.sort((a, b) => {
+  const deduped = dedupeTimelineEvents(events);
+  const inLifespan = filterEventsWithinSubjectLifespan(deduped, anchorBirth, anchorDeath);
+
+  inLifespan.sort((a, b) => {
     const yA = Number(a.year ?? Infinity);
     const yB = Number(b.year ?? Infinity);
     if (yA !== yB) return yA - yB;
@@ -746,5 +969,10 @@ export async function buildIndividualDetailEvents(
     return Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0);
   });
 
-  return { events };
+  await attachTimelineEventPreviewMedia(prisma, fileUuid, inLifespan, {
+    mode: "individual",
+    anchorIndividualId: personId,
+  });
+
+  return { events: inLifespan, timelineSubject };
 }

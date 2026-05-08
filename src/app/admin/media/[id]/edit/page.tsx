@@ -3,7 +3,6 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { NoteEditorPageLayout } from "@/components/admin/NoteEditorPageLayout";
 import { MediaEditorForm, type MediaEditorInitial } from "@/components/admin/MediaEditorForm";
-import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { useAdminMediaItem } from "@/hooks/useAdminMedia";
 
 export default function AdminMediaEditPage() {
@@ -41,21 +40,9 @@ export default function AdminMediaEditPage() {
     );
   }
 
-  const mediaTitle =
-    typeof media.title === "string" && media.title.trim()
-      ? media.title.trim()
-      : typeof media.xref === "string" && media.xref.trim()
-        ? media.xref.trim()
-        : id;
-
   return (
     <NoteEditorPageLayout backHref="/admin/media" backLabel="Media" fullWidth hideBackLink>
-      <div className="space-y-8">
-        <MediaEditorForm key={`${scope}:${id}`} mode="edit" mediaId={id} initialMedia={media} hideBackLink scope={scope} />
-        {scope === "family-tree" ? (
-          <EntityOpenQuestionsSection entityType="media" entityId={id} variant="edit" entityLabel={mediaTitle} />
-        ) : null}
-      </div>
+      <MediaEditorForm key={`${scope}:${id}`} mode="edit" mediaId={id} initialMedia={media} hideBackLink scope={scope} />
     </NoteEditorPageLayout>
   );
 }

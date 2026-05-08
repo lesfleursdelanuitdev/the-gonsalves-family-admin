@@ -16,6 +16,6 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
     return NextResponse.json({ error: "Family not found" }, { status: 404 });
   }
 
-  const { events } = await buildFamilyDetailEvents(prisma, fileUuid, row.id);
-  return NextResponse.json({ events });
+  const { events, timelineSubject } = await buildFamilyDetailEvents(prisma, fileUuid, row.id);
+  return NextResponse.json({ events, timelineSubject });
 });

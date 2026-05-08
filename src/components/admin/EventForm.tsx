@@ -56,9 +56,12 @@ import {
   eventDetailsSummary,
   eventLinkedSummary,
   eventMediaSummary,
+  eventNotesSummary,
   eventPlaceSummary,
   eventTypeSummary,
 } from "@/components/admin/event-editor/event-editor-summaries";
+import { EventEditorNotesPanel, type EventEditorNoteJoin } from "@/components/admin/event-editor/EventEditorNotesPanel";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 
 const FORM_ID = "admin-event-editor-form";
 
@@ -338,6 +341,12 @@ export function EventForm({
 
   const title = mode === "create" ? "New event" : `Edit ${headlineTitle}`;
 
+  const onEventNotesChanged = useCallback(async () => {
+    if (!eventId) return;
+    await queryClient.invalidateQueries({ queryKey: [...ADMIN_EVENTS_QUERY_KEY, "detail", eventId] });
+    router.refresh();
+  }, [eventId, queryClient, router]);
+
   useEffect(() => {
     const app = "Gonsalves Family Admin";
     if (mode === "create") {
@@ -402,10 +411,34 @@ export function EventForm({
   const placeSumm = useMemo(() => eventPlaceSummary(datePlace), [datePlace]);
   const detailsSumm = useMemo(() => eventDetailsSummary(value), [value]);
   const linkedSumm = useMemo(() => eventLinkedSummary(selectedLinks), [selectedLinks]);
+  const eventNotesRows = useMemo((): EventEditorNoteJoin[] => {
+    const raw = (initialEvent?.eventNotes as EventEditorNoteJoin[] | undefined) ?? [];
+    return Array.isArray(raw) ? raw : [];
+  }, [initialEvent]);
+  const notesSumm = useMemo(
+    () => (mode === "create" ? "Save the event first" : eventNotesSummary(eventNotesRows.length)),
+    [mode, eventNotesRows.length],
+  );
   const mediaCountCsv = useMemo(() => parseMediaIdsCsv(mediaIdsCsv).length, [mediaIdsCsv]);
   const mediaDisplayCount = mode === "edit" ? eventMediaItems.length : mediaCountCsv;
   const mediaSumm = useMemo(() => eventMediaSummary(mediaDisplayCount), [mediaDisplayCount]);
   const advancedSumm = "GEDCOM tags, raw IDs, and full date/place editors";
+  const openQuestionsSummary = "Add new or link existing";
+
+  const openQuestionEntityLabel = useMemo(() => {
+    const tag = resolvedEventType.trim();
+    const cust = customType.trim();
+    const line = `${tag}${cust ? ` (${cust})` : ""}`.trim();
+    if (line) return line;
+    if (mode === "edit" && eventId) return eventId;
+    return "";
+  }, [resolvedEventType, customType, mode, eventId]);
+
+  const eventNavIcon = (id: EventEditorSectionId) => {
+    const item = EVENT_EDITOR_NAV.find((n) => n.id === id);
+    if (!item) throw new Error(`Missing event editor nav item: ${id}`);
+    return item.icon;
+  };
 
   const desktopBackAndHeader = hideBackLink && isDesktop && (
     <header className="space-y-3 border-b border-base-content/10 pb-6">
@@ -648,6 +681,16 @@ export function EventForm({
     </div>
   );
 
+  const notesBody = (
+    <EventEditorNotesPanel
+      mode={mode}
+      eventId={eventId}
+      eventLabel={headlineTitle || "Event"}
+      eventNotes={eventNotesRows}
+      onNotesChanged={onEventNotesChanged}
+    />
+  );
+
   const profileMediaSelection = (initialEvent?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
 
   const mediaBody = (
@@ -826,7 +869,7 @@ export function EventForm({
         sectionKey="event-type"
         title="1. Event type"
         description="What happened?"
-        icon={EVENT_EDITOR_NAV[0]!.icon}
+        icon={eventNavIcon("event-type")}
         summary={typeSummary}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -839,7 +882,7 @@ export function EventForm({
         sectionKey="event-date"
         title="2. Date"
         description="When did it happen?"
-        icon={EVENT_EDITOR_NAV[1]!.icon}
+        icon={eventNavIcon("event-date")}
         summary={dateSumm}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -852,7 +895,7 @@ export function EventForm({
         sectionKey="event-place"
         title="3. Place"
         description="Where did it happen?"
-        icon={EVENT_EDITOR_NAV[2]!.icon}
+        icon={eventNavIcon("event-place")}
         summary={placeSumm}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -865,7 +908,7 @@ export function EventForm({
         sectionKey="event-details"
         title="4. Details"
         description="Additional details about this event."
-        icon={EVENT_EDITOR_NAV[3]!.icon}
+        icon={eventNavIcon("event-details")}
         summary={detailsSumm}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -878,7 +921,7 @@ export function EventForm({
         sectionKey="event-linked"
         title="5. Linked records"
         description="Link this event to individuals or families."
-        icon={EVENT_EDITOR_NAV[4]!.icon}
+        icon={eventNavIcon("event-linked")}
         summary={linkedSumm}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -887,11 +930,24 @@ export function EventForm({
         {linkedBody}
       </EventEditorResponsiveSection>
       <EventEditorResponsiveSection
+        id="event-notes"
+        sectionKey="event-notes"
+        title="6. Notes"
+        description="Research notes linked to this event."
+        icon={eventNavIcon("event-notes")}
+        summary={notesSumm}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        {notesBody}
+      </EventEditorResponsiveSection>
+      <EventEditorResponsiveSection
         id="event-media"
         sectionKey="event-media"
-        title="6. Media"
+        title="7. Media"
         description="Photos or documents for this event."
-        icon={EVENT_EDITOR_NAV[5]!.icon}
+        icon={eventNavIcon("event-media")}
         summary={mediaSumm}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}
@@ -900,11 +956,30 @@ export function EventForm({
         {mediaBody}
       </EventEditorResponsiveSection>
       <EventEditorResponsiveSection
+        id="event-open-questions"
+        sectionKey="event-open-questions"
+        title="8. Open questions"
+        description="Track research, attribution, or verification for this event."
+        icon={eventNavIcon("event-open-questions")}
+        summary={openQuestionsSummary}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        <EntityOpenQuestionsSection
+          entityType="event"
+          entityId={eventId ?? ""}
+          variant="edit"
+          entityLabel={openQuestionEntityLabel}
+          hideIntro
+        />
+      </EventEditorResponsiveSection>
+      <EventEditorResponsiveSection
         id="event-advanced"
         sectionKey="event-advanced"
-        title="7. Advanced details"
+        title="9. Advanced details"
         description="GEDCOM and technical fields."
-        icon={EVENT_EDITOR_NAV[6]!.icon}
+        icon={eventNavIcon("event-advanced")}
         summary={advancedSumm}
         isDesktop={desktop}
         mobileExpanded={mobileExpanded}

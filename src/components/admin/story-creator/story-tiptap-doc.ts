@@ -1,4 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
+import type { StoryRichTextTextPreset } from "@/lib/admin/story-creator/story-types";
 
 /** Valid TipTap / HTML heading levels for story rich-text blocks. */
 export type StoryRichTextHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -242,4 +243,55 @@ export function unwrapListItemsToParagraphDoc(doc: JSONContent): JSONContent {
     return { type: "doc", content: [{ type: "paragraph" }] };
   }
   return { type: "doc", content: out };
+}
+
+/** Recursively turn `heading` nodes into `paragraph` (same inline content). */
+export function convertHeadingsToParagraphsInDoc(doc: JSONContent): JSONContent {
+  function visit(n: JSONContent): JSONContent {
+    if (!n || typeof n !== "object") return n;
+    if (n.type === "heading") {
+      const inner = Array.isArray(n.content) ? n.content.map(visit) : [];
+      return {
+        type: "paragraph",
+        content: inner.length > 0 ? inner : [{ type: "text", text: "" }],
+      };
+    }
+    const c = n.content;
+    if (Array.isArray(c)) {
+      return { ...n, content: c.map(visit) } as JSONContent;
+    }
+    return n;
+  }
+  return visit(deepCloneJson(doc));
+}
+
+/**
+ * Align TipTap JSON with the block’s semantic `preset` (inspector / migration).
+ * Quote and verse shapes are left unchanged except for normalization to a valid doc.
+ */
+export function syncRichTextDocToPreset(
+  doc: JSONContent,
+  preset: StoryRichTextTextPreset,
+  opts?: { headingLevel?: StoryRichTextHeadingLevel; listVariant?: StoryRichTextListVariant },
+): JSONContent {
+  const normalized = normalizeStoryDocContent(doc);
+  switch (preset) {
+    case "paragraph":
+      return convertHeadingsToParagraphsInDoc(unwrapListItemsToParagraphDoc(normalized));
+    case "heading": {
+      const lvl = clampStoryRichTextHeadingLevel(opts?.headingLevel ?? inferFirstHeadingLevel(normalized) ?? 2);
+      return applyHeadingLevelToRichTextDoc(normalized, lvl);
+    }
+    case "list": {
+      const v = opts?.listVariant ?? "bullet";
+      if (storyRichTextDocHasTopLevelList(normalized)) {
+        return swapListVariantInDoc(normalized, v);
+      }
+      return transformRichTextDocToList(normalized, v);
+    }
+    case "quote":
+    case "verse":
+    default:
+      return normalized;
+  }
 }

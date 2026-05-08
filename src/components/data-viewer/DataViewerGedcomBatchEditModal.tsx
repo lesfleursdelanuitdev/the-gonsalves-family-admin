@@ -11,10 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminTags, type AdminTagListItem } from "@/hooks/useAdminTags";
 import { useAdminMedia, type AdminMediaListItem } from "@/hooks/useAdminMedia";
+import { useAdminNoteSearch, type AdminNoteListItem } from "@/hooks/useAdminNotes";
 import { ADMIN_PICKER_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { displayTagName } from "@/lib/admin/display-tag-name";
+import { parseNoteLinkedEntityIdParam } from "@/lib/admin/admin-notes-filter";
 import { ApiError, postJson } from "@/lib/infra/api";
 import { ADMIN_MEDIA_QUERY_KEY } from "@/hooks/useAdminMedia";
+import { ADMIN_INDIVIDUALS_QUERY_KEY } from "@/hooks/useAdminIndividuals";
+import { ADMIN_FAMILIES_QUERY_KEY } from "@/hooks/admin-families-shared";
+import { ADMIN_EVENTS_QUERY_KEY } from "@/hooks/useAdminEvents";
 
 export type GedcomBatchEntityKind = "individual" | "family" | "event" | "source" | "note";
 
@@ -64,6 +69,38 @@ function linkMediaConfig(kind: GedcomBatchEntityKind): {
   }
 }
 
+/** GEDCOM entity kinds that can be linked to notes via junction tables (not `note` rows themselves). */
+function supportsBatchNoteLinking(kind: GedcomBatchEntityKind): boolean {
+  return kind === "individual" || kind === "family" || kind === "event" || kind === "source";
+}
+
+function batchNoteLinkUrl(kind: GedcomBatchEntityKind, entityId: string): string {
+  switch (kind) {
+    case "individual":
+      return `/api/admin/individuals/${entityId}/notes`;
+    case "family":
+      return `/api/admin/families/${entityId}/notes`;
+    case "event":
+      return `/api/admin/events/${entityId}/notes`;
+    case "source":
+      return `/api/admin/sources/${entityId}/notes`;
+    default:
+      return "";
+  }
+}
+
+function parsePastedNoteId(raw: string): string | null {
+  const sp = new URLSearchParams();
+  sp.set("id", raw.trim());
+  return parseNoteLinkedEntityIdParam(sp, "id");
+}
+
+function noteListPreview(content: string): string {
+  const line = content.replace(/\s+/g, " ").trim().split("\n")[0] ?? "";
+  if (line.length <= 96) return line;
+  return `${line.slice(0, 93)}…`;
+}
+
 export function DataViewerGedcomBatchEditModal({
   open,
   onOpenChange,
@@ -85,9 +122,13 @@ export function DataViewerGedcomBatchEditModal({
   const [mediaQuery, setMediaQuery] = useState("");
   const [pickedMedia, setPickedMedia] = useState<AdminMediaListItem | null>(null);
   const [mediaIdDraft, setMediaIdDraft] = useState("");
+  const [noteQuery, setNoteQuery] = useState("");
+  const [pickedNote, setPickedNote] = useState<AdminNoteListItem | null>(null);
+  const [noteIdDraft, setNoteIdDraft] = useState("");
 
   const debouncedTagQ = useDebouncedValue(tagQuery.trim(), ADMIN_PICKER_DEBOUNCE_MS);
   const debouncedMediaQ = useDebouncedValue(mediaQuery.trim(), ADMIN_PICKER_DEBOUNCE_MS);
+  const debouncedNoteQ = useDebouncedValue(noteQuery.trim(), ADMIN_PICKER_DEBOUNCE_MS);
   const tagsQuery = useAdminTags({ q: debouncedTagQ, limit: 40 }, { enabled: debouncedTagQ.length >= 1 });
   const mediaQueryEnabled = debouncedMediaQ.length >= 1;
   const mediaListQuery = useAdminMedia(
@@ -100,8 +141,13 @@ export function DataViewerGedcomBatchEditModal({
     mediaQueryEnabled && open,
   );
 
+  const noteSearchEnabled =
+    open && supportsBatchNoteLinking(entityKind) && debouncedNoteQ.length >= 2;
+  const noteSearchQuery = useAdminNoteSearch(debouncedNoteQ, { enabled: noteSearchEnabled, limit: 15 });
+
   const tagResults = useMemo(() => tagsQuery.data?.tags ?? [], [tagsQuery.data?.tags]);
   const mediaResults = useMemo(() => mediaListQuery.data?.media ?? [], [mediaListQuery.data?.media]);
+  const noteResults = useMemo(() => noteSearchQuery.data?.notes ?? [], [noteSearchQuery.data?.notes]);
 
   const exactTagMatch = useMemo(
     () => tagResults.some((t) => displayTagName(t.name) === displayTagName(tagQuery)),
@@ -110,6 +156,7 @@ export function DataViewerGedcomBatchEditModal({
 
   const linkCfg = useMemo(() => linkMediaConfig(entityKind), [entityKind]);
   const resolvedMediaId = (pickedMedia?.id ?? mediaIdDraft).trim();
+  const resolvedNoteId = (pickedNote?.id ?? parsePastedNoteId(noteIdDraft) ?? "").trim();
 
   const resetForm = useCallback(() => {
     setErr(null);
@@ -118,6 +165,9 @@ export function DataViewerGedcomBatchEditModal({
     setMediaQuery("");
     setPickedMedia(null);
     setMediaIdDraft("");
+    setNoteQuery("");
+    setPickedNote(null);
+    setNoteIdDraft("");
   }, []);
 
   const handleOpenChange = useCallback(
@@ -149,8 +199,9 @@ export function DataViewerGedcomBatchEditModal({
     const tagIds = batchTags.map((t) => t.tagId);
     const wantTags = tagIds.length > 0;
     const wantLink = Boolean(linkCfg && resolvedMediaId);
-    if (!wantTags && !wantLink) {
-      setErr("Add at least one tag or pick tree media to link.");
+    const wantNoteLink = supportsBatchNoteLinking(entityKind) && Boolean(resolvedNoteId);
+    if (!wantTags && !wantLink && !wantNoteLink) {
+      setErr("Add at least one tag, pick tree media to link, or choose a note to link.");
       return;
     }
 
@@ -174,13 +225,31 @@ export function DataViewerGedcomBatchEditModal({
         await qc.invalidateQueries({ queryKey: [...ADMIN_MEDIA_QUERY_KEY] });
       }
 
-      if (wantTags && wantLink) {
-        toast.success(`Updated tags and linked media on ${ids.length} row${ids.length === 1 ? "" : "s"}.`);
-      } else if (wantTags) {
-        toast.success(`Applied tags to ${ids.length} row${ids.length === 1 ? "" : "s"}.`);
-      } else {
-        toast.success(`Linked media to ${ids.length} row${ids.length === 1 ? "" : "s"}.`);
+      if (wantNoteLink && resolvedNoteId) {
+        for (const entityId of ids) {
+          await postJson(batchNoteLinkUrl(entityKind, entityId), { noteId: resolvedNoteId });
+        }
+        void qc.invalidateQueries({ queryKey: ["admin", "notes"] });
+        if (entityKind === "individual") {
+          void qc.invalidateQueries({ queryKey: ADMIN_INDIVIDUALS_QUERY_KEY });
+        } else if (entityKind === "family") {
+          void qc.invalidateQueries({ queryKey: ADMIN_FAMILIES_QUERY_KEY });
+        } else if (entityKind === "event") {
+          void qc.invalidateQueries({ queryKey: ADMIN_EVENTS_QUERY_KEY });
+        } else if (entityKind === "source") {
+          void qc.invalidateQueries({ queryKey: ["admin", "sources"] });
+        }
       }
+
+      const applied: string[] = [];
+      if (wantTags) applied.push("tags");
+      if (wantLink) applied.push("media");
+      if (wantNoteLink) applied.push("notes");
+      toast.success(
+        applied.length > 0
+          ? `Applied ${applied.join(" and ")} to ${ids.length} row${ids.length === 1 ? "" : "s"}.`
+          : `Updated ${ids.length} row${ids.length === 1 ? "" : "s"}.`,
+      );
       resetForm();
       onApplied();
       onOpenChange(false);
@@ -198,6 +267,7 @@ export function DataViewerGedcomBatchEditModal({
     onOpenChange,
     resetForm,
     resolvedMediaId,
+    resolvedNoteId,
     selectedIds,
   ]);
 
@@ -228,8 +298,8 @@ export function DataViewerGedcomBatchEditModal({
       <DialogContent className="max-w-lg">
         <DialogTitle>Edit selected {entityLabel}</DialogTitle>
         <DialogDescription>
-          Apply tags and optionally link one family-tree media item to every selected row. Existing links are left
-          unchanged; duplicate links are skipped.
+          Apply tags, optionally link one family-tree media item, and (for people, families, events, and sources) link
+          one existing note to every selected row. Existing links are left unchanged; duplicate links are skipped.
         </DialogDescription>
 
         {err ? (
@@ -297,6 +367,63 @@ export function DataViewerGedcomBatchEditModal({
               </div>
             ) : null}
           </div>
+
+          {supportsBatchNoteLinking(entityKind) ? (
+            <div className="space-y-2 border-t border-base-content/10 pt-3">
+              <Label>Link an existing note</Label>
+              <p className="text-xs text-muted-foreground">
+                Search by text or pick a row; the same note is linked to each selected {entitySingular}. Paste a note
+                UUID if you already know it.
+              </p>
+              <Input
+                value={noteQuery}
+                onChange={(e) => {
+                  setNoteQuery(e.target.value);
+                  setPickedNote(null);
+                }}
+                placeholder="Search notes (at least 2 characters)…"
+                className="h-9"
+              />
+              {debouncedNoteQ.length >= 2 ? (
+                <div className="max-h-36 overflow-y-auto rounded-md border border-base-content/10 bg-base-100 p-1">
+                  {noteSearchQuery.isLoading ? (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</p>
+                  ) : noteResults.length === 0 ? (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">No matches.</p>
+                  ) : (
+                    noteResults.map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left text-sm hover:bg-base-content/[0.06] ${
+                          pickedNote?.id === n.id ? "bg-primary/10" : ""
+                        }`}
+                        onClick={() => {
+                          setPickedNote(n);
+                          setNoteIdDraft(n.id);
+                        }}
+                      >
+                        <span className="truncate font-medium">{(n.xref ?? "").trim() || n.id}</span>
+                        <span className="line-clamp-2 text-xs text-muted-foreground">{noteListPreview(n.content)}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Or paste note UUID</span>
+                <Input
+                  value={noteIdDraft}
+                  onChange={(e) => {
+                    setNoteIdDraft(e.target.value);
+                    setPickedNote(null);
+                  }}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  className="h-9 font-mono text-xs"
+                />
+              </div>
+            </div>
+          ) : null}
 
           {linkCfg ? (
             <div className="space-y-2 border-t border-base-content/10 pt-3">

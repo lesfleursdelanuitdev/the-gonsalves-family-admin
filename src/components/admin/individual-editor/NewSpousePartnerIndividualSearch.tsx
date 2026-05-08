@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SexIcon } from "@/components/admin/SexIcon";
 import {
   STABLE_EMPTY_SEARCH_HITS,
   type IndSearchHit,
@@ -11,37 +12,36 @@ import {
 import { fetchJson } from "@/lib/infra/api";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 
+/**
+ * Same discovery pattern as {@link FamilyIndividualPickerList}: `GET /api/admin/individuals?q=…`
+ * (at least 2 characters). Rows show xref, full name, and birth like other individual pickers.
+ */
 export function NewSpousePartnerIndividualSearch({
   inputIdPrefix,
-  partnerGiven,
-  partnerLast,
-  setPartnerGiven,
-  setPartnerLast,
+  nameQuery,
+  setNameQuery,
   excludeIndividualIds,
   onPick,
 }: {
   inputIdPrefix: string;
-  partnerGiven: string;
-  partnerLast: string;
-  setPartnerGiven: Dispatch<SetStateAction<string>>;
-  setPartnerLast: Dispatch<SetStateAction<string>>;
+  /** May be undefined briefly from parent state; coerced to "". */
+  nameQuery?: string | null;
+  setNameQuery: Dispatch<SetStateAction<string>>;
   excludeIndividualIds: ReadonlySet<string>;
   onPick: (id: string, displayLabel: string) => void | Promise<void>;
 }) {
-  const g = partnerGiven.trim().toLowerCase();
-  const l = partnerLast.trim();
-  const enabled = g.length > 0 && l.length > 0;
+  const q = (nameQuery ?? "").trim();
+  const enabled = q.length >= 2;
 
   const searchUrl = useMemo(() => {
     const params = new URLSearchParams();
     params.set("limit", "25");
-    params.set("givenName", g);
-    params.set("lastName", l);
+    params.set("q", q);
     return `/api/admin/individuals?${params.toString()}`;
-  }, [g, l]);
+  }, [q]);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["admin", "individuals", "newSpousePartner", g, l],
+    queryKey: ["admin", "individuals", "newSpousePartnerQ", q],
     queryFn: () => fetchJson<{ individuals: IndSearchHit[] }>(searchUrl),
     enabled,
   });
@@ -55,33 +55,24 @@ export function NewSpousePartnerIndividualSearch({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Given name is a contains match; last name uses the same GEDCOM slash-aware prefix as the Individuals list
-        (e.g. <span className="font-medium text-base-content">Gonsalves</span> matches{" "}
-        <span className="font-mono">/Gonsalves/</span>; <span className="font-medium text-base-content">G</span> matches{" "}
-        <span className="font-mono">/Gon/</span>).
+        Search by any part of the name (same as the family editor individual picker). Type at least two characters;
+        results match on structured name parts and full name.
       </p>
       <div className="space-y-3 rounded-box border border-base-content/10 bg-base-content/[0.02] p-3">
         <div className="space-y-2">
-          <Label htmlFor={`${inputIdPrefix}-given`}>Given name contains</Label>
+          <Label htmlFor={`${inputIdPrefix}-q`}>Name search</Label>
           <Input
-            id={`${inputIdPrefix}-given`}
-            value={partnerGiven}
-            onChange={(e) => setPartnerGiven(e.target.value)}
-            placeholder="e.g. Maria"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${inputIdPrefix}-last`}>Last name prefix</Label>
-          <Input
-            id={`${inputIdPrefix}-last`}
-            value={partnerLast}
-            onChange={(e) => setPartnerLast(e.target.value)}
-            placeholder="GEDCOM slash-aware prefix"
+            id={`${inputIdPrefix}-q`}
+            value={nameQuery ?? ""}
+            onChange={(e) => setNameQuery(e.target.value)}
+            placeholder="Given or surname…"
+            autoComplete="off"
+            className="min-h-11 sm:min-h-10"
           />
         </div>
       </div>
       {!enabled ? (
-        <p className="text-xs text-muted-foreground">Enter both given name and last name prefix to search.</p>
+        <p className="text-xs text-muted-foreground">Type at least 2 characters to search by name.</p>
       ) : isFetching ? (
         <p className="text-xs text-muted-foreground">Searching…</p>
       ) : rawRows.length === 0 ? (
@@ -102,16 +93,19 @@ export function NewSpousePartnerIndividualSearch({
               <li key={r.id}>
                 <button
                   type="button"
-                  className="flex w-full flex-col gap-0.5 rounded px-2 py-2 text-left hover:bg-base-200 sm:py-1.5"
+                  className="flex w-full gap-2 rounded px-2 py-2 text-left hover:bg-base-200 sm:py-1.5"
                   onClick={() => onPick(r.id, name)}
                 >
-                  <span className="font-mono text-xs text-muted-foreground">{xref}</span>
-                  <span className="font-medium text-base-content">{name}</span>
-                  {birth ? (
-                    <span className="text-xs text-muted-foreground">Birth: {birth}</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Birth: —</span>
-                  )}
+                  <span className="pt-0.5">
+                    <SexIcon sex={r.sex} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-mono text-xs text-muted-foreground">{xref}</span>
+                    <span className="block font-medium text-base-content">{name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {birth ? <>Birth: {birth}</> : <>Birth: —</>}
+                    </span>
+                  </span>
                 </button>
               </li>
             );

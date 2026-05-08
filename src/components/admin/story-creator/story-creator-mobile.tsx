@@ -241,9 +241,13 @@ export function StoryMobileFullScreenPanel({
   children: React.ReactNode;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} disablePointerDismissal>
       <DialogPortal>
-        <DialogBackdrop className="z-[200]" />
+        <DialogBackdrop
+          className="z-[200]"
+          onClick={() => onOpenChange(false)}
+          aria-hidden
+        />
         <DialogViewport className="fixed inset-0 z-[200] flex min-h-full w-full items-stretch justify-center p-0">
           <DialogPopup
             className={cn(

@@ -11,15 +11,18 @@ import { cn } from "@/lib/utils";
 import { IndividualSearchPicker } from "@/components/admin/IndividualSearchPicker";
 import { FamilySearchPicker } from "@/components/admin/FamilySearchPicker";
 import { EventPicker } from "@/components/admin/EventPicker";
+import { MediaPicker } from "@/components/admin/media-picker";
+import { NotePicker } from "@/components/admin/NotePicker";
 import { formatNoteEventPickerLabel } from "@/lib/forms/note-event-picker-label";
+import { NOTE_FULLTEXT_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useAdminSources, type AdminSourceListItem } from "@/hooks/useAdminSources";
+import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import {
   useAdminOpenQuestion,
   useCreateOpenQuestion,
   usePatchOpenQuestion,
 } from "@/hooks/useAdminOpenQuestions";
-import { useAdminMedia } from "@/hooks/useAdminMedia";
-import { useDebouncedValue, ADMIN_MODAL_DEBOUNCE_MS } from "@/hooks/useDebouncedValue";
 import type { OpenQuestionEntityType } from "@/lib/admin/open-questions";
 import { ApiError } from "@/lib/infra/api";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
@@ -66,6 +69,16 @@ function hydrateLinksFromOpenQuestion(oq: Record<string, unknown>): LinkRow[] {
     const t = row.media.title?.trim() || row.media.xref || row.media.id;
     out.push({ kind: "media", id: row.media.id, label: t });
   }
+  const srcs = oq.sourceLinks as { source: { id: string; title?: string | null; xref: string } }[];
+  for (const row of srcs ?? []) {
+    const t = row.source.title?.trim() || row.source.xref?.trim() || row.source.id;
+    out.push({ kind: "source", id: row.source.id, label: t });
+  }
+  const notes = oq.noteLinks as { note: { id: string; xref?: string | null; content: string } }[];
+  for (const row of notes ?? []) {
+    const preview = row.note.content.trim().replace(/\s+/g, " ").slice(0, 80);
+    out.push({ kind: "note", id: row.note.id, label: preview || row.note.xref?.trim() || row.note.id });
+  }
   return out;
 }
 
@@ -102,9 +115,10 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
   const [showInd, setShowInd] = useState(false);
   const [showFam, setShowFam] = useState(false);
   const [showEv, setShowEv] = useState(false);
-  const [showMediaSearch, setShowMediaSearch] = useState(false);
-  const [mediaQ, setMediaQ] = useState("");
-  const mediaQDebounced = useDebouncedValue(mediaQ, ADMIN_MODAL_DEBOUNCE_MS);
+  const [showSrc, setShowSrc] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+  const [rawSourceSearch, setRawSourceSearch] = useState("");
+  const debouncedSourceSearch = useDebouncedValue(rawSourceSearch.trim(), NOTE_FULLTEXT_DEBOUNCE_MS);
 
   const [eventTypeFilter, setEventTypeFilter] = useState("");
   const [eventLinkKind, setEventLinkKind] = useState<"individual" | "family">("individual");
@@ -114,13 +128,6 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
   const [eventFamP1Last, setEventFamP1Last] = useState("");
   const [eventFamP2Given, setEventFamP2Given] = useState("");
   const [eventFamP2Last, setEventFamP2Last] = useState("");
-  const { data: mediaData } = useAdminMedia({
-    q: mediaQDebounced.trim() || undefined,
-    limit: 12,
-    offset: 0,
-    scope: "family-tree",
-  });
-
   const createMut = useCreateOpenQuestion();
   const patchMut = usePatchOpenQuestion();
 
@@ -150,7 +157,11 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
             ? "Family"
             : entityType === "event"
               ? "Event"
-              : "Media";
+              : entityType === "media"
+                ? "Media"
+                : entityType === "source"
+                  ? "Source"
+                  : "Note";
       return [...prev, { kind: entityType, id: entityId, label: label?.trim() || fallback }];
     });
   }, [mode, props]);
@@ -161,6 +172,8 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
       family: new Set(),
       event: new Set(),
       media: new Set(),
+      source: new Set(),
+      note: new Set(),
     };
     for (const l of links) m[l.kind].add(l.id);
     return m;
@@ -258,6 +271,13 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
     }
   };
 
+  const sourceSearchEnabled = debouncedSourceSearch.length >= 1;
+  const sourcesQuery = useAdminSources({
+    q: sourceSearchEnabled ? debouncedSourceSearch : undefined,
+    limit: 25,
+    offset: 0,
+  });
+
   const busy = createMut.isPending || patchMut.isPending;
   const returnHref =
     ("contextReturnHref" in props && props.contextReturnHref?.startsWith("/admin/")
@@ -349,7 +369,7 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
       <section className="space-y-4 rounded-xl border border-base-content/10 bg-base-200/15 p-4 sm:p-6">
         <h2 className="text-base font-semibold">Linked records</h2>
         <p className="text-sm text-muted-foreground">
-          Link people, families, events, and media this question applies to.
+          Link people, families, events, media, sources, and notes this question applies to.
         </p>
 
         <div className="space-y-2">
@@ -492,10 +512,31 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <Label>Media</Label>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowMediaSearch((v) => !v)}>
-              <Plus className="size-4" aria-hidden />
-              Add media
-            </Button>
+            {/*
+              `document` target: picker does not call junction APIs; selections are returned via `onAttach`
+              only (same pattern as story/document flows in MediaPickerModal).
+            */}
+            <MediaPicker
+              targetType="document"
+              targetId={mode === "edit" ? openQuestionId : "open-question-new"}
+              mode="multiple"
+              allowedTypes={["photo"]}
+              triggerLabel="Add media"
+              triggerClassName="gap-1"
+              excludeMediaIds={excludeIds.media}
+              onAttach={(items) => {
+                for (const m of items) {
+                  const label = m.title?.trim() || m.fileRef || m.id;
+                  void addLinkAfterPick({ kind: "media", id: m.id, label });
+                }
+              }}
+              onUploadComplete={(created) => {
+                for (const m of created) {
+                  const label = m.title?.trim() || m.fileRef || m.id;
+                  void addLinkAfterPick({ kind: "media", id: m.id, label });
+                }
+              }}
+            />
           </div>
           {links
             .filter((l) => l.kind === "media")
@@ -514,33 +555,116 @@ export function OpenQuestionForm(props: OpenQuestionFormProps) {
                 </button>
               </div>
             ))}
-          {showMediaSearch ? (
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label>Sources</Label>
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowSrc((v) => !v)}>
+              <Plus className="size-4" aria-hidden />
+              Add source
+            </Button>
+          </div>
+          {links
+            .filter((l) => l.kind === "source")
+            .map((l) => (
+              <div
+                key={`s-${l.id}`}
+                className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2"
+              >
+                <p className="text-sm">{l.label}</p>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => void removeLink(l)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          {showSrc ? (
             <div className="space-y-2 rounded-md border border-base-content/10 p-3">
+              <Label htmlFor={`oq-src-${openQuestionId || "new"}`}>Search sources</Label>
               <Input
-                value={mediaQ}
-                onChange={(e) => setMediaQ(e.target.value)}
-                placeholder="Search media by title…"
+                id={`oq-src-${openQuestionId || "new"}`}
+                value={rawSourceSearch}
+                onChange={(e) => setRawSourceSearch(e.target.value)}
+                placeholder="Title, author, or xref"
               />
-              <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
-                {(mediaData?.media ?? []).map((m) => (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      className="w-full rounded px-2 py-1.5 text-left hover:bg-base-content/[0.06]"
-                      disabled={excludeIds.media.has(m.id)}
-                      onClick={() => {
-                        const label = m.title?.trim() || m.fileRef || m.id;
-                        void addLinkAfterPick({ kind: "media", id: m.id, label });
-                        setShowMediaSearch(false);
-                        setMediaQ("");
-                      }}
-                    >
-                      {m.title?.trim() || m.fileRef || m.id}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {!sourceSearchEnabled ? (
+                <p className="text-xs text-muted-foreground">Type at least one character to search.</p>
+              ) : sourcesQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">Searching…</p>
+              ) : (
+                <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+                  {(sourcesQuery.data?.sources ?? [])
+                    .filter((s) => !excludeIds.source.has(s.id))
+                    .map((src: AdminSourceListItem) => {
+                      const label = src.title?.trim() || src.xref?.trim() || src.id;
+                      return (
+                        <li key={src.id}>
+                          <button
+                            type="button"
+                            className="w-full rounded px-2 py-1.5 text-left hover:bg-base-content/[0.04]"
+                            onClick={() => {
+                              void addLinkAfterPick({ kind: "source", id: src.id, label });
+                              setShowSrc(false);
+                              setRawSourceSearch("");
+                            }}
+                          >
+                            {label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  {(sourcesQuery.data?.sources ?? []).filter((s) => !excludeIds.source.has(s.id)).length === 0 ? (
+                    <li className="py-2 text-center text-muted-foreground">No matches.</li>
+                  ) : null}
+                </ul>
+              )}
             </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label>Notes</Label>
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowNote((v) => !v)}>
+              <Plus className="size-4" aria-hidden />
+              Add note
+            </Button>
+          </div>
+          {links
+            .filter((l) => l.kind === "note")
+            .map((l) => (
+              <div
+                key={`n-${l.id}`}
+                className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2"
+              >
+                <p className="text-sm line-clamp-2">{l.label}</p>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => void removeLink(l)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          {showNote ? (
+            <NotePicker
+              idPrefix={`oq-note-${openQuestionId || "new"}`}
+              excludeIds={excludeIds.note}
+              onPick={(n: AdminNoteListItem) => {
+                const preview = n.content.trim().replace(/\s+/g, " ").slice(0, 120);
+                void addLinkAfterPick({
+                  kind: "note",
+                  id: n.id,
+                  label: preview || n.xref?.trim() || n.id,
+                });
+                setShowNote(false);
+              }}
+            />
           ) : null}
         </div>
       </section>

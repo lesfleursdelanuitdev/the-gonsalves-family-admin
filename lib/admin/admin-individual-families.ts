@@ -1,5 +1,6 @@
 import type { Prisma } from "@ligneous/prisma";
 import type { ChangeCtx } from "@/lib/admin/changelog";
+import { syncGedcomFamilyPartnersForFamily } from "@/lib/admin/sync-gedcom-nl-denorm";
 
 type Tx = Prisma.TransactionClient;
 
@@ -10,6 +11,8 @@ const ALLOWED_RELATIONSHIP = new Set([
   "foster",
   "step",
   "sealing",
+  "guardian",
+  "other",
 ]);
 
 export function normalizeChildRelationshipType(raw: string): string {
@@ -46,12 +49,46 @@ export async function syncFamilySpouseXrefs(tx: Tx, familyId: string) {
       wifeXref: wife?.xref ?? null,
     },
   });
+  await syncGedcomFamilyPartnersForFamily(tx, familyId);
 }
 
 /**
  * When both partner slots are filled, each couple should map to at most one `gedcom_families_v2`
  * row per file (duplicate empty families break spouse-edge uniqueness and GEDCOM export).
  */
+/**
+ * Prefer an existing single-parent family for `parentIndividualId` where `childIndividualId`
+ * is not yet linked as a child (avoids duplicate empty FAMs when adding the same parent again).
+ */
+export async function findReusableSingleParentFamilyForParentNotYetChild(
+  tx: Tx,
+  fileUuid: string,
+  parentIndividualId: string,
+  childIndividualId: string,
+): Promise<string | null> {
+  const fams = await tx.gedcomFamily.findMany({
+    where: {
+      fileUuid,
+      OR: [
+        { husbandId: parentIndividualId, wifeId: null },
+        { wifeId: parentIndividualId, husbandId: null },
+      ],
+    },
+    select: {
+      id: true,
+      familyChildren: {
+        where: { childId: childIndividualId },
+        select: { id: true },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+  for (const f of fams) {
+    if (f.familyChildren.length === 0) return f.id;
+  }
+  return null;
+}
+
 export async function findExistingCoupleFamilyId(
   tx: Tx,
   fileUuid: string,

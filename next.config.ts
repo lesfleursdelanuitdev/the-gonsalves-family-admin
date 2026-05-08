@@ -36,7 +36,17 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: projectRoot,
   images: { remotePatterns },
   async headers() {
+    // Avoid caching HTML shells: stale documents still reference old chunk hashes after a deploy,
+    // which surfaces as ChunkLoadError for /_next/static/chunks/*.js (hashed names rotate each build).
+    const noStoreHtml: { key: string; value: string } = {
+      key: "Cache-Control",
+      value: "private, no-store, must-revalidate",
+    };
     return [
+      { source: "/", headers: [noStoreHtml] },
+      { source: "/login", headers: [noStoreHtml] },
+      { source: "/admin", headers: [noStoreHtml] },
+      { source: "/admin/:path*", headers: [noStoreHtml] },
       {
         source: "/_next/static/:path*",
         headers: [

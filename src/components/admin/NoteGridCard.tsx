@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BookOpen, CalendarDays, Eye, FileText, Link2, Pencil, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
 
 export type NoteLinkedKind = "individual" | "family" | "event" | "source";
 
@@ -35,18 +36,18 @@ function LinkedRow({ kind, label, href }: NoteGridCardLinkedTarget) {
   const body = href ? (
     <Link
       href={href}
-      className="min-w-0 truncate font-medium text-primary underline-offset-2 hover:underline"
+      className="block min-w-0 max-w-full break-words font-medium text-primary underline-offset-2 hover:underline [overflow-wrap:anywhere]"
     >
       {label}
     </Link>
   ) : (
-    <span className="min-w-0 truncate text-base-content/85">{label}</span>
+    <span className="block min-w-0 max-w-full break-words text-base-content/85 [overflow-wrap:anywhere]">{label}</span>
   );
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-xs">
+    <div className="flex min-w-0 max-w-full items-start gap-1.5 text-xs">
       {icon}
-      <div className="min-w-0 flex-1">{body}</div>
+      <div className="min-w-0 flex-1 overflow-hidden">{body}</div>
     </div>
   );
 }
@@ -70,8 +71,12 @@ export function NoteGridCard({
   const previewText = record.contentPreview.trim();
   const hasPreview = previewText.length > 0;
 
+  const linkedAll = record.linkedTargets;
+  const linkedVisible = linkedAll.slice(0, NOTE_LINKED_LIST_VISIBLE_MAX);
+  const linkedOverflow = Math.max(0, linkedAll.length - NOTE_LINKED_LIST_VISIBLE_MAX);
+
   return (
-    <Card className="group flex h-full min-h-0 flex-col overflow-hidden border-base-content/12 bg-base-100/95 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md hover:shadow-black/20">
+    <Card className="group flex h-full min-h-0 min-w-0 max-w-full flex-col overflow-hidden border-base-content/12 bg-base-100/95 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md hover:shadow-black/20">
       <CardHeader className="relative space-y-2 pb-2 pt-3 text-center">
         <div className="flex justify-center">
           <span
@@ -92,27 +97,30 @@ export function NoteGridCard({
         </CardTitle>
         <p className="text-xs text-muted-foreground">{hasXref ? "Note" : "No cross-reference"}</p>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col space-y-3 pb-3 pt-1 text-sm">
-        <div className="min-h-[4.25rem] rounded-md border border-base-content/10 bg-base-content/[0.03] px-2.5 py-2">
+      <CardContent className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col space-y-3 pb-3 pt-1 text-sm">
+        <div className="min-h-[4.25rem] min-w-0 max-w-full rounded-md border border-base-content/10 bg-base-content/[0.03] px-2.5 py-2">
           <p
-            className={`line-clamp-3 text-sm leading-snug ${hasPreview ? "text-base-content/[0.92]" : "text-muted-foreground"}`}
+            className={`line-clamp-3 min-w-0 break-words text-sm leading-snug ${hasPreview ? "text-base-content/[0.92]" : "text-muted-foreground"}`}
           >
             {hasPreview ? previewText : "No content"}
           </p>
         </div>
 
-        <div className="space-y-2 rounded-md border border-base-content/10 bg-base-content/[0.02] px-2.5 py-2">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-base-content">
+        <div className="min-w-0 max-w-full space-y-2 overflow-hidden rounded-md border border-base-content/10 bg-base-content/[0.02] px-2.5 py-2">
+          <p className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-base-content">
             <Link2 className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
             Linked
           </p>
-          {record.linkedTargets.length === 0 ? (
+          {linkedAll.length === 0 ? (
             <p className="text-xs text-muted-foreground">No linked entities</p>
           ) : (
-            <div className="space-y-2">
-              {record.linkedTargets.map((t, i) => (
+            <div className="min-w-0 max-w-full space-y-2">
+              {linkedVisible.map((t, i) => (
                 <LinkedRow key={`${t.kind}-${t.label}-${i}`} {...t} />
               ))}
+              {linkedOverflow > 0 ? (
+                <p className="text-xs font-medium text-muted-foreground">+ {linkedOverflow}</p>
+              ) : null}
             </div>
           )}
         </div>

@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { EventForm } from "@/components/admin/EventForm";
-import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { NoteEditorPageLayout } from "@/components/admin/NoteEditorPageLayout";
 import { useAdminEvent } from "@/hooks/useAdminEvents";
 
@@ -33,13 +32,9 @@ export default function AdminEditEventPage() {
     return shell(<p className="text-destructive">Could not load this event.</p>, false);
   }
 
-  const ev = event as Record<string, unknown>;
-  const titleForOq = `${String(ev.eventType ?? "")}${ev.customType ? ` (${String(ev.customType)})` : ""}`.trim() || id;
-
   return shell(
     <div className="space-y-8">
       <EventForm key={id} mode="edit" eventId={id} initialEvent={event} hideBackLink />
-      <EntityOpenQuestionsSection entityType="event" entityId={id} variant="edit" entityLabel={titleForOq} />
     </div>,
     true,
   );

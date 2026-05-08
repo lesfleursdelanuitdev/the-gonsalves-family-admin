@@ -1,7 +1,7 @@
 import type { OpenQuestionStatus, Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 
-export const OPEN_QUESTION_ENTITY_TYPES = ["individual", "family", "event", "media"] as const;
+export const OPEN_QUESTION_ENTITY_TYPES = ["individual", "family", "event", "media", "source", "note"] as const;
 export type OpenQuestionEntityType = (typeof OPEN_QUESTION_ENTITY_TYPES)[number];
 
 export function isOpenQuestionEntityType(v: string): v is OpenQuestionEntityType {
@@ -31,6 +31,12 @@ export const OPEN_QUESTION_DETAIL_INCLUDE = {
   mediaLinks: {
     include: { media: { select: { id: true, title: true, xref: true } } },
   },
+  sourceLinks: {
+    include: { source: { select: { id: true, title: true, xref: true } } },
+  },
+  noteLinks: {
+    include: { note: { select: { id: true, xref: true, content: true } } },
+  },
 } as const;
 
 export type Db = Prisma.TransactionClient | typeof prisma;
@@ -58,6 +64,14 @@ export async function assertEntityBelongsToFile(
       const n = await db.gedcomMedia.count({ where: { id: entityId, fileUuid } });
       return n > 0;
     }
+    case "source": {
+      const n = await db.gedcomSource.count({ where: { id: entityId, fileUuid } });
+      return n > 0;
+    }
+    case "note": {
+      const n = await db.gedcomNote.count({ where: { id: entityId, fileUuid } });
+      return n > 0;
+    }
     default:
       return false;
   }
@@ -76,6 +90,10 @@ function entityWhereClause(
       return { eventLinks: { some: { eventId: entityId } } };
     case "media":
       return { mediaLinks: { some: { mediaId: entityId } } };
+    case "source":
+      return { sourceLinks: { some: { sourceId: entityId } } };
+    case "note":
+      return { noteLinks: { some: { noteId: entityId } } };
     default:
       return { id: "__none__" };
   }
@@ -132,6 +150,16 @@ export async function linkOpenQuestionToEntity(
           data: { openQuestionId: questionId, mediaId: entityId },
         });
         break;
+      case "source":
+        await db.openQuestionSource.create({
+          data: { openQuestionId: questionId, sourceId: entityId },
+        });
+        break;
+      case "note":
+        await db.openQuestionNote.create({
+          data: { openQuestionId: questionId, noteId: entityId },
+        });
+        break;
       default:
         throw new Error("Invalid entity type");
     }
@@ -172,6 +200,16 @@ export async function unlinkOpenQuestionFromEntity(
     case "media":
       await db.openQuestionMedia.deleteMany({
         where: { openQuestionId: questionId, mediaId: entityId },
+      });
+      break;
+    case "source":
+      await db.openQuestionSource.deleteMany({
+        where: { openQuestionId: questionId, sourceId: entityId },
+      });
+      break;
+    case "note":
+      await db.openQuestionNote.deleteMany({
+        where: { openQuestionId: questionId, noteId: entityId },
       });
       break;
     default:
@@ -235,6 +273,12 @@ export async function listOpenQuestionsForFile(
   opts: {
     status?: OpenQuestionStatus;
     q?: string | null;
+    linkedIndividualId?: string | null;
+    linkedFamilyId?: string | null;
+    linkedEventId?: string | null;
+    linkedMediaId?: string | null;
+    linkedSourceId?: string | null;
+    linkedNoteId?: string | null;
     limit: number;
     offset: number;
   },
@@ -248,6 +292,24 @@ export async function listOpenQuestionsForFile(
       { details: { contains: q, mode: "insensitive" } },
       { resolution: { contains: q, mode: "insensitive" } },
     ];
+  }
+  if (opts.linkedIndividualId?.trim()) {
+    where.individualLinks = { some: { individualId: opts.linkedIndividualId.trim() } };
+  }
+  if (opts.linkedFamilyId?.trim()) {
+    where.familyLinks = { some: { familyId: opts.linkedFamilyId.trim() } };
+  }
+  if (opts.linkedEventId?.trim()) {
+    where.eventLinks = { some: { eventId: opts.linkedEventId.trim() } };
+  }
+  if (opts.linkedMediaId?.trim()) {
+    where.mediaLinks = { some: { mediaId: opts.linkedMediaId.trim() } };
+  }
+  if (opts.linkedSourceId?.trim()) {
+    where.sourceLinks = { some: { sourceId: opts.linkedSourceId.trim() } };
+  }
+  if (opts.linkedNoteId?.trim()) {
+    where.noteLinks = { some: { noteId: opts.linkedNoteId.trim() } };
   }
   const [total, rows] = await Promise.all([
     prisma.openQuestion.count({ where }),

@@ -5,6 +5,7 @@ import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { ensureMediaDatePlaceFromLinkedEvent } from "@/lib/admin/ensure-media-date-place-from-event";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 /** Nested under `event` — matches admin events list enough for descriptive labels in the media editor. */
 const eventIncludeForMediaLink = {
@@ -16,6 +17,7 @@ const eventIncludeForMediaLink = {
         select: {
           id: true,
           fullName: true,
+          ...gedcomIndividualNlDenormSelect,
           individualNameForms: {
             where: { isPrimary: true },
             take: 1,
@@ -40,8 +42,8 @@ const eventIncludeForMediaLink = {
         select: {
           id: true,
           xref: true,
-          husband: { select: { id: true, fullName: true } },
-          wife: { select: { id: true, fullName: true } },
+          husband: { select: { id: true, fullName: true, ...gedcomIndividualNlDenormSelect } },
+          wife: { select: { id: true, fullName: true, ...gedcomIndividualNlDenormSelect } },
         },
       },
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { flattenSectionBlocksForOutline } from "@/lib/admin/story-creator/story-structure-outline-blocks";
 import type { StoryDocument, StorySection } from "@/lib/admin/story-creator/story-types";
 import { sectionIsAncestorOf } from "@/lib/admin/story-creator/story-section-tree";
 
@@ -27,13 +28,25 @@ export function OutlineRenameInput({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const cancelled = useRef(false);
+  const blurSchedule = useRef<number | null>(null);
+  const mountedAtRef = useRef(0);
 
-  useEffect(() => {
+  const clearBlurSchedule = useCallback(() => {
+    if (blurSchedule.current != null) {
+      clearTimeout(blurSchedule.current);
+      blurSchedule.current = null;
+    }
+  }, []);
+
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    mountedAtRef.current = Date.now();
     el.focus();
     el.select();
   }, []);
+
+  useEffect(() => () => clearBlurSchedule(), [clearBlurSchedule]);
 
   const commit = useCallback(() => {
     if (cancelled.current) return;
@@ -47,8 +60,10 @@ export function OutlineRenameInput({
       type="text"
       defaultValue={initial}
       className="input input-bordered input-sm h-8 w-full min-w-0 rounded-md border-base-content/15 bg-base-100 px-2 text-sm font-medium text-base-content shadow-sm outline-none ring-primary/25 focus:ring-2"
+      data-story-outline-rename=""
       aria-label="Rename"
       onClick={(e) => e.stopPropagation()}
+      onFocus={() => clearBlurSchedule()}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -60,7 +75,24 @@ export function OutlineRenameInput({
           onCancel();
         }
       }}
-      onBlur={() => commit()}
+      onBlur={() => {
+        clearBlurSchedule();
+        blurSchedule.current = window.setTimeout(() => {
+          blurSchedule.current = null;
+          const el = ref.current;
+          if (el && document.activeElement === el) return;
+          const raw = ref.current?.value ?? "";
+          const v = raw.trim();
+          const initialTrim = initial.trim();
+          const elapsed = Date.now() - mountedAtRef.current;
+          if (elapsed < 180 && v === initialTrim && el) {
+            el.focus();
+            el.select();
+            return;
+          }
+          commit();
+        }, 160);
+      }}
     />
   );
 }
@@ -71,6 +103,7 @@ type BranchProps = {
   sections: StorySection[];
   depth: number;
   activeSectionId: string | null;
+  activeBlockId: string | null;
   renameTarget: OutlineRenameTarget | null;
   draggedId: string | null;
   onSelectSection: (sectionId: string, firstBlockId: string | null) => void;
@@ -83,6 +116,9 @@ type BranchProps = {
   onMoveSection: (draggedId: string, newParentId: string | null, insertBeforeId: string | null) => void;
   setDraggedId: (id: string | null) => void;
   onToggleSectionChapter?: (sectionId: string, isChapter: boolean) => void;
+  onToggleSectionPage?: (sectionId: string, isPage: boolean) => void;
+  /** When set (mobile full-screen outline), section tap navigation is delayed so double-click-to-rename can cancel it. */
+  deferOutlineSectionClickMs?: number;
 };
 
 function OutlineSectionBranch({
@@ -91,6 +127,7 @@ function OutlineSectionBranch({
   sections,
   depth,
   activeSectionId,
+  activeBlockId,
   renameTarget,
   draggedId,
   onSelectSection,
@@ -103,7 +140,47 @@ function OutlineSectionBranch({
   onMoveSection,
   setDraggedId,
   onToggleSectionChapter,
+  onToggleSectionPage,
+  deferOutlineSectionClickMs,
 }: BranchProps) {
+  const deferredOutlineNavTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (deferredOutlineNavTimerRef.current != null) {
+        window.clearTimeout(deferredOutlineNavTimerRef.current);
+        deferredOutlineNavTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const clearDeferredOutlineNav = useCallback(() => {
+    if (deferredOutlineNavTimerRef.current != null) {
+      window.clearTimeout(deferredOutlineNavTimerRef.current);
+      deferredOutlineNavTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleOrRunSectionSelect = useCallback(
+    (sec: StorySection) => {
+      const run = () => {
+        if ((sec.children?.length ?? 0) > 0 && (sec.collapsed ?? false)) onToggleCollapsed(sec.id);
+        onSelectSection(sec.id, sec.blocks?.[0]?.id ?? null);
+      };
+      const ms = deferOutlineSectionClickMs;
+      if (ms == null || ms <= 0) {
+        run();
+        return;
+      }
+      clearDeferredOutlineNav();
+      deferredOutlineNavTimerRef.current = window.setTimeout(() => {
+        deferredOutlineNavTimerRef.current = null;
+        run();
+      }, ms);
+    },
+    [clearDeferredOutlineNav, deferOutlineSectionClickMs, onSelectSection, onToggleCollapsed],
+  );
+
   const tryDrop = (dragged: string, beforeIndex: number) => {
     const insertBeforeId = beforeIndex >= sections.length ? null : sections[beforeIndex]!.id;
     if (insertBeforeId === dragged) return;
@@ -183,13 +260,11 @@ function OutlineSectionBranch({
                       : "text-base-content/70 hover:bg-base-content/[0.07] hover:text-base-content",
                   )}
                   title="Double-click to rename"
-                  onClick={() => {
-                    if ((sec.children?.length ?? 0) > 0 && (sec.collapsed ?? false)) onToggleCollapsed(sec.id);
-                    onSelectSection(sec.id, sec.blocks?.[0]?.id ?? null);
-                  }}
+                  onClick={() => scheduleOrRunSectionSelect(sec)}
                   onDoubleClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    clearDeferredOutlineNav();
                     onRenameTargetChange({ kind: "section", id: sec.id });
                   }}
                 >
@@ -197,24 +272,47 @@ function OutlineSectionBranch({
                 </button>
               )}
             </div>
-            {depth === 0 && onToggleSectionChapter ? (
-              <label
-                className="flex shrink-0 cursor-pointer select-none items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-base-content/45"
-                title="Mark as a narrative chapter for the public table of contents (story kind)"
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-xs rounded border-base-content/25"
-                  checked={sec.isChapter ?? false}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onToggleSectionChapter(sec.id, e.target.checked);
-                  }}
-                />
-                <span className="hidden sm:inline">Chapter</span>
-              </label>
+            {depth === 0 && (onToggleSectionChapter || onToggleSectionPage) ? (
+              <div className="flex shrink-0 items-stretch gap-1 sm:gap-1.5">
+                {onToggleSectionChapter ? (
+                  <label
+                    className="flex shrink-0 cursor-pointer select-none flex-col items-center gap-1 px-0.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/55 sm:flex-row sm:items-center sm:gap-1.5 sm:px-1 sm:py-0"
+                    title="Mark as a narrative chapter for the public table of contents (story kind)"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      checked={sec.isChapter ?? false}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onToggleSectionChapter(sec.id, e.target.checked);
+                      }}
+                    />
+                    <span className="max-w-[4.5rem] text-center leading-none sm:max-w-none">Chapter</span>
+                  </label>
+                ) : null}
+                {onToggleSectionPage ? (
+                  <label
+                    className="flex shrink-0 cursor-pointer select-none flex-col items-center gap-1 px-0.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/55 sm:flex-row sm:items-center sm:gap-1.5 sm:px-1 sm:py-0"
+                    title="Start a new page in print and paginated views"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      checked={sec.isPage ?? false}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onToggleSectionPage(sec.id, e.target.checked);
+                      }}
+                    />
+                    <span className="max-w-[4.5rem] text-center leading-none sm:max-w-none">Page</span>
+                  </label>
+                ) : null}
+              </div>
             ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -230,7 +328,10 @@ function OutlineSectionBranch({
                 <MoreHorizontal className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-44">
-                <DropdownMenuItem onClick={() => onRenameTargetChange({ kind: "section", id: sec.id })}>
+                <DropdownMenuItem
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => onRenameTargetChange({ kind: "section", id: sec.id })}
+                >
                   <Pencil className="size-3.5 opacity-70" aria-hidden />
                   Rename
                 </DropdownMenuItem>
@@ -250,6 +351,32 @@ function OutlineSectionBranch({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          {!(sec.collapsed ?? false) && (sec.blocks?.length ?? 0) > 0 ? (
+            <ul className="mt-0.5 space-y-0.5 border-l border-base-content/10 pl-2 ml-[1.375rem] sm:ml-[1.625rem]">
+              {flattenSectionBlocksForOutline(sec.blocks).map((row) => {
+                const isBlockActive = activeSectionId === sec.id && activeBlockId === row.id;
+                const padPx = 6 + Math.min(row.depth, 10) * 10;
+                return (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex min-h-8 w-full min-w-0 items-center rounded-md py-0.5 pr-2 text-left text-xs transition-colors",
+                        isBlockActive
+                          ? "bg-primary/25 font-medium text-primary ring-1 ring-primary/30"
+                          : "text-base-content/60 hover:bg-base-content/[0.06] hover:text-base-content",
+                      )}
+                      style={{ paddingLeft: padPx }}
+                      title={row.label}
+                      onClick={() => onSelectSection(sec.id, row.id)}
+                    >
+                      <span className="truncate">{row.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
           {(sec.children?.length ?? 0) > 0 && !(sec.collapsed ?? false) ? (
             <OutlineSectionBranch
               doc={doc}
@@ -257,6 +384,7 @@ function OutlineSectionBranch({
               sections={sec.children!}
               depth={depth + 1}
               activeSectionId={activeSectionId}
+              activeBlockId={activeBlockId}
               renameTarget={renameTarget}
               draggedId={draggedId}
               onSelectSection={onSelectSection}
@@ -269,6 +397,8 @@ function OutlineSectionBranch({
               onMoveSection={onMoveSection}
               setDraggedId={setDraggedId}
               onToggleSectionChapter={onToggleSectionChapter}
+              onToggleSectionPage={onToggleSectionPage}
+              deferOutlineSectionClickMs={deferOutlineSectionClickMs}
             />
           ) : null}
         </li>
@@ -331,6 +461,7 @@ function OutlineSectionBranch({
 export function StoryStructureSidebar({
   doc,
   activeSectionId,
+  activeBlockId,
   onSelectSection,
   outlineOpen,
   onOutlineOpenChange,
@@ -343,14 +474,18 @@ export function StoryStructureSidebar({
   onToggleCollapsed,
   onMoveSection,
   onToggleSectionChapter,
+  onToggleSectionPage,
   isCompact,
   mobileOverlay,
   onCloseMobileOverlay,
   /** When false, the sidebar does not render the narrow collapsed rail; the parent controls open/closed width. */
   showCollapsedRail = true,
+  outlineSectionNavDeferMs,
 }: {
   doc: StoryDocument;
   activeSectionId: string | null;
+  /** Selected block in the editor; used to highlight the matching outline row. */
+  activeBlockId: string | null;
   onSelectSection: (sectionId: string, firstBlockId: string | null) => void;
   outlineOpen: boolean;
   onOutlineOpenChange: (open: boolean) => void;
@@ -363,10 +498,13 @@ export function StoryStructureSidebar({
   onToggleCollapsed: (sectionId: string) => void;
   onMoveSection: (draggedId: string, newParentId: string | null, insertBeforeId: string | null) => void;
   onToggleSectionChapter?: (sectionId: string, isChapter: boolean) => void;
+  onToggleSectionPage?: (sectionId: string, isPage: boolean) => void;
   isCompact: boolean;
   mobileOverlay?: boolean;
   onCloseMobileOverlay?: () => void;
   showCollapsedRail?: boolean;
+  /** Delay single-click section navigation so double-click-to-rename can cancel (desktop windowed + mobile overlay). */
+  outlineSectionNavDeferMs?: number;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
@@ -378,6 +516,7 @@ export function StoryStructureSidebar({
         sections={doc.sections ?? []}
         depth={0}
         activeSectionId={activeSectionId}
+        activeBlockId={activeBlockId}
         renameTarget={renameTarget}
         draggedId={draggedId}
         onSelectSection={onSelectSection}
@@ -390,6 +529,8 @@ export function StoryStructureSidebar({
         onMoveSection={onMoveSection}
         setDraggedId={setDraggedId}
         onToggleSectionChapter={onToggleSectionChapter}
+        onToggleSectionPage={onToggleSectionPage}
+        deferOutlineSectionClickMs={outlineSectionNavDeferMs}
       />
       <Button
         type="button"

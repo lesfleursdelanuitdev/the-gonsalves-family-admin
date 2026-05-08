@@ -1,4 +1,5 @@
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
+import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
 
 export type NoteLinkKind = "individual" | "family" | "event" | "source";
 
@@ -72,8 +73,11 @@ export function noteDetailToSelectedLinks(note: Record<string, unknown>): Select
   eventNotes?.forEach((row) => {
     const ev = row.event;
     if (!ev?.id) return;
-    const et = ev.customType?.trim() || ev.eventType;
-    out.push({ kind: "event", id: ev.id, label: `Event: ${et}` });
+    out.push({
+      kind: "event",
+      id: ev.id,
+      label: formatNoteLinkedEventLabel(ev.eventType ?? "", ev.customType ?? null),
+    });
   });
 
   const sourceNotes = note.sourceNotes as

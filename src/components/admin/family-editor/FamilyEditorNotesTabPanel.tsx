@@ -1,10 +1,15 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
-import { buttonVariants } from "@/components/ui/button";
+import { NotesPicker } from "@/components/admin/NotesPicker";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { ApiError, postJson } from "@/lib/infra/api";
+import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
 import type { FamilyEditNoteJoin } from "@/components/admin/family-editor/family-editor-types";
 
 export type FamilyEditorNotesTabPanelProps = {
@@ -13,6 +18,8 @@ export type FamilyEditorNotesTabPanelProps = {
   familyId: string;
   familyNewEventLabel: string;
   familyNotes: FamilyEditNoteJoin[];
+  /** Called after a note is linked so the editor can refetch family detail. */
+  onNotesChanged?: () => void;
 };
 
 export function FamilyEditorNotesTabPanel({
@@ -21,11 +28,36 @@ export function FamilyEditorNotesTabPanel({
   familyId,
   familyNewEventLabel,
   familyNotes,
+  onNotesChanged,
 }: FamilyEditorNotesTabPanelProps) {
   const returnTo =
     mode === "create"
       ? `/admin/families/create?id=${encodeURIComponent(familyId)}`
       : `/admin/families/${familyId}/edit`;
+
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [attachBusy, setAttachBusy] = useState(false);
+
+  const linkedNoteIds = useMemo(
+    () => new Set(familyNotes.map((jn) => String(jn.note.id))),
+    [familyNotes],
+  );
+
+  const onPickExistingNote = async (note: AdminNoteListItem) => {
+    if (linkedNoteIds.has(note.id)) return;
+    setAttachBusy(true);
+    try {
+      await postJson(`/api/admin/families/${familyId}/notes`, { noteId: note.id });
+      toast.success(`Linked note ${note.xref?.trim() || note.id}.`);
+      setAttachOpen(false);
+      onNotesChanged?.();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not link note.";
+      toast.error(msg);
+    } finally {
+      setAttachBusy(false);
+    }
+  };
 
   const listBlock =
     mode === "create" ? (
@@ -49,18 +81,55 @@ export function FamilyEditorNotesTabPanel({
       ? `/admin/notes/new?familyId=${encodeURIComponent(familyId)}&familyLabel=${encodeURIComponent(familyNewEventLabel)}&returnTo=${encodeURIComponent(returnTo)}`
       : null;
 
-  const inner = (
-    <div className="space-y-4">
-      {listBlock}
-      {addHref ? (
+  const actionButtons =
+    addHref != null ? (
+      <div className="flex flex-wrap items-stretch justify-stretch gap-2 sm:justify-end">
+        <Button type="button" variant="outline" size="sm" className="min-h-11 flex-1 sm:flex-none" onClick={() => setAttachOpen(true)}>
+          Attach existing note
+        </Button>
         <Link
           href={addHref}
-          className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-full items-center justify-center gap-2 border-dashed")}
+          className={cn(
+            buttonVariants({ variant: "default", size: "sm" }),
+            "inline-flex min-h-11 flex-1 items-center justify-center sm:flex-none",
+          )}
         >
-          <Plus className="size-4" aria-hidden />
-          Add note
+          Add new note
         </Link>
-      ) : null}
+      </div>
+    ) : null;
+
+  const attachDialog =
+    mode === "edit" && familyId ? (
+      <Dialog open={attachOpen} onOpenChange={(open) => setAttachOpen(open)}>
+        <DialogContent className="max-h-[min(90vh,720px)] max-w-2xl overflow-y-auto">
+          <DialogTitle>Attach an existing note</DialogTitle>
+          <DialogDescription>
+            Search by text, XREF, linked person, family, or event, then choose <strong>Add note</strong> on a result to
+            link it to this family.
+          </DialogDescription>
+          <div className={cn(attachBusy && "pointer-events-none opacity-60")}>
+            <NotesPicker
+              idPrefix={`fam-notes-${familyId}`}
+              excludeIds={linkedNoteIds}
+              onPick={onPickExistingNote}
+              limit={12}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAttachOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    ) : null;
+
+  const inner = (
+    <div className="space-y-4">
+      {actionButtons ? <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">{actionButtons}</div> : null}
+      {listBlock}
+      {attachDialog}
     </div>
   );
 

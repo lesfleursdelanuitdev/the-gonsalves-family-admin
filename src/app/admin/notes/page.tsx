@@ -19,7 +19,8 @@ import { useAdminNotes, useDeleteNote, type AdminNotesListResponse } from "@/hoo
 import { deleteJson } from "@/lib/infra/api";
 import { useAdminNotesPageFilters } from "@/hooks/useAdminNotesPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
 import { markdownToPlainPreview } from "@/lib/utils/markdown-preview";
 
 interface NoteRow {
@@ -55,10 +56,8 @@ function mapApiToRows(api: AdminNotesListResponse): NoteRow[] {
       const id = en.event?.id;
       const et = en.event?.eventType;
       if (id && et) {
-        const typeWord = labelGedcomEventType(et);
-        const custom = (en.event?.customType ?? "").trim();
-        const display = custom ? `${typeWord} (${custom})` : typeWord;
-        linkedTargets.push({ kind: "event", label: `Event: ${display}`, href: `/admin/events/${id}` });
+        const label = formatNoteLinkedEventLabel(et, en.event?.customType ?? null);
+        linkedTargets.push({ kind: "event", label, href: `/admin/events/${id}` });
       }
     });
     n.sourceNotes?.forEach((sn) => {
@@ -68,7 +67,14 @@ function mapApiToRows(api: AdminNotesListResponse): NoteRow[] {
       }
     });
 
-    const linkedTo = linkedTargets.length ? linkedTargets.map((x) => x.label).join("; ") : "—";
+    const linkedToLabels = linkedTargets.map((x) => x.label);
+    const linkedToShown = linkedToLabels.slice(0, NOTE_LINKED_LIST_VISIBLE_MAX);
+    const linkedToExtra = linkedToLabels.length - linkedToShown.length;
+    const linkedTo = linkedToLabels.length
+      ? linkedToExtra > 0
+        ? `${linkedToShown.join("; ")} (+${linkedToExtra})`
+        : linkedToShown.join("; ")
+      : "—";
 
     return {
       id: n.id,

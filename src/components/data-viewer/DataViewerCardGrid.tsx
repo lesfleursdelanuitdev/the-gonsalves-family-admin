@@ -33,7 +33,7 @@ export function DataViewerCardGrid<TRecord>({
   isFetching = false,
   selection,
 }: DataViewerCardGridProps<TRecord>) {
-  const { actions, getRowId, renderCard, labels } = config;
+  const { actions, getRowId, renderCard, labels, cardGridClassName } = config;
 
   return (
     <div className="space-y-3">
@@ -55,22 +55,25 @@ export function DataViewerCardGrid<TRecord>({
       ) : (
         <div
           className={cn(
-            "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-opacity",
+            cardGridClassName ?? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+            "transition-opacity",
             isFetching && "opacity-80",
           )}
         >
           {data.map((record, pageIndex) => {
             const id = getRowId(record);
             const isSelected = selection?.selectedIds.has(id) ?? false;
+            const embedSelect = Boolean(selection && config.embedSelectionInCard);
             return (
               <div
                 key={id}
                 className={cn(
-                  "relative h-full min-h-0 rounded-box",
-                  selection && isSelected && "ring-2 ring-primary/80 ring-offset-2 ring-offset-base-100",
+                  "relative h-full min-h-0 min-w-0 max-w-full rounded-box",
+                  selection && !embedSelect && isSelected && "ring-2 ring-primary/80 ring-offset-2 ring-offset-base-100",
+                  selection && embedSelect && isSelected && "ring-2 ring-primary/50 ring-offset-2 ring-offset-base-100",
                 )}
               >
-                {selection ? (
+                {selection && !embedSelect ? (
                   <div
                     className="absolute left-2 top-2 z-10 flex size-9 items-center justify-center rounded-md border border-base-content/10 bg-base-100/95 shadow-sm backdrop-blur-sm"
                     onMouseDown={(e) => {
@@ -88,12 +91,19 @@ export function DataViewerCardGrid<TRecord>({
                     />
                   </div>
                 ) : null}
-                <div className="relative z-0 h-full min-h-0">
+                <div className="relative z-0 h-full min-h-0 min-w-0 max-w-full">
                   {renderCard({
                     record,
                     onView: actions.view ? () => actions.view!.handler(record) : undefined,
                     onEdit: actions.edit ? () => actions.edit!.handler(record) : undefined,
                     onDelete: actions.delete ? () => actions.delete!.handler(record) : undefined,
+                    selection:
+                      embedSelect && selection
+                        ? {
+                            isSelected,
+                            onToggle: (e: MouseEvent) => selection.onToggleRow(id, pageIndex, e),
+                          }
+                        : undefined,
                   })}
                 </div>
               </div>

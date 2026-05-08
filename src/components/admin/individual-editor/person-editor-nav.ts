@@ -3,7 +3,9 @@ import {
   BookOpen,
   CalendarDays,
   CaseSensitive,
+  CircleHelp,
   Image,
+  Link2,
   StickyNote,
   User,
   Users,
@@ -14,9 +16,11 @@ export type PersonEditorSectionId =
   | "person-names"
   | "person-events"
   | "person-relationships"
+  | "person-associates"
   | "person-notes"
   | "person-media"
-  | "person-sources";
+  | "person-sources"
+  | "person-open-questions";
 
 export type PersonEditorNavItem = {
   id: PersonEditorSectionId;
@@ -30,9 +34,21 @@ export const PERSON_EDITOR_NAV: readonly PersonEditorNavItem[] = [
   { id: "person-names", label: "Names", description: "Primary & alternate names", icon: CaseSensitive },
   { id: "person-events", label: "Life events", description: "Birth, death, and more", icon: CalendarDays },
   { id: "person-relationships", label: "Relationships", description: "Parents, partners, children", icon: Users },
+  {
+    id: "person-associates",
+    label: "Associates",
+    description: "Non-lineage links (ASSO): godparents, witnesses, …",
+    icon: Link2,
+  },
   { id: "person-notes", label: "Notes", description: "Stories and research notes", icon: StickyNote },
   { id: "person-media", label: "Media", description: "Photos and documents", icon: Image },
   { id: "person-sources", label: "Sources", description: "Citations and references", icon: BookOpen },
+  {
+    id: "person-open-questions",
+    label: "Open questions",
+    description: "Research and verification",
+    icon: CircleHelp,
+  },
 ] as const;
 
 /** Used for relationship hub subsection anchors */

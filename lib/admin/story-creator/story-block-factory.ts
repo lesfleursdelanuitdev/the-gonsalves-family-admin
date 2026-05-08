@@ -23,7 +23,6 @@ export function createRichTextBlock(): StoryRichTextBlock {
     type: "richText",
     doc: EMPTY_STORY_DOC,
     preset: "paragraph",
-    textPreset: "paragraph",
   };
 }
 
@@ -106,7 +105,7 @@ export function createSplitContentBlock(): StorySplitContentBlock {
   return {
     id: newStoryId(),
     type: "splitContent",
-    text: { ...text, preset: "paragraph", textPreset: "paragraph" },
+    text: { ...text, preset: "paragraph" },
     supporting: { id: newStoryId(), blocks: [] },
     supportingSide: "right",
   };
@@ -195,7 +194,6 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         design: nb.design ? { ...nb.design } : undefined,
         dateAnnotation: nb.dateAnnotation,
         preset: nb.preset,
-        textPreset: nb.textPreset,
         headingLevel: nb.headingLevel,
         listVariant: nb.listVariant,
         quoteAttribution: nb.quoteAttribution,
@@ -216,14 +214,17 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         columnGapRem: nb.columnGapRem,
         columns: [cloneColumnSlot(nb.columns[0]), cloneColumnSlot(nb.columns[1])],
       };
-    case "container":
+    case "container": {
+      const props = { ...nb.props };
+      delete (props as Record<string, unknown>).containerPreset;
       return {
         ...nb,
         id: newStoryId(),
-        props: { ...nb.props },
+        props,
         children: nb.children.map(cloneStoryBlock),
         containerPresetLocked: nb.containerPresetLocked,
       };
+    }
     case "table":
       return {
         ...nb,
@@ -264,7 +265,6 @@ export function cloneStoryBlock(block: StoryBlock): StoryBlock {
         design: block.design ? { ...block.design } : undefined,
         dateAnnotation: block.dateAnnotation,
         preset: block.preset,
-        textPreset: block.textPreset,
         headingLevel: block.headingLevel,
         listVariant: block.listVariant,
         quoteAttribution: block.quoteAttribution,
@@ -300,15 +300,18 @@ export function cloneStoryBlock(block: StoryBlock): StoryBlock {
         columns: [cloneColumnSlot(block.columns[0]), cloneColumnSlot(block.columns[1])],
         design: block.design ? { ...block.design } : undefined,
       };
-    case "container":
+    case "container": {
+      const props = { ...block.props };
+      delete (props as Record<string, unknown>).containerPreset;
       return {
         ...block,
         id: newStoryId(),
-        props: { ...block.props },
+        props,
         children: block.children.map(cloneStoryBlock),
         design: block.design ? { ...block.design } : undefined,
         containerPresetLocked: block.containerPresetLocked,
       };
+    }
     case "table":
       return {
         ...block,

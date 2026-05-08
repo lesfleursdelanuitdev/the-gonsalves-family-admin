@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { StoryTipTapToolbar } from "@/components/admin/story-creator/StoryTipTapToolbar";
 import {
   useStoryTiptapActiveEditorOptional,
@@ -8,7 +8,7 @@ import {
 } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import { cn } from "@/lib/utils";
 
-function preventToolbarMousedownDefault(e: ReactMouseEvent) {
+function preventToolbarPointerDefault(e: ReactMouseEvent | ReactPointerEvent) {
   e.preventDefault();
 }
 
@@ -34,7 +34,8 @@ export function StoryGlobalTipTapToolbar({
         className,
       )}
       data-story-global-tiptap-toolbar
-      onMouseDownCapture={preventToolbarMousedownDefault}
+      onMouseDownCapture={preventToolbarPointerDefault}
+      onPointerDownCapture={preventToolbarPointerDefault}
     >
       <div
         className={cn(

@@ -168,6 +168,7 @@ export async function removeParentFromFamily(
   }
 
   await rebuildSpouseRowsForFamily(ctx, familyId);
+  await syncFamilySpouseXrefs(tx, familyId);
   await recomputeFlagsForFamilyMembers(ctx, familyId);
 }
 
@@ -175,7 +176,13 @@ export async function addChildToFamily(
   ctx: ChangeCtx,
   familyId: string,
   childId: string,
-  opts?: { birthOrder?: number | null; relationshipType?: string },
+  opts?: {
+    birthOrder?: number | null;
+    relationshipType?: string;
+    /** Per-parent overrides when both partners exist (otherwise `relationshipType` applies to each linked parent). */
+    relationshipToHusband?: string | null;
+    relationshipToWife?: string | null;
+  },
 ) {
   const { tx, fileUuid } = ctx;
   const fam = await tx.gedcomFamily.findFirst({
@@ -193,26 +200,48 @@ export async function addChildToFamily(
   });
   if (exists) throw new Error("This person is already a child of this family");
 
-  const rel = normalizeChildRelationshipType(opts?.relationshipType ?? "biological");
+  const baseRel = normalizeChildRelationshipType(opts?.relationshipType ?? "biological");
+  const relH =
+    opts?.relationshipToHusband != null && String(opts.relationshipToHusband).trim() !== ""
+      ? normalizeChildRelationshipType(String(opts.relationshipToHusband))
+      : baseRel;
+  const relW =
+    opts?.relationshipToWife != null && String(opts.relationshipToWife).trim() !== ""
+      ? normalizeChildRelationshipType(String(opts.relationshipToWife))
+      : baseRel;
+
   const birthOrder = opts?.birthOrder != null && Number.isFinite(opts.birthOrder) ? Math.trunc(opts.birthOrder) : null;
 
   await tx.gedcomFamilyChild.create({
     data: { fileUuid, familyId, childId, birthOrder },
   });
 
-  const parents = [fam.husbandId, fam.wifeId].filter((x): x is string => !!x);
-  for (const parentId of parents) {
+  if (fam.husbandId) {
     await tx.gedcomParentChild.upsert({
-      where: { fileUuid_parentId_childId: { fileUuid, parentId, childId } },
+      where: { fileUuid_parentId_childId: { fileUuid, parentId: fam.husbandId, childId } },
       create: {
         fileUuid,
-        parentId,
+        parentId: fam.husbandId,
         childId,
         familyId,
-        relationshipType: rel,
+        relationshipType: relH,
         pedigree: null,
       },
-      update: { familyId, relationshipType: rel },
+      update: { familyId, relationshipType: relH },
+    });
+  }
+  if (fam.wifeId) {
+    await tx.gedcomParentChild.upsert({
+      where: { fileUuid_parentId_childId: { fileUuid, parentId: fam.wifeId, childId } },
+      create: {
+        fileUuid,
+        parentId: fam.wifeId,
+        childId,
+        familyId,
+        relationshipType: relW,
+        pedigree: null,
+      },
+      update: { familyId, relationshipType: relW },
     });
   }
 

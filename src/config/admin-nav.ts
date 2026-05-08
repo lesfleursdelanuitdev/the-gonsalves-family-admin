@@ -6,6 +6,7 @@ import {
   UserCog,
   MessageSquare,
   Image,
+  ListTree,
   CalendarDays,
   UserCircle,
   StickyNote,
@@ -60,6 +61,7 @@ export const adminNavSections: AdminNavSection[] = [
     label: "Media & archive",
     items: [
       { href: "/admin/media", label: "Media", icon: Image },
+      { href: "/admin/timelines", label: "Timelines", icon: ListTree },
       { href: "/admin/stories", label: "Stories", icon: ScrollText },
       { href: "/admin/albums", label: "Albums", icon: FolderOpen },
       { href: "/admin/tags", label: "Tags", icon: Tag },

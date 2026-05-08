@@ -19,6 +19,7 @@ import {
   partnerAvatarClass,
   partnerSexLabel,
 } from "@/components/admin/family-editor/family-editor-display";
+import { NonBirthChildIndicator } from "@/components/admin/NonBirthChildIndicator";
 
 const RELATIONSHIP_OPTIONS = [
   { value: "biological", label: "Biological" },
@@ -29,8 +30,9 @@ const RELATIONSHIP_OPTIONS = [
 ];
 
 export type FamilyEditorChildrenTabPanelProps = {
-  mode: "create" | "edit";
   familyChildren: FamilyEditChildRow[];
+  /** From family `parentChildRels`: show non-birth icon next to matching children. */
+  childNonBirthById: Map<string, boolean>;
   pending: boolean;
   onRemoveChild: (childId: string) => void | Promise<void>;
   childAddStep: FamilyMemberAddStep | null;
@@ -56,10 +58,12 @@ function ChildRow({
   child,
   pending,
   onRemove,
+  nonBirthChild,
 }: {
   child: NonNullable<FamilyEditChildRow["child"]>;
   pending: boolean;
   onRemove: () => void;
+  nonBirthChild?: boolean;
 }) {
   const label = stripSlashesFromName(child.fullName) || child.xref || child.id;
   const initials = initialsFromDisplayName(child.fullName, child.id);
@@ -74,7 +78,10 @@ function ChildRow({
         {initials}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-foreground">{label}</p>
+        <p className="flex min-w-0 items-center gap-1.5 truncate font-medium text-foreground">
+          {nonBirthChild ? <NonBirthChildIndicator className="shrink-0" /> : null}
+          <span className="truncate">{label}</span>
+        </p>
         <p className="text-sm text-muted-foreground">{metaParts.join(" · ")}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -105,8 +112,8 @@ function ChildRow({
 }
 
 export function FamilyEditorChildrenTabPanel({
-  mode,
   familyChildren,
+  childNonBirthById,
   pending,
   onRemoveChild,
   childAddStep,
@@ -138,7 +145,12 @@ export function FamilyEditorChildrenTabPanel({
             if (!c?.id) return null;
             return (
               <li key={c.id}>
-                <ChildRow child={c} pending={pending} onRemove={() => void onRemoveChild(c.id)} />
+                <ChildRow
+                  child={c}
+                  pending={pending}
+                  onRemove={() => void onRemoveChild(c.id)}
+                  nonBirthChild={childNonBirthById.get(c.id)}
+                />
               </li>
             );
           })}
@@ -271,9 +283,8 @@ export function FamilyEditorChildrenTabPanel({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {mode === "create"
-                  ? "Creates the person only. After you create the family record, add them with Add child if they are not linked yet."
-                  : "Creates a minimal person and links them as a child."}
+                Creates a minimal person and links them as a child of this family (including while adding a new
+                family).
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
@@ -313,7 +324,7 @@ export function FamilyEditorChildrenTabPanel({
               <KeyFactSection title="Birth (optional)" fact={miniChild.birth} onChange={(n) => setMiniBirth("child", n)} />
               <KeyFactSection title="Death (optional)" fact={miniChild.death} onChange={(n) => setMiniDeath("child", n)} />
               <Button type="button" disabled={pending} className="w-full sm:w-auto" onClick={() => void onCreateChild()}>
-                {mode === "create" ? "Create person" : "Create and add child"}
+                Create and add child
               </Button>
             </div>
           )}

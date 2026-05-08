@@ -9,6 +9,7 @@ import {
   adminNotesWhereSql,
   hasStructuredNoteFilters,
   parseIsTopLevelParam,
+  parseNoteLinkedEntityIdParam,
   type AdminNotesStructuredFilters,
 } from "@/lib/admin/admin-notes-filter";
 import {
@@ -57,6 +58,9 @@ function parseStructuredFromSearchParams(searchParams: URLSearchParams): AdminNo
     contentContains: cc || null,
     linkedGiven: cg || null,
     linkedLast: cl || null,
+    linkedIndividualId: parseNoteLinkedEntityIdParam(searchParams, "linkedIndividualId"),
+    linkedFamilyId: parseNoteLinkedEntityIdParam(searchParams, "linkedFamilyId"),
+    linkedEventId: parseNoteLinkedEntityIdParam(searchParams, "linkedEventId"),
   };
 }
 

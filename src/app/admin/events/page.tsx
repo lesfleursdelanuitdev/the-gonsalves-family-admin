@@ -238,12 +238,27 @@ function buildEventsConfig(
   };
 }
 
+function countActiveEventFilters(f: FilterState): number {
+  let c = 0;
+  if (f.eventType.trim()) c++;
+  if (f.customTypeContains.trim()) c++;
+  if (f.placeContains.trim()) c++;
+  if (f.dateYearMin.trim()) c++;
+  if (f.dateYearMax.trim()) c++;
+  if (f.linkType === "individual" || f.linkType === "family") c++;
+  if (f.linkedGiven.trim()) c++;
+  if (f.linkedLast.trim()) c++;
+  return c;
+}
+
 function filterStateToQueryOpts(applied: FilterState): UseAdminEventsOpts {
   const opts: UseAdminEventsOpts = {
     limit: ADMIN_LIST_MAX_LIMIT,
     offset: 0,
   };
   if (applied.eventType) opts.eventType = applied.eventType;
+  const ctc = applied.customTypeContains.trim();
+  if (ctc) opts.customTypeContains = ctc;
   const pc = applied.placeContains.trim();
   if (pc) opts.placeContains = pc;
   const dmin = applied.dateYearMin.trim();
@@ -269,10 +284,10 @@ function AdminEventsPageInner() {
   const [batchEditOpen, setBatchEditOpen] = useState(false);
   const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
   const [batchApplyKey, setBatchApplyKey] = useState<number | undefined>();
-  const { draft: filterDraft, queryOpts, updateDraft, apply, clear, replace } = useFilterState(
-    FILTER_DEFAULTS,
-    filterStateToQueryOpts,
-  );
+  const { draft: filterDraft, applied: appliedFilters, queryOpts, updateDraft, apply, clear, replace } =
+    useFilterState(FILTER_DEFAULTS, filterStateToQueryOpts);
+
+  const activeFilterCount = useMemo(() => countActiveEventFilters(appliedFilters), [appliedFilters]);
 
   const qs = searchParams.toString();
   useLayoutEffect(() => {
@@ -347,8 +362,9 @@ function AdminEventsPageInner() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
         <p className="text-muted-foreground">
-          Life events linked to people or families. Use filters to narrow by type, place, date year, and link. Applying
-          filters updates the URL so you can bookmark or open the same view from Places or Dates.
+          Life events linked to people or families. Narrow by GEDCOM event tag, optional{" "}
+          <strong>custom TYPE</strong> text (EVEN/CUST and similar), place, date year, and link. Applying filters
+          updates the URL so you can bookmark or open the same view from Places or Dates.
         </p>
       </div>
 
@@ -363,23 +379,41 @@ function AdminEventsPageInner() {
         </div>
       ) : null}
 
-      <FilterPanel onApply={applyFilters} onClear={clearFilters}>
+      <FilterPanel onApply={applyFilters} onClear={clearFilters} activeFilterCount={activeFilterCount}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="filter-event-type">Event type</Label>
-            <select
-              id="filter-event-type"
-              className={selectClassName}
-              value={filterDraft.eventType}
-              onChange={(e) => updateDraft("eventType", e.target.value)}
-            >
-              <option value="">Any</option>
-              {EVENT_TYPE_TAGS.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag} — {GEDCOM_EVENT_TYPE_LABELS[tag] ?? tag}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="filter-event-type">Event type</Label>
+              <select
+                id="filter-event-type"
+                className={selectClassName}
+                value={filterDraft.eventType}
+                onChange={(e) => updateDraft("eventType", e.target.value)}
+              >
+                <option value="">Any</option>
+                {EVENT_TYPE_TAGS.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag} — {GEDCOM_EVENT_TYPE_LABELS[tag] ?? tag}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Includes <span className="font-medium">CUST</span> and <span className="font-medium">EVEN</span> for
+                custom timelines; combine with custom TYPE below.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="filter-custom-type">Custom type (TYPE) contains</Label>
+              <Input
+                id="filter-custom-type"
+                value={filterDraft.customTypeContains}
+                onChange={(e) => updateDraft("customTypeContains", e.target.value)}
+                placeholder="e.g. Historical, Exploration, timeline"
+              />
+              <p className="text-xs text-muted-foreground">
+                Case-insensitive match on GEDCOM TYPE text stored with the event (often with EVEN or CUST).
+              </p>
+            </div>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="filter-place">Place contains</Label>

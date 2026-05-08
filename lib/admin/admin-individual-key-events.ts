@@ -6,7 +6,9 @@ import {
   parsePlaceInput,
 } from "@/lib/admin/admin-event-create";
 import type { ChangeCtx } from "@/lib/admin/changelog";
+import { syncIndividualNlDenormFields } from "@/lib/admin/sync-gedcom-nl-denorm";
 import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
+import { eventLabelFor } from "@/lib/gedcom/event-catalog-label";
 
 type Tx = Prisma.TransactionClient;
 
@@ -110,6 +112,7 @@ export async function upsertIndividualKeyFact(
   if (!parsedDate && !parsedPlace) {
     await deleteKeyEventIfExists(ctx, individualId, eventType);
     await clearIndividual();
+    await syncIndividualNlDenormFields(tx, individualId);
     return;
   }
 
@@ -130,6 +133,7 @@ export async function upsertIndividualKeyFact(
       data: {
         fileUuid,
         eventType,
+        eventLabel: eventLabelFor(eventType, ""),
         dateId,
         placeId,
         sortOrder: 0,
@@ -174,6 +178,7 @@ export async function upsertIndividualKeyFact(
       },
     });
   }
+  await syncIndividualNlDenormFields(tx, individualId);
 }
 
 /**
@@ -248,6 +253,7 @@ export async function refreshIndividualKeyFactsDenorm(
       });
     }
   }
+  await syncIndividualNlDenormFields(tx, individualId);
 }
 
 /**

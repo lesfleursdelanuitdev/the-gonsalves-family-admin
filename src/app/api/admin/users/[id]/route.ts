@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
   const { id } = await ctx.params;
@@ -51,6 +52,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
             id: true,
             xref: true,
             fullName: true,
+            ...gedcomIndividualNlDenormSelect,
             individualNameForms: {
               where: { isPrimary: true },
               take: 1,
@@ -78,6 +80,13 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
       individualXref: l.individualXref,
       individualName: ind?.fullName ?? null,
       individualNameForms: ind?.individualNameForms ?? null,
+      primarySurnameLower: ind?.primarySurnameLower ?? null,
+      birthCountry: ind?.birthCountry ?? null,
+      birthCountryLower: ind?.birthCountryLower ?? null,
+      deathCountry: ind?.deathCountry ?? null,
+      deathCountryLower: ind?.deathCountryLower ?? null,
+      ageAtDeath: ind?.ageAtDeath ?? null,
+      generationDepth: ind?.generationDepth ?? null,
       verified: l.verified,
     };
   });

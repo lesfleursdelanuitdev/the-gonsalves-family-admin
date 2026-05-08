@@ -48,6 +48,9 @@ export interface UseAdminNotesOpts {
   contentContains?: string;
   linkedGiven?: string;
   linkedLast?: string;
+  linkedIndividualId?: string;
+  linkedFamilyId?: string;
+  linkedEventId?: string;
 }
 
 function buildNotesParams(opts: UseAdminNotesOpts): URLSearchParams {
@@ -61,6 +64,9 @@ function buildNotesParams(opts: UseAdminNotesOpts): URLSearchParams {
   if (opts.contentContains) params.set("contentContains", opts.contentContains);
   if (opts.linkedGiven) params.set("linkedGiven", opts.linkedGiven);
   if (opts.linkedLast) params.set("linkedLast", opts.linkedLast);
+  if (opts.linkedIndividualId) params.set("linkedIndividualId", opts.linkedIndividualId);
+  if (opts.linkedFamilyId) params.set("linkedFamilyId", opts.linkedFamilyId);
+  if (opts.linkedEventId) params.set("linkedEventId", opts.linkedEventId);
   return params;
 }
 

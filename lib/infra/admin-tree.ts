@@ -2,7 +2,7 @@
  * Resolve the admin tree's GedcomFile UUID from env config.
  * All admin CRUD endpoints call this to scope queries to the single tree.
  */
-import { prisma } from "@/lib/database/prisma";
+import { prisma } from "../database/prisma.ts";
 
 /** Max records returned by admin list APIs when loading "all" data (single request, no pagination). */
 export const ADMIN_LIST_MAX_LIMIT = 10_000;

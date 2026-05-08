@@ -32,6 +32,16 @@ export function validateIndividualEditorSubmitSeed(seed: IndividualEditorFormSee
   }
 
   for (const row of seed.familiesAsChild) {
+    const link = row.pendingExistingParentsLink;
+    if (link?.parent1IndividualId.trim()) {
+      if (!link.relationshipToParent1.trim()) {
+        return "Add parents: choose relationship to parent 1, or remove the pending parent link.";
+      }
+      if (link.parent2IndividualId?.trim() && !link.relationshipToParent2.trim()) {
+        return "Add parents: choose relationship to parent 2, or clear the second parent.";
+      }
+      continue;
+    }
     if (!row.pendingNewParents) continue;
     const draft = row.pendingNewParents;
     if (draft.mode === "single") {
@@ -67,6 +77,14 @@ export function validateIndividualEditorSubmitSeed(seed: IndividualEditorFormSee
     if (t2.length === 0 || !s2 || !isSupportedGedcomSex(draft.parent2.sex)) {
       return "Add parents - create new people: complete parent 2 (given names, last name, and sex), or remove the row.";
     }
+  }
+
+  for (const a of seed.associates) {
+    const id = a.associateIndividualId.trim();
+    const rela = a.rela.trim();
+    if (!id && !rela) continue;
+    if (id && !rela) return "Each associate must have a relationship description (RELA).";
+    if (rela && !id) return "Pick a person for each associate row, or remove the row.";
   }
 
   for (const row of seed.familiesAsSpouse) {

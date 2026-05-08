@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/infra/api";
 import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
+import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
 import { createAdminCrudHooks } from "@/hooks/createAdminCrudHooks";
 
 export interface AdminIndividualListItem {
@@ -87,11 +88,17 @@ export const useCreateIndividual = individualsHooks.useCreate;
 export const useUpdateIndividual = individualsHooks.useUpdate;
 export const useDeleteIndividual = individualsHooks.useDelete;
 
-export function useAdminIndividualEvents(id: string) {
+export type AdminIndividualEventsResponse = {
+  events: IndividualDetailEvent[];
+  timelineSubject?: TimelineSubject;
+};
+
+export function useAdminIndividualEvents(id: string, opts?: { enabled?: boolean }) {
+  const enabled = opts?.enabled !== false && !!id;
   return useQuery({
     queryKey: [...individualsHooks.QUERY_KEY, "events", id],
-    queryFn: () => fetchJson<{ events: IndividualDetailEvent[] }>(`${individualsHooks.BASE}/${id}/events`),
-    enabled: !!id,
+    queryFn: () => fetchJson<AdminIndividualEventsResponse>(`${individualsHooks.BASE}/${id}/events`),
+    enabled,
   });
 }
 

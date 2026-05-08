@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { NoteLinkedRecordsPicker } from "@/components/admin/NoteLinkedRecordsPicker";
+import { PaginatedNoteLinkList } from "@/components/admin/PaginatedNoteLinkList";
 import { NoteContentEditor } from "@/components/admin/NoteContentEditor";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 import { EventPicker } from "@/components/admin/EventPicker";
 import { FamilySearchPicker } from "@/components/admin/FamilySearchPicker";
@@ -121,6 +123,15 @@ export function NoteForm({
   const peopleLinks = selectedLinks.filter((l) => l.kind === "individual");
   const familyLinks = selectedLinks.filter((l) => l.kind === "family");
   const eventLinks = selectedLinks.filter((l) => l.kind === "event");
+
+  const openQuestionEntityLabel = useMemo(() => {
+    const t = title.trim();
+    if (t) return t;
+    const firstLine = bodyContent.split(/\r?\n/).find((l) => l.trim())?.trim() ?? "";
+    if (firstLine) return firstLine.length > 120 ? `${firstLine.slice(0, 120)}…` : firstLine;
+    if (mode === "edit" && noteId) return noteId;
+    return "";
+  }, [title, bodyContent, mode, noteId]);
 
   const selectedIdSetByKind = (kind: SelectedNoteLink["kind"]) =>
     new Set(selectedLinks.filter((l) => l.kind === kind).map((l) => l.id));
@@ -261,12 +272,16 @@ export function NoteForm({
                     Add person
                   </Button>
                 </div>
-                {peopleLinks.map((l) => (
-                  <div key={`p-${l.id}`} className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2">
-                    <p className="text-sm">{l.label}</p>
-                    <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeLink("individual", l.id)}>×</button>
-                  </div>
-                ))}
+                <PaginatedNoteLinkList
+                  items={peopleLinks}
+                  itemKey={(l) => `p-${l.id}`}
+                  renderItem={(l) => (
+                    <div className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2">
+                      <p className="text-sm">{l.label}</p>
+                      <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeLink("individual", l.id)}>×</button>
+                    </div>
+                  )}
+                />
                 {showPeoplePicker ? (
                   <IndividualSearchPicker
                     idPrefix={`note-ind-${noteId ?? "new"}`}
@@ -287,12 +302,16 @@ export function NoteForm({
                     Add family
                   </Button>
                 </div>
-                {familyLinks.map((l) => (
-                  <div key={`f-${l.id}`} className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2">
-                    <p className="text-sm">{l.label}</p>
-                    <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeLink("family", l.id)}>×</button>
-                  </div>
-                ))}
+                <PaginatedNoteLinkList
+                  items={familyLinks}
+                  itemKey={(l) => `f-${l.id}`}
+                  renderItem={(l) => (
+                    <div className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2">
+                      <p className="text-sm">{l.label}</p>
+                      <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeLink("family", l.id)}>×</button>
+                    </div>
+                  )}
+                />
                 {showFamilyPicker ? (
                   <FamilySearchPicker
                     idPrefix={`note-fam-${noteId ?? "new"}`}
@@ -313,12 +332,16 @@ export function NoteForm({
                     Add event
                   </Button>
                 </div>
-                {eventLinks.map((l) => (
-                  <div key={`e-${l.id}`} className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2">
-                    <p className="text-sm">{l.label}</p>
-                    <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeLink("event", l.id)}>×</button>
-                  </div>
-                ))}
+                <PaginatedNoteLinkList
+                  items={eventLinks}
+                  itemKey={(l) => `e-${l.id}`}
+                  renderItem={(l) => (
+                    <div className="flex items-center justify-between rounded-md border border-base-content/10 px-3 py-2">
+                      <p className="text-sm">{l.label}</p>
+                      <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeLink("event", l.id)}>×</button>
+                    </div>
+                  )}
+                />
                 {showEventPicker ? (
                   <EventPicker
                     idPrefix={`note-ev-${noteId ?? "new"}`}
@@ -484,6 +507,25 @@ export function NoteForm({
               </Button>
             </div>
           )}
+        </section>
+
+        <section className="rounded-xl border border-base-content/10 bg-card/60 p-4 shadow-sm sm:p-6">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+              5
+            </span>
+            <div>
+              <h2 className="text-base font-semibold">Open questions</h2>
+              <p className="text-sm text-muted-foreground">Track research, attribution, or verification for this note.</p>
+            </div>
+          </div>
+          <EntityOpenQuestionsSection
+            entityType="note"
+            entityId={noteId ?? ""}
+            variant="edit"
+            entityLabel={openQuestionEntityLabel}
+            hideIntro
+          />
         </section>
 
         {mode === "edit" ? (

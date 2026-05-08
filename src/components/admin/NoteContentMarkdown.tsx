@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { cn } from "@/lib/utils";
+import { prepareNoteMarkdownForRender } from "@/lib/notes/sanitize-note-markdown";
 
 const markdownComponents: Components = {
   a: ({ href, children, ...props }) => {
@@ -28,7 +29,7 @@ export function NoteContentMarkdown({
   markdown: string;
   className?: string;
 }) {
-  const trimmed = markdown.trim();
+  const trimmed = prepareNoteMarkdownForRender(markdown).trim();
   if (!trimmed) {
     return <span className="text-muted-foreground">Empty note.</span>;
   }

@@ -52,7 +52,7 @@ state. It does not affect any other active filter.
 | **ShowSpouses(P)** | Opens the spouse drawer for P, listing all of P's spouses. |
 | **Spouse(P, S)** | Applies a spouse filter to the subtree rooted at P, restricting children to the union of P and S. |
 | **RemoveSpouse(P)** | Removes the active spouse filter at P. D(P) reverts to showing all descendants. |
-| **ShowSiblings(P)** | Opens a sibling picker for P, listing all of P's siblings. |
+| **ShowSiblings(P)** | **Show parents & siblings** on the card for P (reducer `SHOW_SIBLINGS`): opens the parents & siblings view (birth union, sibling subtrees, adoptive/other unions per API). |
 | **SelectSibling(P, S)** | Equivalent to Root(sharedParent(P, S)). Roots the tree at the shared parent of P and sibling S. |
 | **Parents(P)** | Composite action: Root(father(P)) + Spouse(father(P), mother(P)). Roots at P's father and activates the union with P's mother, showing P and all full siblings. |
 

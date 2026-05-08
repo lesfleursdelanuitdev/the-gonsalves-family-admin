@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { IndividualEditForm } from "@/components/admin/IndividualEditForm";
-import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { buttonVariants } from "@/components/ui/button";
 import { useAdminIndividual } from "@/hooks/useAdminIndividuals";
 import {
@@ -142,12 +141,6 @@ export default function AdminIndividualEditPage() {
         individualId={id}
         initialIndividual={ind}
         personLabel={personLabel}
-      />
-      <EntityOpenQuestionsSection
-        entityType="individual"
-        entityId={id}
-        variant="edit"
-        entityLabel={personLabel}
       />
     </div>
   );

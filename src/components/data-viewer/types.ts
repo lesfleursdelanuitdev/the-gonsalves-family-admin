@@ -83,6 +83,15 @@ export interface DataViewerConfig<TRecord> {
   /** Show row-selection checkboxes for bulk actions */
   enableRowSelection?: boolean;
 
+  /**
+   * When row selection is enabled, pass the checkbox into the card via {@link CardRenderProps.selection}
+   * instead of using the floating overlay. The card layout should render selection (e.g. header row).
+   */
+  embedSelectionInCard?: boolean;
+
+  /** Optional Tailwind classes for the card grid wrapper (default: responsive 1–4 columns). */
+  cardGridClassName?: string;
+
   /** Render a single card for card view */
   renderCard: (props: CardRenderProps<TRecord>) => React.ReactNode;
 

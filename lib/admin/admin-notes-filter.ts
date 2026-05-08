@@ -11,6 +11,21 @@ export interface AdminNotesStructuredFilters {
   linkedGiven: string | null;
   /** Trimmed prefix for GEDCOM slash-aware surname on linked individuals. */
   linkedLast: string | null;
+  /** Notes linked to this individual (junction `gedcom_individual_notes_v2`). */
+  linkedIndividualId: string | null;
+  /** Notes linked to this family (junction `gedcom_family_notes_v2`). */
+  linkedFamilyId: string | null;
+  /** Notes linked to this event (junction `gedcom_event_notes_v2`). */
+  linkedEventId: string | null;
+}
+
+/** UUID string for `linkedIndividualId` / `linkedFamilyId` / `linkedEventId` query params. */
+const NOTE_LINK_ENTITY_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function parseNoteLinkedEntityIdParam(searchParams: URLSearchParams, key: string): string | null {
+  const v = searchParams.get(key)?.trim() ?? "";
+  if (!v || !NOTE_LINK_ENTITY_UUID_RE.test(v)) return null;
+  return v.toLowerCase();
 }
 
 export function parseIsTopLevelParam(searchParams: URLSearchParams): boolean | null {
@@ -26,7 +41,10 @@ export function hasStructuredNoteFilters(f: AdminNotesStructuredFilters): boolea
     f.isTopLevel !== null ||
     f.contentContains ||
     f.linkedGiven ||
-    f.linkedLast
+    f.linkedLast ||
+    f.linkedIndividualId ||
+    f.linkedFamilyId ||
+    f.linkedEventId
   );
 }
 
@@ -71,6 +89,37 @@ export function adminNotesFilterConditions(
     structured.linkedLast,
   );
   if (nameExists) parts.push(nameExists);
+
+  if (structured.linkedIndividualId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_individual_notes_v2 lnk
+        WHERE lnk.note_id = n.id
+          AND lnk.file_uuid = ${fileUuid}::uuid
+          AND lnk.individual_id = ${structured.linkedIndividualId}::uuid
+      )`,
+    );
+  }
+  if (structured.linkedFamilyId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_family_notes_v2 lnk
+        WHERE lnk.note_id = n.id
+          AND lnk.file_uuid = ${fileUuid}::uuid
+          AND lnk.family_id = ${structured.linkedFamilyId}::uuid
+      )`,
+    );
+  }
+  if (structured.linkedEventId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM gedcom_event_notes_v2 lnk
+        WHERE lnk.note_id = n.id
+          AND lnk.file_uuid = ${fileUuid}::uuid
+          AND lnk.event_id = ${structured.linkedEventId}::uuid
+      )`,
+    );
+  }
 
   return parts;
 }

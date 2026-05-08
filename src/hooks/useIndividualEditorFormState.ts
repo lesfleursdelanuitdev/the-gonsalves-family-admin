@@ -13,6 +13,7 @@ import {
   familyChildrenToSummaries,
   individualDetailToFormSeed,
   keyFactToApiValue,
+  newAssociateFormRow,
   newEmptyNameFormEditorRow,
   previewFullNameFromParts,
   spouseFamilyRowFromFamilyRecord,
@@ -24,10 +25,11 @@ import {
   type SurnameFormRow,
 } from "@/lib/forms/individual-editor-form";
 import { FAMILY_PARTNER_1_LABEL, FAMILY_PARTNER_2_LABEL } from "@/lib/gedcom/family-partner-slots";
+import { individualSearchDisplayName } from "@/lib/gedcom/individual-search-display";
 import { fetchJson } from "@/lib/infra/api";
 import { INDIVIDUAL_DETAIL_EVENTS_PAGE_SIZE } from "@/constants/admin";
 import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
-import { useAdminIndividualEvents } from "@/hooks/useAdminIndividuals";
+import { useAdminIndividualEvents, type AdminIndividualListItem } from "@/hooks/useAdminIndividuals";
 
 const STABLE_EMPTY_TIMELINE_EVENTS: IndividualDetailEvent[] = [];
 
@@ -51,8 +53,7 @@ function useIndividualEditorUiState() {
   >([]);
   const [spouseAddChildExistingSearch, setSpouseAddChildExistingSearch] = useState<{
     rowIndex: number;
-    partnerGiven: string;
-    partnerLast: string;
+    nameQuery: string;
   } | null>(null);
   const [childFamilySearchSlots, setChildFamilySearchSlots] = useState<ChildFamilySearchSlot[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -228,6 +229,7 @@ function useIndividualEditorDerivedState(seed: IndividualEditorFormSeed, individ
     (r) => (r.pendingSpouseFamilyChildren?.length ?? 0) > 0,
   );
   const hasPendingNewParentsChild = seed.familiesAsChild.some((r) => {
+    if (r.pendingExistingParentsLink?.parent1IndividualId.trim()) return true;
     if (!r.pendingNewParents) return false;
     const d = r.pendingNewParents;
     if (d.mode === "single") {
@@ -722,6 +724,7 @@ export function useIndividualEditorFormState({
           delete next.parentWifeId;
           delete next.childrenInFamily;
           delete next.pendingNewParents;
+          delete next.pendingExistingParentsLink;
         }
         return next;
       }),
@@ -729,6 +732,45 @@ export function useIndividualEditorFormState({
   };
   const removeChildRow = (i: number) =>
     setSeed((s) => ({ ...s, familiesAsChild: s.familiesAsChild.filter((_, j) => j !== i) }));
+
+  const appendFamiliesAsChildRow = useCallback((row: ChildFamilyFormRow) => {
+    setSeed((s) => ({ ...s, familiesAsChild: [...s.familiesAsChild, row] }));
+  }, []);
+
+  const mergeFamiliesAsChild = useCallback((fn: (prev: ChildFamilyFormRow[]) => ChildFamilyFormRow[]) => {
+    setSeed((s) => ({ ...s, familiesAsChild: fn(s.familiesAsChild) }));
+  }, []);
+
+  const addAssociateRow = useCallback(() => {
+    setSeed((s) => ({ ...s, associates: [...s.associates, newAssociateFormRow()] }));
+  }, []);
+
+  const removeAssociateRow = useCallback((i: number) => {
+    setSeed((s) => ({ ...s, associates: s.associates.filter((_, j) => j !== i) }));
+  }, []);
+
+  const setAssociateRela = useCallback((i: number, rela: string) => {
+    setSeed((s) => ({
+      ...s,
+      associates: s.associates.map((r, j) => (j === i ? { ...r, rela } : r)),
+    }));
+  }, []);
+
+  const pickAssociateForRow = useCallback((i: number, ind: AdminIndividualListItem) => {
+    const label = individualSearchDisplayName(ind);
+    setSeed((s) => ({
+      ...s,
+      associates: s.associates.map((r, j) =>
+        j === i
+          ? {
+              ...r,
+              associateIndividualId: ind.id,
+              associateDisplayLabel: label,
+            }
+          : r,
+      ),
+    }));
+  }, []);
 
   return {
     seed,
@@ -784,6 +826,12 @@ export function useIndividualEditorFormState({
     addChildSingleNewParentDraftRow,
     updateChildRow,
     removeChildRow,
+    appendFamiliesAsChildRow,
+    mergeFamiliesAsChild,
+    addAssociateRow,
+    removeAssociateRow,
+    setAssociateRela,
+    pickAssociateForRow,
     spouseSlotHelp,
     hasPendingNewSpouseFamily,
     hasPendingSpouseFamilyChildAdds,

@@ -15,6 +15,7 @@ import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { refreshFamilyDivorceDenorm, refreshFamilyMarriageDenorm } from "@/lib/admin/admin-family-marriage";
 import { ADMIN_EVENT_DETAIL_INCLUDE } from "@/app/api/admin/events/event-admin-detail-include";
 import { ensureMediaDatePlaceFromEventIds } from "@/lib/admin/ensure-media-date-place-from-event";
+import { eventLabelFor } from "@/lib/gedcom/event-catalog-label";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
   const { id } = await ctx.params;
@@ -192,6 +193,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
         data: {
           eventType,
           customType,
+          eventLabel: eventLabelFor(eventType, customType ?? ""),
           value,
           cause,
           agency,

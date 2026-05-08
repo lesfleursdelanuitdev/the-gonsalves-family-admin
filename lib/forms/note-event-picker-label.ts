@@ -1,5 +1,5 @@
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel, labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
 import type { AdminEventListItem } from "@/hooks/useAdminEvents";
 
 const INDIVIDUAL_OF_TYPES = new Set([
@@ -20,8 +20,7 @@ const INDIVIDUAL_OF_TYPES = new Set([
 export function formatNoteEventPickerLabel(ev: AdminEventListItem): string {
   const typeTag = (ev.eventType ?? "").toUpperCase().trim();
   const typeWord = labelGedcomEventType(ev.eventType ?? "");
-  const custom = (ev.customType ?? "").trim();
-  const typePart = custom ? `${typeWord} (${custom})` : typeWord;
+  const typePart = formatNoteLinkedEventLabel(ev.eventType ?? "", ev.customType ?? null);
 
   const ind = ev.individualEvents?.[0]?.individual;
   if (ind) {

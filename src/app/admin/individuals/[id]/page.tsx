@@ -28,6 +28,13 @@ import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMedia
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
+import {
+  buildChildNonBirthIndicatorMap,
+  summarizePedigreeForChildInFamily,
+  type ParentChildEdgeForPedigree,
+  type ParentChildRelForChildIndicator,
+} from "@/lib/gedcom/pedigree-display";
+import { NonBirthChildIndicator } from "@/components/admin/NonBirthChildIndicator";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   individual: "Self",
@@ -72,7 +79,7 @@ type IndiChild = {
   individualNameForms?: Parameters<typeof formatDisplayNameFromNameForms>[0];
 };
 
-function PersonLink({ person }: { person: IndiChild }) {
+function PersonLink({ person, nonBirthChild }: { person: IndiChild; nonBirthChild?: boolean }) {
   const name =
     formatDisplayNameFromNameForms(person.individualNameForms, person.fullName) ||
     person.xref ||
@@ -80,6 +87,7 @@ function PersonLink({ person }: { person: IndiChild }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <SexIcon sex={person.sex} />
+      {nonBirthChild ? <NonBirthChildIndicator /> : null}
       <Link href={`/admin/individuals/${person.id}`} className="link link-primary font-medium">
         {name}
       </Link>
@@ -221,8 +229,10 @@ export default function AdminIndividualViewPage() {
   const media = (ind?.individualMedia as { media: Record<string, unknown> }[]) ?? [];
 
   const familiesAsChild = (ind?.familyChildAsChild as { family: Record<string, unknown> }[]) ?? [];
+  const parentAsChildEdges = (ind?.parentAsChild as ParentChildEdgeForPedigree[]) ?? [];
   const husbandFams = (ind?.husbandInFamilies as Record<string, unknown>[]) ?? [];
   const wifeFams = (ind?.wifeInFamilies as Record<string, unknown>[]) ?? [];
+  const associationsAsSubject = (ind?.associationsAsSubject as Record<string, unknown>[]) ?? [];
 
   const profileMediaSelection = (ind?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
   const headerProfilePhotoUrl = useMemo(
@@ -388,6 +398,18 @@ export default function AdminIndividualViewPage() {
               const h = fam.husband as IndiChild | null;
               const w = fam.wife as IndiChild | null;
               const kids = (fam.familyChildren as { child: IndiChild }[] | undefined) ?? [];
+              const childNonBirth = buildChildNonBirthIndicatorMap(
+                (fam.parentChildRels as ParentChildRelForChildIndicator[]) ?? [],
+                famId,
+                h?.id,
+                w?.id,
+              );
+              const pedigreeSummary = summarizePedigreeForChildInFamily(
+                parentAsChildEdges,
+                famId,
+                h?.id,
+                w?.id,
+              );
               return (
                 <div key={famId} className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 shadow-sm shadow-black/15 text-sm">
                   <p className="mb-2 font-mono text-xs">
@@ -396,6 +418,12 @@ export default function AdminIndividualViewPage() {
                       {famXref || famId}
                     </Link>
                   </p>
+                  <div className="mb-3 rounded-md border border-base-content/10 bg-base-200/25 px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Relationship to parents
+                    </p>
+                    <p className="text-sm text-foreground">{pedigreeSummary}</p>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <p className="text-xs text-muted-foreground">Parent</p>
@@ -409,7 +437,7 @@ export default function AdminIndividualViewPage() {
                   <PaginatedFamilyChildrenList
                     rows={kids}
                     label="Children in family"
-                    renderLink={(c) => <PersonLink person={c} />}
+                    renderLink={(c) => <PersonLink person={c} nonBirthChild={childNonBirth.get(c.id)} />}
                   />
                 </div>
               );
@@ -430,7 +458,14 @@ export default function AdminIndividualViewPage() {
               {husbandFams.map((fam) => {
                 const f = fam as Record<string, unknown>;
                 const spouse = f.wife as IndiChild | null;
+                const husband = f.husband as IndiChild | null;
                 const kids = (f.familyChildren as { child: IndiChild }[] | undefined) ?? [];
+                const childNonBirth = buildChildNonBirthIndicatorMap(
+                  (f.parentChildRels as ParentChildRelForChildIndicator[]) ?? [],
+                  f.id as string,
+                  husband?.id,
+                  spouse?.id,
+                );
                 return (
                   <FamilySpouseBlock
                     key={f.id as string}
@@ -438,13 +473,21 @@ export default function AdminIndividualViewPage() {
                     familyXref={(f.xref as string) ?? ""}
                     spouse={spouse}
                     childRows={kids}
+                    childNonBirth={childNonBirth}
                   />
                 );
               })}
               {wifeFams.map((fam) => {
                 const f = fam as Record<string, unknown>;
                 const spouse = f.husband as IndiChild | null;
+                const wife = f.wife as IndiChild | null;
                 const kids = (f.familyChildren as { child: IndiChild }[] | undefined) ?? [];
+                const childNonBirth = buildChildNonBirthIndicatorMap(
+                  (f.parentChildRels as ParentChildRelForChildIndicator[]) ?? [],
+                  f.id as string,
+                  spouse?.id,
+                  wife?.id,
+                );
                 return (
                   <FamilySpouseBlock
                     key={f.id as string}
@@ -452,6 +495,7 @@ export default function AdminIndividualViewPage() {
                     familyXref={(f.xref as string) ?? ""}
                     spouse={spouse}
                     childRows={kids}
+                    childNonBirth={childNonBirth}
                   />
                 );
               })}
@@ -505,6 +549,63 @@ export default function AdminIndividualViewPage() {
                       <span className="font-mono">{u.username}</span>
                       {u.email ? ` · ${u.email}` : null}
                     </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg">Associates</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              GEDCOM <code className="text-xs">ASSO</code> links (not parents, spouses, or children).
+            </p>
+          </div>
+          {id ? (
+            <Link
+              href={`/admin/individuals/${encodeURIComponent(id)}/edit#person-associates`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+            >
+              Edit associates
+            </Link>
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          {associationsAsSubject.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No associates recorded.</p>
+          ) : (
+            <ul className="space-y-3">
+              {associationsAsSubject.map((row) => {
+                const assoc = row.associateIndividual as Record<string, unknown> | undefined;
+                const aid = typeof assoc?.id === "string" ? assoc.id : "";
+                const name =
+                  formatDisplayNameFromNameForms(
+                    (assoc?.individualNameForms as Parameters<typeof formatDisplayNameFromNameForms>[0]) ?? [],
+                    (assoc?.fullName as string) ?? null,
+                  ) ||
+                  (assoc?.xref as string) ||
+                  aid;
+                const rela = typeof row.rela === "string" ? row.rela.trim() : "";
+                return (
+                  <li
+                    key={typeof row.id === "string" ? row.id : `${aid}-${rela}`}
+                    className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <span className="text-muted-foreground">{rela || "—"}</span>
+                      <span className="text-muted-foreground">→</span>
+                      {aid ? (
+                        <Link href={`/admin/individuals/${aid}`} className="link link-primary font-medium">
+                          {name}
+                        </Link>
+                      ) : (
+                        <span>{name}</span>
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -675,11 +776,13 @@ function FamilySpouseBlock({
   familyXref,
   spouse,
   childRows,
+  childNonBirth,
 }: {
   familyId: string;
   familyXref: string;
   spouse: IndiChild | null;
   childRows: { child: IndiChild }[];
+  childNonBirth: Map<string, boolean>;
 }) {
   return (
     <div className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 shadow-sm shadow-black/15 text-sm">
@@ -696,7 +799,7 @@ function FamilySpouseBlock({
       <PaginatedFamilyChildrenList
         rows={childRows}
         label="Children"
-        renderLink={(c) => <PersonLink person={c} />}
+        renderLink={(c) => <PersonLink person={c} nonBirthChild={childNonBirth.get(c.id)} />}
       />
     </div>
   );

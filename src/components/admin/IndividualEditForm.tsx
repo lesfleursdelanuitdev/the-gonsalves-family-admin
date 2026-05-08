@@ -2,7 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CalendarDays, CaseSensitive, Cog, Image, Lightbulb, StickyNote, User, Users } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  CaseSensitive,
+  CircleHelp,
+  Cog,
+  Image,
+  Lightbulb,
+  Link2,
+  StickyNote,
+  User,
+  Users,
+} from "lucide-react";
+import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { IndividualEditorNotesTabPanel } from "@/components/admin/individual-editor/IndividualEditorNotesTabPanel";
 import type { ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import { IndividualEditorMediaTabPanel } from "@/components/admin/individual-editor/IndividualEditorMediaTabPanel";
@@ -11,6 +24,7 @@ import { IndividualEditorNamesTabPanel } from "@/components/admin/individual-edi
 import { IndividualEditorEventsTabPanel } from "@/components/admin/individual-editor/IndividualEditorEventsTabPanel";
 import { IndividualEditorSpouseTabPanel } from "@/components/admin/individual-editor/IndividualEditorSpouseTabPanel";
 import { IndividualEditorChildTabPanel } from "@/components/admin/individual-editor/IndividualEditorChildTabPanel";
+import { IndividualEditorAddChildSection } from "@/components/admin/individual-editor/IndividualEditorAddChildSection";
 import { PersonEditorAdvancedFields } from "@/components/admin/individual-editor/PersonEditorAdvancedFields";
 import { PersonEditorBasicFields } from "@/components/admin/individual-editor/PersonEditorBasicFields";
 import { PersonEditorLayout } from "@/components/admin/individual-editor/PersonEditorLayout";
@@ -23,14 +37,17 @@ import { PersonEditorResponsiveSection } from "@/components/admin/individual-edi
 import { PersonEditorSidebarNav } from "@/components/admin/individual-editor/PersonEditorSidebarNav";
 import { PersonEditorStickySaveBar } from "@/components/admin/individual-editor/PersonEditorStickySaveBar";
 import {
+  personEditorAssociatesSummary,
   personEditorBasicSummary,
   personEditorLifeEventsSummary,
   personEditorMediaSummary,
   personEditorNamesSummary,
   personEditorNotesSummary,
+  countChildrenAcrossSpouseFamilies,
   personEditorRelationshipsSummary,
   personEditorSourcesSummary,
 } from "@/components/admin/individual-editor/person-editor-mobile-summaries";
+import { IndividualEditorAssociatesSection } from "@/components/admin/individual-editor/IndividualEditorAssociatesSection";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { useIndividualEditorFormState } from "@/hooks/useIndividualEditorFormState";
 import { useIndividualEditorInitialJoins } from "@/hooks/useIndividualEditorInitialJoins";
@@ -166,16 +183,30 @@ export function IndividualEditForm(props: Props) {
     () => personEditorLifeEventsSummary(editor.seed.birth, editor.seed.death),
     [editor.seed.birth, editor.seed.death],
   );
-  const relSummary = useMemo(
-    () =>
-      personEditorRelationshipsSummary(
-        editor.seed.familiesAsChild.length,
-        editor.seed.familiesAsSpouse.length,
-      ),
-    [editor.seed.familiesAsChild.length, editor.seed.familiesAsSpouse.length],
+  const relSummary = useMemo(() => {
+    const childCount = countChildrenAcrossSpouseFamilies(editor.seed.familiesAsSpouse, individualId);
+    return personEditorRelationshipsSummary(
+      editor.seed.familiesAsChild.length,
+      editor.seed.familiesAsSpouse.length,
+      childCount,
+    );
+  }, [editor.seed.familiesAsChild.length, editor.seed.familiesAsSpouse, individualId]);
+
+  const assocSummary = useMemo(
+    () => personEditorAssociatesSummary(editor.seed.associates.filter((a) => a.associateIndividualId.trim()).length),
+    [editor.seed.associates],
   );
 
   const advancedSummary = "GEDCOM and technical fields";
+  const openQuestionsSummary = "Add new or link existing";
+
+  const openQuestionEntityLabel = useMemo(() => {
+    const fromForm = [firstNamesDisplay, lastNameDisplay].filter(Boolean).join(" ").trim();
+    if (mode === "edit" && personLabel) return personLabel;
+    if (fromForm) return fromForm;
+    if (mode === "edit" && individualId) return individualId;
+    return "";
+  }, [mode, personLabel, firstNamesDisplay, lastNameDisplay, individualId]);
 
   const advancedBody = (
     <PersonEditorAdvancedFields
@@ -267,12 +298,16 @@ export function IndividualEditForm(props: Props) {
         removeChildRow={editor.removeChildRow}
         addChildRow={editor.addChildRow}
         enrichChildFamilyPick={editor.enrichChildFamilyPick}
-        addChildNewParentsDraftRow={editor.addChildNewParentsDraftRow}
-        addChildSingleNewParentDraftRow={editor.addChildSingleNewParentDraftRow}
         childFamilySearchSlots={editor.childFamilySearchSlots}
         setChildFamilySearchSlots={editor.setChildFamilySearchSlots}
         excludedChildSpouseFamilyIds={editor.excludedChildSpouseFamilyIds}
         spouseLinkOptionsForNewParent={editor.spouseLinkOptionsForNewParent}
+        mergeFamiliesAsChild={editor.mergeFamiliesAsChild}
+        subjectDisplayName={
+          personLabel?.trim() ||
+          [firstNamesDisplay, lastNameDisplay].filter(Boolean).join(" ").trim() ||
+          undefined
+        }
       />
       <div className="border-t border-base-content/10 pt-8 lg:pt-8">
         <IndividualEditorSpouseTabPanel
@@ -298,9 +333,29 @@ export function IndividualEditForm(props: Props) {
           setSpouseAddChildExistingSearch={editor.setSpouseAddChildExistingSearch}
           excludedChildSpouseFamilyIds={editor.excludedChildSpouseFamilyIds}
           excludedSpousePartnerIndividualIds={editor.excludedSpousePartnerIndividualIds}
+          omitInlineChildrenUi={mode === "edit"}
+        />
+      </div>
+      <div className="border-t border-base-content/10 pt-8 lg:pt-10">
+        <IndividualEditorAddChildSection
+          mode={mode}
+          individualId={individualId}
+          familiesAsSpouse={editor.seed.familiesAsSpouse}
         />
       </div>
     </div>
+  );
+
+  const associatesBody = (
+    <IndividualEditorAssociatesSection
+      mode={mode}
+      associates={editor.seed.associates}
+      subjectIndividualId={individualId}
+      onAddRow={editor.addAssociateRow}
+      onRemoveRow={editor.removeAssociateRow}
+      onChangeRela={editor.setAssociateRela}
+      onPickAssociate={editor.pickAssociateForRow}
+    />
   );
 
   const notesBody = (
@@ -311,6 +366,9 @@ export function IndividualEditForm(props: Props) {
       individualId={individualId}
       individualNewEventLabel={editor.individualNewEventLabel}
       individualNotes={individualNotes}
+      onNotesChanged={() => {
+        router.refresh();
+      }}
     />
   );
 
@@ -339,6 +397,16 @@ export function IndividualEditForm(props: Props) {
       noCardShell
       mode={mode}
       individualSources={individualSources}
+    />
+  );
+
+  const openQuestionsBody = (
+    <EntityOpenQuestionsSection
+      entityType="individual"
+      entityId={individualId}
+      variant="edit"
+      entityLabel={openQuestionEntityLabel}
+      hideIntro
     />
   );
 
@@ -397,6 +465,19 @@ export function IndividualEditForm(props: Props) {
         {relationshipsBody}
       </PersonEditorResponsiveSection>
       <PersonEditorResponsiveSection
+        id="person-associates"
+        sectionKey="person-associates"
+        title="Associates"
+        description="Non-lineage GEDCOM links: godparents, neighbors, witnesses, and similar roles."
+        icon={Link2}
+        summary={assocSummary}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        {associatesBody}
+      </PersonEditorResponsiveSection>
+      <PersonEditorResponsiveSection
         id="person-notes"
         sectionKey="person-notes"
         title="Notes"
@@ -434,6 +515,19 @@ export function IndividualEditForm(props: Props) {
         onMobileToggle={onMobileToggle}
       >
         {sourcesBody}
+      </PersonEditorResponsiveSection>
+      <PersonEditorResponsiveSection
+        id="person-open-questions"
+        sectionKey="person-open-questions"
+        title="Open questions"
+        description="Track research, attribution, or verification for this person."
+        icon={CircleHelp}
+        summary={openQuestionsSummary}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        {openQuestionsBody}
       </PersonEditorResponsiveSection>
       <PersonEditorResponsiveSection
         id="person-advanced"

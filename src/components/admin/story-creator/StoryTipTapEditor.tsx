@@ -113,6 +113,7 @@ function StoryTipTapEditorInner({
   verseSpacing,
   headingLevel,
   remountKey,
+  syncGlobalToolbarSelection = false,
 }: {
   content: unknown;
   onChange: (json: JSONContent) => void;
@@ -132,6 +133,11 @@ function StoryTipTapEditorInner({
   headingLevel?: number;
   /** Same as parent `editorKey` — resets list auto-focus once per mounted block. */
   remountKey: string;
+  /**
+   * When true and this editor is wrapped in {@link StoryTiptapActiveEditorProvider}, wire the global
+   * formatting bar to this instance (focus + notify) whenever story chrome selects this rich-text block.
+   */
+  syncGlobalToolbarSelection?: boolean;
 }) {
   const canvasTone = useStoryTipTapCanvasTone();
   const tiptapChrome = useStoryTiptapActiveEditorOptional();
@@ -205,6 +211,18 @@ function StoryTipTapEditorInner({
     return () => cancelAnimationFrame(id);
   }, [editor, editable, richTextPreset, listVariant, content, remountKey]);
 
+  useLayoutEffect(() => {
+    if (!syncGlobalToolbarSelection || !editor || !editable) return;
+    const chrome = tiptapChromeRef.current;
+    if (!chrome) return;
+    const id = requestAnimationFrame(() => {
+      if (editor.isDestroyed) return;
+      chrome.notifyEditorFocused(editor);
+      editor.chain().focus().run();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [syncGlobalToolbarSelection, editor, editable, remountKey]);
+
   useEffect(() => {
     if (!editor || !editable) return;
     const chrome = tiptapChromeRef.current;
@@ -212,11 +230,30 @@ function StoryTipTapEditorInner({
     chrome.mountEditor(editor);
     const onFocus = () => tiptapChromeRef.current?.notifyEditorFocused(editor);
     const onBlur = () => tiptapChromeRef.current?.notifyEditorBlurred();
+    /**
+     * Mobile Safari often updates selection / taps the contenteditable without firing `focus`
+     * in the same order as desktop; keep the global toolbar wired to the editor that actually
+     * has an active selection + DOM focus.
+     */
+    const onSelectionUpdate = () => {
+      const c = tiptapChromeRef.current;
+      if (!c || editor.isDestroyed) return;
+      if (editor.view.hasFocus()) {
+        c.notifyEditorFocused(editor);
+        return;
+      }
+      const ae = document.activeElement;
+      if (ae instanceof Node && editor.view.dom.contains(ae)) {
+        c.notifyEditorFocused(editor);
+      }
+    };
     editor.on("focus", onFocus);
     editor.on("blur", onBlur);
+    editor.on("selectionUpdate", onSelectionUpdate);
     return () => {
       editor.off("focus", onFocus);
       editor.off("blur", onBlur);
+      editor.off("selectionUpdate", onSelectionUpdate);
       tiptapChromeRef.current?.unmountEditor(editor);
     };
   }, [editor, editable]);
@@ -322,6 +359,7 @@ export function StoryTipTapEditor({
   quoteStyle,
   verseSpacing,
   headingLevel,
+  syncGlobalToolbarSelection,
 }: {
   editorKey: string;
   content: unknown;
@@ -336,6 +374,7 @@ export function StoryTipTapEditor({
   quoteStyle?: "simple" | "card";
   verseSpacing?: "compact" | "relaxed";
   headingLevel?: number;
+  syncGlobalToolbarSelection?: boolean;
 }) {
   return (
     <StoryTipTapEditorInner
@@ -353,6 +392,7 @@ export function StoryTipTapEditor({
       quoteStyle={quoteStyle}
       verseSpacing={verseSpacing}
       headingLevel={headingLevel}
+      syncGlobalToolbarSelection={syncGlobalToolbarSelection}
     />
   );
 }

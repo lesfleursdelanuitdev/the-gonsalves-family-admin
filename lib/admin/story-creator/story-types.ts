@@ -100,12 +100,12 @@ export type StoryRichTextBlock = {
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
-  /**
-   * Canonical semantic preset (paragraph, heading, list, quote, verse).
-   * When migrating older drafts, mirrors legacy {@link StoryRichTextBlock.textPreset}.
-   */
+  /** Canonical semantic preset (paragraph, heading, list, quote, verse). New writes use this only. */
   preset?: StoryRichTextTextPreset;
-  /** @deprecated Prefer {@link StoryRichTextBlock.preset}; kept for older JSON until migration runs. */
+  /**
+   * @deprecated Legacy alias of {@link StoryRichTextBlock.preset}. Still read by {@link getStoryRichTextPreset};
+   * migration and patches strip it in favor of `preset`.
+   */
   textPreset?: StoryRichTextTextPreset;
   /** When preset is `heading`, semantic level (mirrors TipTap `heading` attrs.level, h1–h6). */
   headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
@@ -333,10 +333,11 @@ export type StoryContainerBlockProps = {
   align?: "left" | "center" | "right";
   /** Optional row width / alignment (takes precedence over legacy `width`/`align` when set). */
   rowLayout?: StoryBlockRowLayout;
-  /** Canonical layout preset for this container. */
+  /** Canonical layout preset for this container. New writes use this only. */
   preset?: StoryContainerPreset;
   /**
-   * @deprecated Prefer {@link StoryContainerBlockProps.preset}; older JSON may only have this key.
+   * @deprecated Legacy alias of {@link StoryContainerBlockProps.preset}. Still read by {@link getStoryContainerPreset};
+   * migration and merges strip it in favor of `preset`.
    */
   containerPreset?: StoryContainerPreset;
 };
@@ -391,6 +392,10 @@ export type StorySection = {
    * Serialized to the first `StorySection` row under a chapter when the outline has nested children.
    */
   isChapter?: boolean;
+  /**
+   * Page break / discrete page for pagination and print (top-level sections; same first-row serialization as `isChapter`).
+   */
+  isPage?: boolean;
   blocks: StoryBlock[];
   children?: StorySection[];
 };

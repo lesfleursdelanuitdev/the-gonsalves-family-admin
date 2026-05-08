@@ -17,6 +17,7 @@ import {
   parseYearParam,
   type AdminIndividualsStructuredFilters,
 } from "@/lib/admin/admin-individuals-filter-sql";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 const INDIVIDUAL_SELECT = {
   id: true,
@@ -27,6 +28,7 @@ const INDIVIDUAL_SELECT = {
   deathYear: true,
   birthDateDisplay: true,
   deathDateDisplay: true,
+  ...gedcomIndividualNlDenormSelect,
   isLiving: true,
   individualNameForms: {
     where: { isPrimary: true },

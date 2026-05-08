@@ -3,6 +3,7 @@ import type {
   AddChildToSpouseFamilyPayload,
   NewChildFamilyFromNewParentsPayload,
   NewChildFamilyFromNewParentsSinglePayload,
+  NewChildFamilyLinkExistingParentsPayload,
   NewSpouseFamilyPayload,
 } from "@/lib/admin/admin-individual-editor-apply";
 import { formatDisplayNameFromNameForms, type NameFormForDisplay } from "@/lib/gedcom/display-name";
@@ -144,6 +145,20 @@ export type ChildFamilyFormRow = {
   birthOrder: string;
   /** Pending: create one or two new parents + FAM, then link this person as child on save. */
   pendingNewParents?: ChildNewParentsDraft;
+  /**
+   * Pending: on save, reuse or create a FAM from these existing individuals and link this person as child
+   * (serialized as `newChildFamiliesLinkExistingParents`).
+   */
+  pendingExistingParentsLink?: {
+    parent1IndividualId: string;
+    parent2IndividualId?: string;
+    parent1Label: string;
+    parent2Label?: string;
+    relationshipToParent1: string;
+    relationshipToParent2: string;
+    pedigreeToParent1: string;
+    pedigreeToParent2: string;
+  };
   /** From GET individual detail or family picker; omitted in PATCH body. */
   parentHusbandDisplay?: string;
   parentWifeDisplay?: string;
@@ -154,6 +169,20 @@ export type ChildFamilyFormRow = {
   /** From individual detail or GET /api/admin/families/[id] after pick; omitted in PATCH body. */
   childrenInFamily?: ChildInFamilySummary[];
 };
+
+/** Baseline row for parent-family drafts (wizard / pending states use `familyId: ""`). */
+export function newEmptyChildFamilyFormRow(): ChildFamilyFormRow {
+  return {
+    familyId: "",
+    relationshipType: "biological",
+    pedigree: "",
+    relationshipToHusband: "biological",
+    relationshipToWife: "biological",
+    pedigreeToHusband: "",
+    pedigreeToWife: "",
+    birthOrder: "",
+  };
+}
 
 /** Queued in the spouse tab; applied on save via `addChildrenToSpouseFamilies`. */
 export type PendingSpouseFamilyChildDraft =
@@ -197,6 +226,24 @@ export type SpouseFamilyFormRow = {
   pendingSpouseFamilyChildren?: PendingSpouseFamilyChildDraft[];
 };
 
+/** One GEDCOM ASSO-style link (MVP: subject is the person being edited → another individual + RELA). */
+export type AssociateFormRow = {
+  clientId: string;
+  associateIndividualId: string;
+  /** Display only; from search pick or API include. */
+  associateDisplayLabel: string;
+  rela: string;
+};
+
+export function newAssociateFormRow(): AssociateFormRow {
+  return {
+    clientId: newClientId(),
+    associateIndividualId: "",
+    associateDisplayLabel: "",
+    rela: "",
+  };
+}
+
 export type IndividualEditorFormSeed = {
   xref: string;
   sex: string;
@@ -206,6 +253,7 @@ export type IndividualEditorFormSeed = {
   livingMode: LivingMode;
   familiesAsSpouse: SpouseFamilyFormRow[];
   familiesAsChild: ChildFamilyFormRow[];
+  associates: AssociateFormRow[];
 };
 
 export function emptyKeyFactFormState(): KeyFactFormState {
@@ -574,6 +622,22 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
     byFamilyParents.set(p.familyId, arr);
   }
 
+  const assocRows = (ind.associationsAsSubject as Record<string, unknown>[] | undefined) ?? [];
+  const associates: AssociateFormRow[] = assocRows.map((row) => {
+    const assoc = row.associateIndividual as Record<string, unknown> | undefined;
+    const aid = typeof assoc?.id === "string" ? assoc.id.trim() : "";
+    const xref = typeof assoc?.xref === "string" ? assoc.xref.trim() : "";
+    const fullName = typeof assoc?.fullName === "string" ? assoc.fullName.trim() : "";
+    const rela = typeof row.rela === "string" ? row.rela : "";
+    const label = fullName || xref || aid;
+    return {
+      clientId: aid || newClientId(),
+      associateIndividualId: aid,
+      associateDisplayLabel: label,
+      rela,
+    };
+  });
+
   const familiesAsChild: ChildFamilyFormRow[] = fcRows.map((row) => {
     const fam = row.family as Record<string, unknown> | undefined;
     const fid =
@@ -649,6 +713,7 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
     livingMode: "auto",
     familiesAsSpouse,
     familiesAsChild,
+    associates,
   };
 }
 
@@ -662,6 +727,7 @@ export function emptyIndividualEditorFormSeed(): IndividualEditorFormSeed {
     livingMode: "auto",
     familiesAsSpouse: [],
     familiesAsChild: [],
+    associates: [],
   };
 }
 
@@ -704,7 +770,28 @@ export function buildEditorSubmitBody(seed: IndividualEditorFormSeed): Record<st
     });
 
   const newChildFamiliesFromNewParents: NewChildFamilyFromNewParentsPayload[] = [];
+  const newChildFamiliesLinkExistingParents: NewChildFamilyLinkExistingParentsPayload[] = [];
   for (const r of seed.familiesAsChild) {
+    const link = r.pendingExistingParentsLink;
+    if (link?.parent1IndividualId.trim()) {
+      let birthOrder: number | null = null;
+      if (r.birthOrder.trim()) {
+        const n = Math.trunc(Number(r.birthOrder));
+        if (Number.isFinite(n)) birthOrder = n;
+      }
+      newChildFamiliesLinkExistingParents.push({
+        parent1IndividualId: link.parent1IndividualId.trim(),
+        parent2IndividualId: link.parent2IndividualId?.trim() || null,
+        relationshipToParent1: link.relationshipToParent1.trim() || "biological",
+        relationshipToParent2: link.parent2IndividualId?.trim()
+          ? (link.relationshipToParent2.trim() || "biological")
+          : null,
+        pedigreeToParent1: link.pedigreeToParent1.trim() || null,
+        pedigreeToParent2: link.pedigreeToParent2.trim() || null,
+        birthOrder,
+      });
+      continue;
+    }
     const d = r.pendingNewParents;
     if (!d) continue;
     const okSex = (s: string) => s === "M" || s === "F" || s === "U" || s === "X";
@@ -865,6 +952,13 @@ export function buildEditorSubmitBody(seed: IndividualEditorFormSeed): Record<st
     ...(newSpouseFamilies.length > 0 ? { newSpouseFamilies } : {}),
     familiesAsChild,
     ...(newChildFamiliesFromNewParents.length > 0 ? { newChildFamiliesFromNewParents } : {}),
+    ...(newChildFamiliesLinkExistingParents.length > 0 ? { newChildFamiliesLinkExistingParents } : {}),
     ...(addChildrenToSpouseFamilies.length > 0 ? { addChildrenToSpouseFamilies } : {}),
+    associates: seed.associates
+      .filter((r) => r.associateIndividualId.trim() && r.rela.trim())
+      .map((r) => ({
+        associateIndividualId: r.associateIndividualId.trim(),
+        rela: r.rela.trim(),
+      })),
   };
 }

@@ -14,6 +14,6 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
     return NextResponse.json({ error: "Individual not found" }, { status: 404 });
   }
 
-  const { events } = await buildIndividualDetailEvents(prisma, row.fileUuid, row.id);
-  return NextResponse.json({ events });
+  const { events, timelineSubject } = await buildIndividualDetailEvents(prisma, row.fileUuid, row.id);
+  return NextResponse.json({ events, timelineSubject });
 });

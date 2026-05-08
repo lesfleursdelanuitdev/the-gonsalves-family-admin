@@ -118,6 +118,14 @@ export function adminEventsRawConditions(
     parts.push(Prisma.sql`e.event_type = ${filters.eventType}`);
   }
 
+  const customTypeTrim = filters.customTypeContains?.trim() || "";
+  if (customTypeTrim) {
+    const pat = `%${escapeLike(customTypeTrim)}%`;
+    parts.push(
+      Prisma.sql`(e.custom_type IS NOT NULL AND e.custom_type ILIKE ${pat} ESCAPE '\\')`,
+    );
+  }
+
   const placeTrim = filters.placeContains?.trim() || "";
   if (placeTrim) {
     const pat = `%${escapeLike(placeTrim)}%`;

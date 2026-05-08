@@ -1,7 +1,7 @@
 # Sibling-View API Plan (Verified vs Schema & Descendancy API)
 
 **Status:** Design only — no implementation yet.  
-**Purpose:** Endpoint that returns exactly what the “Show siblings” UI needs: birth union, full-sibling trees (with recursion), and other unions where the person is a child (children only, no recursion). All access is scoped by **file_uuid** for “The Gonsalves Family.”
+**Purpose:** Endpoint that returns exactly what the “Show parents & siblings” UI needs: birth union, full-sibling trees (with recursion), and other unions where the person is a child (children only, no recursion). All access is scoped by **file_uuid** for “The Gonsalves Family.”
 
 This plan has been checked against:
 - **Prisma schema:** `packages/ligneous-prisma/prisma/schema.prisma`

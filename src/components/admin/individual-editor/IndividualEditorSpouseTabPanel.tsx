@@ -52,12 +52,14 @@ export type IndividualEditorSpouseTabPanelProps = {
   setSpouseFamilySearchSlots: Dispatch<SetStateAction<SpouseFamilySearchSlot[]>>;
   spouseNewFamilyExistingSearchSlots: SpouseNewFamilyExistingSearchSlot[];
   setSpouseNewFamilyExistingSearchSlots: Dispatch<SetStateAction<SpouseNewFamilyExistingSearchSlot[]>>;
-  spouseAddChildExistingSearch: { rowIndex: number; partnerGiven: string; partnerLast: string } | null;
+  spouseAddChildExistingSearch: { rowIndex: number; nameQuery: string } | null;
   setSpouseAddChildExistingSearch: Dispatch<
-    SetStateAction<{ rowIndex: number; partnerGiven: string; partnerLast: string } | null>
+    SetStateAction<{ rowIndex: number; nameQuery: string } | null>
   >;
   excludedChildSpouseFamilyIds: ReadonlySet<string>;
   excludedSpousePartnerIndividualIds: ReadonlySet<string>;
+  /** Hide per-family children list and save-time child drafts — use the dedicated Add Child flow instead. */
+  omitInlineChildrenUi?: boolean;
 };
 
 export function IndividualEditorSpouseTabPanel({
@@ -83,6 +85,7 @@ export function IndividualEditorSpouseTabPanel({
   setSpouseAddChildExistingSearch,
   excludedChildSpouseFamilyIds,
   excludedSpousePartnerIndividualIds,
+  omitInlineChildrenUi = false,
 }: IndividualEditorSpouseTabPanelProps) {
   const [partnerAddOpen, setPartnerAddOpen] = useState(false);
 
@@ -253,6 +256,8 @@ export function IndividualEditorSpouseTabPanel({
                           </p>
                         )}
                       </div>
+                      {!omitInlineChildrenUi ? (
+                        <>
                       <div className="space-y-1">
                         <p className="text-lg font-semibold text-base-content">Children in family</p>
                         {row.childrenInFamily === undefined ? (
@@ -489,7 +494,7 @@ export function IndividualEditorSpouseTabPanel({
                               size="sm"
                               onClick={() =>
                                 setSpouseAddChildExistingSearch((cur) =>
-                                  cur?.rowIndex === i ? null : { rowIndex: i, partnerGiven: "", partnerLast: "" },
+                                  cur?.rowIndex === i ? null : { rowIndex: i, nameQuery: "" },
                                 )
                               }
                             >
@@ -539,22 +544,14 @@ export function IndividualEditorSpouseTabPanel({
                               </div>
                               <NewSpousePartnerIndividualSearch
                                 inputIdPrefix={`spouse-add-child-${i}`}
-                                partnerGiven={spouseAddChildExistingSearch.partnerGiven}
-                                partnerLast={spouseAddChildExistingSearch.partnerLast}
-                                setPartnerGiven={(v) =>
+                                nameQuery={spouseAddChildExistingSearch.nameQuery}
+                                setNameQuery={(v) =>
                                   setSpouseAddChildExistingSearch((s) =>
                                     s && s.rowIndex === i
                                       ? {
                                           ...s,
-                                          partnerGiven: typeof v === "function" ? v(s.partnerGiven) : v,
+                                          nameQuery: typeof v === "function" ? v(s.nameQuery) : v,
                                         }
-                                      : s,
-                                  )
-                                }
-                                setPartnerLast={(v) =>
-                                  setSpouseAddChildExistingSearch((s) =>
-                                    s && s.rowIndex === i
-                                      ? { ...s, partnerLast: typeof v === "function" ? v(s.partnerLast) : v }
                                       : s,
                                   )
                                 }
@@ -583,6 +580,8 @@ export function IndividualEditorSpouseTabPanel({
                             </div>
                           ) : null}
                         </div>
+                      ) : null}
+                        </>
                       ) : null}
                       <div className="grid gap-2 sm:grid-cols-1">
                         <div className="space-y-1">
@@ -742,25 +741,15 @@ export function IndividualEditorSpouseTabPanel({
                 </div>
                 <NewSpousePartnerIndividualSearch
                   inputIdPrefix={`spouse-newfam-ex-${slot.id}`}
-                  partnerGiven={slot.partnerGiven}
-                  partnerLast={slot.partnerLast}
-                  setPartnerGiven={(v) =>
+                  nameQuery={slot.nameQuery}
+                  setNameQuery={(v) =>
                     setSpouseNewFamilyExistingSearchSlots((slots) =>
                       slots.map((s) =>
                         s.id === slot.id
                           ? {
                               ...s,
-                              partnerGiven: typeof v === "function" ? v(s.partnerGiven) : v,
+                              nameQuery: typeof v === "function" ? v(s.nameQuery) : v,
                             }
-                          : s,
-                      ),
-                    )
-                  }
-                  setPartnerLast={(v) =>
-                    setSpouseNewFamilyExistingSearchSlots((slots) =>
-                      slots.map((s) =>
-                        s.id === slot.id
-                          ? { ...s, partnerLast: typeof v === "function" ? v(s.partnerLast) : v }
                           : s,
                       ),
                     )

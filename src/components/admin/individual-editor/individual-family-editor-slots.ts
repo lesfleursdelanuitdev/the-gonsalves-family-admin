@@ -22,8 +22,8 @@ export function createSpouseFamilySearchSlot(): SpouseFamilySearchSlot {
   return { id: crypto.randomUUID(), partnerGiven: "", partnerLast: "" };
 }
 
-export type SpouseNewFamilyExistingSearchSlot = { id: string; partnerGiven: string; partnerLast: string };
+export type SpouseNewFamilyExistingSearchSlot = { id: string; nameQuery: string };
 
 export function createSpouseNewFamilyExistingSearchSlot(): SpouseNewFamilyExistingSearchSlot {
-  return { id: crypto.randomUUID(), partnerGiven: "", partnerLast: "" };
+  return { id: crypto.randomUUID(), nameQuery: "" };
 }

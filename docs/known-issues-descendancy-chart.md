@@ -8,7 +8,7 @@ This document tracks known limitations and planned work for the descendancy char
 
 **Issue:** If a person is a child in a union but **not a birth child** (e.g. adopted, foster, other pedigree), we do not fully support that for:
 
-- **Show siblings** (`showSiblings`)
+- **Show parents & siblings** (`showSiblings`)
 - **Show parents** (`showParents` / `parents`)
 
 Behavior and data for non-birth children in these flows are incomplete or incorrect.
@@ -47,7 +47,7 @@ Behavior and data for non-birth children in these flows are incomplete or incorr
 
 | # | Area | Issue | Status |
 |---|------|--------|--------|
-| 1 | Data / flows | Non–birth children not fully supported for showSiblings / showParents | Known |
+| 1 | Data / flows | Non–birth children not fully supported for showSiblings (Show parents & siblings) / showParents | Known |
 | 2 | API | New endpoint needed for Show parents | Planned |
 | 3 | UX | Centering on spouse after open is buggy | Known |
 | 4 | UX | Tutorial option needed | Planned |

@@ -1,10 +1,11 @@
-import { BookOpen, FileText, Hash, Landmark, Link2 } from "lucide-react";
+import { BookOpen, CircleHelp, FileText, Hash, Landmark, Link2 } from "lucide-react";
 import type { AdminEditorNavItem } from "@/components/admin/editor-shell/AdminEditorSidebarNav";
 
 export type SourceEditorSectionId =
   | "source-main"
   | "source-repository"
   | "source-citations"
+  | "source-open-questions"
   | "source-record";
 
 export const SOURCE_EDITOR_NAV: readonly AdminEditorNavItem[] = [
@@ -25,6 +26,12 @@ export const SOURCE_EDITOR_NAV: readonly AdminEditorNavItem[] = [
     label: "Linked citations",
     description: "People, families, and events that cite this source.",
     icon: Link2,
+  },
+  {
+    id: "source-open-questions",
+    label: "Open questions",
+    description: "Research and verification for this source.",
+    icon: CircleHelp,
   },
   {
     id: "source-record",

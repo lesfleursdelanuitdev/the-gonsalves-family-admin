@@ -25,6 +25,8 @@ import { refreshIndividualKeyFactsDenorm } from "@/lib/admin/admin-individual-ke
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { refreshFamilyDivorceDenorm, refreshFamilyMarriageDenorm } from "@/lib/admin/admin-family-marriage";
 import { ensureMediaDatePlaceFromEventIds } from "@/lib/admin/ensure-media-date-place-from-event";
+import { eventLabelFor } from "@/lib/gedcom/event-catalog-label";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 const EVENT_LIST_INCLUDE = {
   date: true,
@@ -35,6 +37,7 @@ const EVENT_LIST_INCLUDE = {
         select: {
           id: true,
           fullName: true,
+          ...gedcomIndividualNlDenormSelect,
           individualNameForms: {
             where: { isPrimary: true },
             take: 1,
@@ -59,8 +62,8 @@ const EVENT_LIST_INCLUDE = {
         select: {
           id: true,
           xref: true,
-          husband: { select: { id: true, fullName: true } },
-          wife: { select: { id: true, fullName: true } },
+          husband: { select: { id: true, fullName: true, ...gedcomIndividualNlDenormSelect } },
+          wife: { select: { id: true, fullName: true, ...gedcomIndividualNlDenormSelect } },
         },
       },
     },
@@ -83,6 +86,7 @@ function parseStructuredFromSearchParams(searchParams: URLSearchParams): AdminEv
   const fpl = searchParams.get("familyPartnerLast")?.trim() || "";
   return {
     eventType: (searchParams.get("eventType") || searchParams.get("type") || "").trim() || null,
+    customTypeContains: (searchParams.get("customTypeContains") || "").trim() || null,
     placeContains: (searchParams.get("placeContains") || "").trim() || null,
     dateYearMin: parseYearParam(searchParams.get("dateYearMin")),
     dateYearMax: parseYearParam(searchParams.get("dateYearMax")),
@@ -269,6 +273,7 @@ export const POST = withAdminAuth(async (req, user, _ctx) => {
           fileUuid,
           eventType,
           customType,
+          eventLabel: eventLabelFor(eventType, customType ?? ""),
           value,
           cause,
           agency,

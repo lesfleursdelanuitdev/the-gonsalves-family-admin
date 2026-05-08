@@ -1,8 +1,10 @@
 import type {
   AddChildToSpouseFamilyPayload,
+  IndividualAssociationSyncRow,
   IndividualEditorPayload,
   NewChildFamilyFromNewParentsPayload,
   NewChildFamilyLinkAsSpousePayload,
+  NewChildFamilyLinkExistingParentsPayload,
   NewChildFamilyParentPayload,
   NewSpouseFamilyPayload,
 } from "@/lib/admin/admin-individual-editor-apply";
@@ -41,7 +43,9 @@ export const INDIVIDUAL_EDITOR_PATCH_KEYS = [
   "newSpouseFamilies",
   "familiesAsChild",
   "newChildFamiliesFromNewParents",
+  "newChildFamiliesLinkExistingParents",
   "addChildrenToSpouseFamilies",
+  "associates",
 ] as const;
 
 export function bodyHasIndividualEditorPayload(body: Record<string, unknown>): boolean {
@@ -213,6 +217,43 @@ export function parseIndividualEditorPayload(body: Record<string, unknown>): Ind
     if (ncOut.length > 0) payload.newChildFamiliesFromNewParents = ncOut;
   }
 
+  if (Array.isArray(body.newChildFamiliesLinkExistingParents)) {
+    const linkOut: NewChildFamilyLinkExistingParentsPayload[] = [];
+    for (const x of body.newChildFamiliesLinkExistingParents) {
+      if (x === null || typeof x !== "object") continue;
+      const o = x as Record<string, unknown>;
+      const parent1IndividualId = String(o.parent1IndividualId ?? "").trim();
+      if (!parent1IndividualId) continue;
+      const parent2Raw = o.parent2IndividualId;
+      const parent2IndividualId =
+        parent2Raw == null || parent2Raw === "" ? null : String(parent2Raw).trim() || null;
+      const relationshipToParent1 =
+        typeof o.relationshipToParent1 === "string" && o.relationshipToParent1.trim()
+          ? o.relationshipToParent1.trim()
+          : "biological";
+      const relationshipToParent2 =
+        typeof o.relationshipToParent2 === "string" && o.relationshipToParent2.trim()
+          ? o.relationshipToParent2.trim()
+          : null;
+      const pedigreeToParent1 =
+        typeof o.pedigreeToParent1 === "string" ? o.pedigreeToParent1.trim() || null : null;
+      const pedigreeToParent2 =
+        typeof o.pedigreeToParent2 === "string" ? o.pedigreeToParent2.trim() || null : null;
+      const birthOrder =
+        typeof o.birthOrder === "number" && Number.isFinite(o.birthOrder) ? Math.trunc(o.birthOrder) : null;
+      linkOut.push({
+        parent1IndividualId,
+        parent2IndividualId,
+        relationshipToParent1,
+        relationshipToParent2,
+        pedigreeToParent1,
+        pedigreeToParent2,
+        birthOrder,
+      });
+    }
+    if (linkOut.length > 0) payload.newChildFamiliesLinkExistingParents = linkOut;
+  }
+
   if (Array.isArray(body.addChildrenToSpouseFamilies)) {
     const acOut: AddChildToSpouseFamilyPayload[] = [];
     for (const x of body.addChildrenToSpouseFamilies) {
@@ -264,6 +305,19 @@ export function parseIndividualEditorPayload(body: Record<string, unknown>): Ind
       });
     }
     if (acOut.length > 0) payload.addChildrenToSpouseFamilies = acOut;
+  }
+
+  if (Array.isArray(body.associates)) {
+    const assoc: IndividualAssociationSyncRow[] = [];
+    for (const x of body.associates) {
+      if (x === null || typeof x !== "object") continue;
+      const o = x as Record<string, unknown>;
+      const associateIndividualId = String(o.associateIndividualId ?? "").trim();
+      const rela = typeof o.rela === "string" ? o.rela.trim() : "";
+      if (!associateIndividualId || !rela) continue;
+      assoc.push({ associateIndividualId, rela });
+    }
+    payload.associates = assoc;
   }
 
   if (!payload.nameForms?.length && payload.names) {

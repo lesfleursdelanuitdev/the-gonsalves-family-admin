@@ -1,4 +1,8 @@
-import { keyFactToApiValue, type KeyFactFormState } from "@/lib/forms/individual-editor-form";
+import {
+  emptyKeyFactFormState,
+  keyFactToApiValue,
+  type KeyFactFormState,
+} from "@/lib/forms/individual-editor-form";
 
 export type MiniIndividualFields = {
   givenNamesLine: string;
@@ -7,6 +11,16 @@ export type MiniIndividualFields = {
   birth: KeyFactFormState;
   death: KeyFactFormState;
 };
+
+export function emptyMiniIndividualFields(): MiniIndividualFields {
+  return {
+    givenNamesLine: "",
+    surnameLine: "",
+    sex: "",
+    birth: emptyKeyFactFormState(),
+    death: emptyKeyFactFormState(),
+  };
+}
 
 /**
  * Turn `/Foo/Bar/` or `Foo/Bar` into separate surname payload rows (GEDCOM-style slashes).
@@ -31,6 +45,12 @@ function parseGivenNames(line: string): string[] {
 }
 
 /** Body for `createParentAndAdd` / `createChildAndAdd` (parsed by `parseIndividualEditorPayload`). */
+/** True if at least one given-name token or one surname piece is non-empty (matches create payload rules). */
+export function miniIndividualHasNameParts(f: MiniIndividualFields): boolean {
+  const givens = f.givenNamesLine.trim().split(/\s+/).filter(Boolean);
+  return givens.length > 0 || surnameLineToPayloadRows(f.surnameLine).length > 0;
+}
+
 export function buildMiniIndividualEditorBody(f: MiniIndividualFields): Record<string, unknown> {
   const givens = parseGivenNames(f.givenNamesLine);
   const surnameRows = surnameLineToPayloadRows(f.surnameLine);

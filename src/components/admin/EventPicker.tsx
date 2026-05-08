@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/infra/api";
@@ -17,6 +17,7 @@ import { formatNoteEventPickerLabel } from "@/lib/forms/note-event-picker-label"
 import { selectClassName } from "@/components/data-viewer/constants";
 import { IndividualNameSearchFields } from "@/components/admin/IndividualNameSearchFields";
 import { FamilyPartnerSearchFields } from "@/components/admin/FamilyPartnerSearchFields";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +90,9 @@ export function EventPicker({
   partner1Legend,
   partner2Legend,
 }: EventPickerProps) {
+  const [customTypeDraft, setCustomTypeDraft] = useState("");
+  const debouncedCustomType = useDebouncedValue(customTypeDraft.trim(), ADMIN_PICKER_DEBOUNCE_MS);
+
   const debouncedIndGiven = useDebouncedValue(indGiven.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
   const debouncedIndLast = useDebouncedValue(indLast.trim(), ADMIN_PICKER_DEBOUNCE_MS);
   const debouncedP1Given = useDebouncedValue(famP1Given.trim().toLowerCase(), ADMIN_PICKER_DEBOUNCE_MS);
@@ -101,11 +105,13 @@ export function EventPicker({
   const hasIndName = !!(debouncedIndGiven || debouncedIndLast);
   const hasFamName = !!(debouncedP1Given || debouncedP1Last || debouncedP2Given || debouncedP2Last);
   const nameOk = linkScope === "individual" ? hasIndName : hasFamName;
-  const queryEnabled = typeOk && nameOk;
+  const hasCustomType = debouncedCustomType.length > 0;
+  const queryEnabled = typeOk && (nameOk || hasCustomType);
 
   const listOpts: UseAdminEventsOpts = useMemo(
     () => ({
       eventType: etTrim || undefined,
+      customTypeContains: debouncedCustomType || undefined,
       linkType: linkScope,
       linkedGiven: linkScope === "individual" ? debouncedIndGiven || undefined : undefined,
       linkedLast: linkScope === "individual" ? debouncedIndLast || undefined : undefined,
@@ -125,6 +131,7 @@ export function EventPicker({
       debouncedP1Last,
       debouncedP2Given,
       debouncedP2Last,
+      debouncedCustomType,
       limit,
     ],
   );
@@ -215,6 +222,21 @@ export function EventPicker({
         </div>
       </div>
 
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-custom-type`}>Custom type (contains)</Label>
+        <Input
+          id={`${idPrefix}-custom-type`}
+          value={customTypeDraft}
+          onChange={(e) => setCustomTypeDraft(e.target.value)}
+          placeholder="e.g. Historical, Exploration (GEDCOM TYPE)"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <p className="text-xs text-muted-foreground">
+          Matches TYPE text stored with EVEN, CUST, and similar events. Use alone or with the name filters below.
+        </p>
+      </div>
+
       {linkScope === "individual" ? (
         <IndividualNameSearchFields
           idPrefix={`${idPrefix}-ind`}
@@ -243,10 +265,10 @@ export function EventPicker({
       {!queryEnabled ? (
         <p className="text-sm text-muted-foreground">
           {requireEventType && !etTrim
-            ? "Choose an event type, then enter name filters to search."
+            ? "Choose an event type, then enter name filters and/or a custom type substring to search."
             : linkScope === "individual"
-              ? "Enter at least one of given name contains or last name prefix for the linked person."
-              : "Enter name filters for one or both partners (same rules as the families list)."}
+              ? "Enter given/last name filters for the linked person and/or a custom type substring (GEDCOM TYPE)."
+              : "Enter partner name filters and/or a custom type substring (same rules as the families list)."}
         </p>
       ) : null}
 

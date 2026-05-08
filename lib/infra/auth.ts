@@ -9,7 +9,7 @@ import { prisma } from "@/lib/database/prisma";
 
 export { ADMIN_SESSION_COOKIE };
 
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const sessionCookieOptions = {
@@ -36,7 +36,14 @@ export interface SessionUser {
   isWebsiteOwner: boolean;
 }
 
-export async function createSession(userId: string, req?: Request) {
+export type CreateSessionOptions = {
+  /** Access token lifetime (default 24h). Use longer TTL when "remember me" is checked. */
+  accessTtlMs?: number;
+};
+
+export async function createSession(userId: string, req?: Request, options?: CreateSessionOptions) {
+  const accessTtlMs = options?.accessTtlMs ?? SESSION_TTL_MS;
+  const refreshTtlMs = Math.max(REFRESH_TTL_MS, accessTtlMs);
   const token = generateToken();
   const refreshToken = generateToken();
   const now = new Date();
@@ -45,9 +52,9 @@ export async function createSession(userId: string, req?: Request) {
     data: {
       userId,
       tokenHash: sha256(token),
-      expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
+      expiresAt: new Date(now.getTime() + accessTtlMs),
       refreshTokenHash: sha256(refreshToken),
-      refreshExpiresAt: new Date(now.getTime() + REFRESH_TTL_MS),
+      refreshExpiresAt: new Date(now.getTime() + refreshTtlMs),
       ipAddress: req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
       userAgent: req?.headers.get("user-agent") ?? null,
     },
@@ -65,8 +72,16 @@ export async function createSession(userId: string, req?: Request) {
  * Attach session cookie to a Route Handler response. Prefer this over `cookies().set`
  * in `app/api/**` so Next.js reliably emits `Set-Cookie` (avoids missing session after login).
  */
-export function applySessionCookieToResponse(response: NextResponse, token: string) {
-  response.cookies.set(ADMIN_SESSION_COOKIE, token, sessionCookieOptions);
+export function applySessionCookieToResponse(
+  response: NextResponse,
+  token: string,
+  cookieMaxAgeSeconds?: number
+) {
+  const maxAge = cookieMaxAgeSeconds ?? Math.floor(SESSION_TTL_MS / 1000);
+  response.cookies.set(ADMIN_SESSION_COOKIE, token, {
+    ...sessionCookieOptions,
+    maxAge,
+  });
 }
 
 /** Clear session cookie on a Route Handler response. */

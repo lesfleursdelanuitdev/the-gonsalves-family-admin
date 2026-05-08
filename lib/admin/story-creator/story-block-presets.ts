@@ -203,7 +203,6 @@ function withRichPreset(
     ...base,
     doc,
     preset,
-    textPreset: preset,
     headingLevel: opts?.headingLevel,
     listVariant: opts?.listVariant,
   };

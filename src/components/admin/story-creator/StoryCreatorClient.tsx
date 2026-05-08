@@ -22,16 +22,17 @@ import {
   ChevronRight,
   Expand,
   FileText,
+  FolderTree,
   Globe,
   GripVertical,
   Leaf,
   Minimize2,
   Pencil,
-  PanelLeft,
   PanelRight,
   PanelRightClose,
   Loader2,
   Plus,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -56,7 +57,10 @@ import { StoryTipTapCanvasToneProvider } from "@/components/admin/story-creator/
 import { StoryDividerEditorChrome } from "@/components/admin/story-creator/StoryDividerEditorChrome";
 import { StoryEditPreviewModeToggle } from "@/components/admin/story-creator/StoryEditPreviewModeToggle";
 import { StoryTipTapEditor } from "@/components/admin/story-creator/StoryTipTapEditor";
-import { StoryTiptapActiveEditorProvider } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
+import {
+  StoryGlobalToolbarSelectionSync,
+  StoryTiptapActiveEditorProvider,
+} from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import { StoryTipTapStoryDocProvider } from "@/components/admin/story-creator/story-tiptap-story-doc-context";
 import { StoryCreatorPreview } from "@/components/admin/story-creator/story-creator-preview";
 import type { JSONContent } from "@tiptap/core";
@@ -180,12 +184,21 @@ function isStoryChromeBlockSelected(storySelection: StorySelection | null, block
   return !!storySelection && storySelection.block.id === blockId;
 }
 
+/** True when story chrome / outline targets this rich-text block, including the parent split row for main text. */
+function isStoryRichTextBlockToolbarSelected(storySelection: StorySelection | null, richTextBlockId: string): boolean {
+  if (!storySelection) return false;
+  if (isStoryChromeBlockSelected(storySelection, richTextBlockId)) return true;
+  const b = storySelection.block;
+  return b.type === "splitContent" && b.text.id === richTextBlockId;
+}
+
 function StoryCanvasRichTextEditor({
   editorKey,
   rich,
   onJson,
   isLg,
   surface = "canvas",
+  syncGlobalToolbarSelection = false,
 }: {
   editorKey: string;
   rich: StoryRichTextBlock;
@@ -193,6 +206,7 @@ function StoryCanvasRichTextEditor({
   isLg: boolean;
   /** `canvas`: flat shell inside section canvas. `card`: bordered shell when nested in containers/columns so the edit region is visible. */
   surface?: "canvas" | "card";
+  syncGlobalToolbarSelection?: boolean;
 }) {
   const preset = getStoryRichTextPreset(rich);
   return (
@@ -207,6 +221,7 @@ function StoryCanvasRichTextEditor({
       quoteStyle={rich.quoteStyle}
       verseSpacing={rich.verseSpacing}
       headingLevel={preset === "heading" ? rich.headingLevel : undefined}
+      syncGlobalToolbarSelection={syncGlobalToolbarSelection}
     />
   );
 }
@@ -607,6 +622,7 @@ function StoryNestedColumnsGrid({
             onJson={(json) => updateRichBlock(sectionId, child.id, json)}
             isLg={isLg}
             surface="card"
+            syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.id)}
           />
         );
       }
@@ -663,6 +679,7 @@ function StoryNestedColumnsGrid({
                   onJson={(json) => updateRichBlock(sectionId, child.text.id, json)}
                   isLg={isLg}
                   surface="card"
+                  syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.text.id)}
                 />
               </div>
             }
@@ -933,6 +950,7 @@ function StoryNestedColumnsGrid({
             onJson={(json) => updateRichBlock(sectionId, nested.id, json)}
             isLg={isLg}
             surface="card"
+            syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, nested.id)}
           />
         ) : nested.type === "media" ? (
           <MediaEmbedCanvasCard
@@ -994,6 +1012,7 @@ function StoryNestedColumnsGrid({
                   onJson={(json) => updateRichBlock(sectionId, nested.text.id, json)}
                   isLg={isLg}
                   surface="card"
+                  syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, nested.text.id)}
                 />
               </div>
             }
@@ -1236,6 +1255,7 @@ function StoryEditorSectionBlockCard({
             rich={block}
             onJson={(json) => updateRichBlock(sectionId, block.id, json)}
             isLg={isLg}
+            syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, block.id)}
           />
         </div>
       ) : block.type === "columns" ? (
@@ -1279,6 +1299,7 @@ function StoryEditorSectionBlockCard({
                 rich={block.text}
                 onJson={(json) => updateRichBlock(sectionId, block.text.id, json)}
                 isLg={isLg}
+                syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, block.text.id)}
               />
             </div>
           }
@@ -1500,6 +1521,10 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       setBlockSettingsSheetOpen(false);
     }
   }, [isLg, mobileShellTab]);
+
+  useEffect(() => {
+    if (!isLg && isFullscreen) setIsFullscreen(false);
+  }, [isLg, isFullscreen]);
 
   useLayoutEffect(() => {
     try {
@@ -1917,6 +1942,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     [updateDoc],
   );
 
+  const toggleSectionPage = useCallback(
+    (sectionId: string, isPage: boolean) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (s) => ({ ...s, isPage })));
+    },
+    [updateDoc],
+  );
+
   const addSectionAfter = useCallback(
     (afterSectionId: string | null) => {
       const secId = newStoryId();
@@ -2246,6 +2278,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       <StoryStructureSidebar
         doc={doc}
         activeSectionId={activeSectionId}
+        activeBlockId={selectedBlockId}
         onSelectSection={selectSectionFromOutline}
         outlineOpen
         onOutlineOpenChange={(open) => {
@@ -2261,10 +2294,12 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onToggleCollapsed={toggleSectionCollapsed}
         onMoveSection={moveSection}
         onToggleSectionChapter={toggleSectionChapter}
+        onToggleSectionPage={toggleSectionPage}
         isCompact={!isLg}
         mobileOverlay={mobileOverlay}
         onCloseMobileOverlay={mobileOverlay ? () => setMobileShellTab("add-block") : undefined}
         showCollapsedRail={Boolean(mobileOverlay)}
+        outlineSectionNavDeferMs={mobileOverlay || !isFullscreen ? 300 : undefined}
       />
     ) : null;
 
@@ -2468,7 +2503,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                         aria-label={isLeftPanelOpen ? "Hide structure panel" : "Show structure panel"}
                         onClick={() => setLeftPanelOpen((o) => !o)}
                       >
-                        <PanelLeft className="size-4 opacity-90" aria-hidden />
+                        <FolderTree className="size-4 opacity-90" aria-hidden />
                       </Button>
                       <Button
                         type="button"
@@ -2485,7 +2520,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                         {inspectorOpen ? (
                           <PanelRightClose className="size-4 opacity-90" aria-hidden />
                         ) : (
-                          <PanelRight className="size-4 opacity-90" aria-hidden />
+                          <SlidersHorizontal className="size-4 opacity-90" aria-hidden />
                         )}
                       </Button>
                     </>
@@ -2582,7 +2617,10 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                           "h-10 w-10 shrink-0 rounded-lg p-0 text-neutral-600 hover:bg-neutral-100",
                         )}
                         aria-label="Rename section"
-                        onClick={() => setOutlineRename({ kind: "section", id: activePair.section.id })}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          queueMicrotask(() => setOutlineRename({ kind: "section", id: activePair.section.id }));
+                        }}
                       >
                         <Pencil className="size-4" />
                       </button>
@@ -2717,6 +2755,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   return (
     <StoryTipTapStoryDocProvider doc={doc}>
       <StoryTiptapActiveEditorProvider toolbarDensity={isLg ? "default" : "touch"}>
+        <StoryGlobalToolbarSelectionSync selectedBlockId={selectedBlockId} selectedBlockKind={selectedBlock?.type ?? null} />
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col overflow-hidden",
@@ -2732,26 +2771,6 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
           <>
             <div className="flex flex-wrap items-center gap-2">
               <StoryCreatorBrandMark />
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <input
-                  ref={storyTitleInputRef}
-                  className="input input-ghost input-sm h-11 min-h-[44px] min-w-0 flex-1 rounded-xl border border-transparent bg-base-200/40 px-3 text-sm font-semibold text-base-content hover:border-base-content/15 focus:border-primary/35"
-                  value={doc.title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  aria-label="Story title"
-                />
-                <button
-                  type="button"
-                  className={cn(
-                    buttonVariants({ variant: "ghost", size: "sm" }),
-                    "h-11 w-11 shrink-0 rounded-xl p-0 text-base-content/60 hover:bg-base-content/[0.08]",
-                  )}
-                  aria-label="Focus story title"
-                  onClick={() => storyTitleInputRef.current?.focus()}
-                >
-                  <Pencil className="size-4" />
-                </button>
-              </div>
               {publishSplitControl({ tall: true })}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 gap-y-2">
@@ -2767,26 +2786,9 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 <span className="badge badge-outline h-6 shrink-0 border-primary/30 px-2.5 text-[11px] font-semibold text-primary">
                   {storyKindUiLabel(doc.kind)}
                 </span>
-                {headerSaveLine}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <StoryEditPreviewModeToggle mode={mode} onMode={setMode} layout="touch" />
-                {mode === "edit" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-11 min-h-[44px] w-11 shrink-0 rounded-xl border-base-content/12 p-0"
-                    title="Fullscreen writing (Esc to exit)"
-                    aria-label="Enter fullscreen writing mode"
-                    onClick={() => {
-                      setMobileShellTab("add-block");
-                      setIsFullscreen(true);
-                    }}
-                  >
-                    <Expand className="size-5 opacity-90" aria-hidden />
-                  </Button>
-                ) : null}
                 {mode === "edit" ? (
                   <>
                     <Button
@@ -2801,7 +2803,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                       aria-label="Open story structure"
                       onClick={() => setMobileShellTab((t) => (t === "structure" ? "add-block" : "structure"))}
                     >
-                      <PanelLeft className="size-5 opacity-90" aria-hidden />
+                      <FolderTree className="size-5 opacity-90" aria-hidden />
                     </Button>
                     <Button
                       type="button"
@@ -2811,14 +2813,14 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                         "h-11 min-h-[44px] w-11 shrink-0 rounded-xl border-base-content/12 p-0",
                         blockSettingsSheetOpen && "border-primary/40 bg-primary/12 text-primary ring-1 ring-primary/20",
                       )}
-                      title="Inspector"
+                      title="Block inspector"
                       aria-label="Open block inspector"
                       onClick={() => {
                         setInspectorTab("block");
                         setBlockSettingsSheetOpen((o) => !o);
                       }}
                     >
-                      <PanelRight className="size-5 opacity-90" aria-hidden />
+                      <SlidersHorizontal className="size-5 opacity-90" aria-hidden />
                     </Button>
                   </>
                 ) : null}
@@ -2870,7 +2872,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
               <StoryEditPreviewModeToggle mode={mode} onMode={setMode} layout="default" />
-              {mode === "edit" ? (
+              {mode === "edit" && isLg ? (
                 <Button
                   type="button"
                   size="sm"
@@ -2900,7 +2902,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                     aria-label={isLeftPanelOpen ? "Hide structure panel" : "Show structure panel"}
                     onClick={() => setLeftPanelOpen((o) => !o)}
                   >
-                    <PanelLeft className="size-4 opacity-90" aria-hidden />
+                    <FolderTree className="size-4 opacity-90" aria-hidden />
                   </Button>
                   <Button
                     type="button"
@@ -2917,7 +2919,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                     {inspectorOpen ? (
                       <PanelRightClose className="size-4 opacity-90" aria-hidden />
                     ) : (
-                      <PanelRight className="size-4 opacity-90" aria-hidden />
+                      <SlidersHorizontal className="size-4 opacity-90" aria-hidden />
                     )}
                   </Button>
                 </>
@@ -3294,6 +3296,7 @@ function StorySectionContainerInner({
           onJson={(json) => updateRichBlock(sectionId, child.id, json)}
           isLg={isLg}
           surface="card"
+          syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.id)}
         />
       );
     }
@@ -3348,6 +3351,7 @@ function StorySectionContainerInner({
                 onJson={(json) => updateRichBlock(sectionId, child.text.id, json)}
                 isLg={isLg}
                 surface="card"
+                syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.text.id)}
               />
             </div>
           }

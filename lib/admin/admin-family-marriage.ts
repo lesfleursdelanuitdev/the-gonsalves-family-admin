@@ -1,4 +1,5 @@
 import type { Prisma } from "@ligneous/prisma";
+import { eventLabelFor } from "@/lib/gedcom/event-catalog-label";
 import {
   findOrCreateGedcomDate,
   findOrCreateGedcomPlace,
@@ -168,6 +169,7 @@ export async function upsertFamilyMarriageFact(
       data: {
         fileUuid,
         eventType: "MARR",
+        eventLabel: eventLabelFor("MARR", ""),
         dateId,
         placeId,
         sortOrder: 0,
@@ -310,6 +312,7 @@ export async function upsertFamilyDivorceFact(
       data: {
         fileUuid,
         eventType: "DIV",
+        eventLabel: eventLabelFor("DIV", ""),
         dateId,
         placeId,
         sortOrder: 1,

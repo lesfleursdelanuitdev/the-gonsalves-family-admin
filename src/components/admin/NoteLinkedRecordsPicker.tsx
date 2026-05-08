@@ -27,6 +27,7 @@ import {
   type SelectedNoteLink,
 } from "@/lib/forms/note-form-links";
 import { cn } from "@/lib/utils";
+import { PaginatedNoteLinkList } from "@/components/admin/PaginatedNoteLinkList";
 
 const ALL_NOTE_LINK_KINDS: NoteLinkKind[] = ["individual", "family", "event", "source"];
 
@@ -166,25 +167,35 @@ export function NoteLinkedRecordsPicker({
       </div>
 
       {value.length > 0 ? (
-        <ul className="flex flex-wrap gap-2">
-          {value.map((l) => (
-            <li
-              key={`${l.kind}-${l.id}`}
-              className="inline-flex items-center gap-1 rounded-full border border-base-content/15 bg-base-200/50 px-2.5 py-1 text-sm"
-            >
-              <span className="text-muted-foreground">{l.kind}:</span>
-              <span className="max-w-[220px] truncate font-medium">{l.label}</span>
-              <button
-                type="button"
-                className="rounded p-0.5 text-muted-foreground hover:bg-base-300 hover:text-base-content"
-                aria-label={`Remove ${l.label}`}
-                onClick={() => removeSelectedLink(l.kind, l.id)}
-              >
-                <X className="size-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          {kindOptions.map((opt) => {
+            const group = value.filter((l) => l.kind === opt.value);
+            if (group.length === 0) return null;
+            return (
+              <div key={opt.value} className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">{opt.label}</p>
+                <PaginatedNoteLinkList
+                  variant="chips"
+                  items={group}
+                  itemKey={(l) => `${l.kind}-${l.id}`}
+                  renderItem={(l) => (
+                    <>
+                      <span className="max-w-[220px] truncate font-medium">{l.label}</span>
+                      <button
+                        type="button"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-base-300 hover:text-base-content"
+                        aria-label={`Remove ${l.label}`}
+                        onClick={() => removeSelectedLink(l.kind, l.id)}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </>
+                  )}
+                />
+              </div>
+            );
+          })}
+        </div>
       ) : null}
 
       {builders.length === 0 ? (

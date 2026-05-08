@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { parseNoteLinkedEntityIdParam } from "@/lib/admin/admin-notes-filter";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
   linkOpenQuestionToEntity,
@@ -17,8 +18,25 @@ export const GET = withAdminAuth(async (req) => {
   const status = parseOpenQuestionStatusParam(searchParams.get("status"));
   const q = searchParams.get("q")?.trim() || null;
   const { limit, offset } = parseListParams(searchParams);
+  const linkedIndividualId = parseNoteLinkedEntityIdParam(searchParams, "linkedIndividualId");
+  const linkedFamilyId = parseNoteLinkedEntityIdParam(searchParams, "linkedFamilyId");
+  const linkedEventId = parseNoteLinkedEntityIdParam(searchParams, "linkedEventId");
+  const linkedMediaId = parseNoteLinkedEntityIdParam(searchParams, "linkedMediaId");
+  const linkedSourceId = parseNoteLinkedEntityIdParam(searchParams, "linkedSourceId");
+  const linkedNoteId = parseNoteLinkedEntityIdParam(searchParams, "linkedNoteId");
 
-  const { rows, total } = await listOpenQuestionsForFile(fileUuid, { status, q, limit, offset });
+  const { rows, total } = await listOpenQuestionsForFile(fileUuid, {
+    status,
+    q,
+    linkedIndividualId,
+    linkedFamilyId,
+    linkedEventId,
+    linkedMediaId,
+    linkedSourceId,
+    linkedNoteId,
+    limit,
+    offset,
+  });
   return NextResponse.json({
     openQuestions: rows,
     total,

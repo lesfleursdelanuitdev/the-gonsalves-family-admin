@@ -17,6 +17,7 @@ import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { AssociatedMediaThumbnailGrid } from "@/components/admin/AssociatedMediaThumbnailGrid";
 import { ViewAsAlbumLink } from "@/components/album/ViewAsAlbumLink";
 import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
+import { NoteContentMarkdown } from "@/components/admin/NoteContentMarkdown";
 import { photoUrlFromProfileRow, type ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 
@@ -154,7 +155,7 @@ export default function AdminEventDetailPage() {
           {value ? (
             <div>
               <p className="font-medium text-muted-foreground">Value</p>
-              <p>{value}</p>
+              <NoteContentMarkdown markdown={value} className="text-sm leading-relaxed" />
             </div>
           ) : null}
           {cause ? (

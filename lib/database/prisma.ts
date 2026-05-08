@@ -28,11 +28,17 @@ function createPrismaClient(): PrismaClient {
 
 /**
  * True if this generated client includes delegates we rely on in admin routes.
- * Bump checks when adding models so dev/HMR does not keep a pre-generate client missing new tables.
+ * Bump checks when adding models so dev/HMR does not keep a pre-generate client missing new tables
+ * or new relations (stale global client still had `openQuestion` but rejected `sourceLinks` includes).
  */
 function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
   const o = client as unknown as Record<string, unknown>;
-  return o.openQuestion != null && o.tagProfileMedia != null;
+  return (
+    o.openQuestion != null &&
+    o.tagProfileMedia != null &&
+    o.openQuestionSource != null &&
+    o.openQuestionNote != null
+  );
 }
 
 function getPrisma(): PrismaClient {

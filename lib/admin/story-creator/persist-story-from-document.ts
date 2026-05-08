@@ -89,6 +89,7 @@ export async function replaceStoryFromDocumentInTx(
           sortOrder: sec.sortOrder,
           slug: sec.slug,
           isChapter: sec.isChapter,
+          isPage: sec.isPage ?? false,
           contentJson: sec.contentJson as Prisma.InputJsonValue,
         },
       });

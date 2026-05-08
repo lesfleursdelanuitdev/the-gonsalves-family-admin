@@ -22,6 +22,15 @@ import {
   parsePartnerCountParam,
   type AdminFamiliesStructuredFilters,
 } from "@/lib/admin/admin-families-filter-sql";
+import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
+
+const PARTNER_SUMMARY_SELECT = {
+  id: true,
+  fullName: true,
+  sex: true,
+  gender: true,
+  ...gedcomIndividualNlDenormSelect,
+} as const;
 
 const FAMILY_SELECT = {
   id: true,
@@ -31,9 +40,17 @@ const FAMILY_SELECT = {
   marriagePlaceDisplay: true,
   isDivorced: true,
   childrenCount: true,
-  husband: { select: { id: true, fullName: true, sex: true, gender: true } },
-  wife: { select: { id: true, fullName: true, sex: true, gender: true } },
+  husband: { select: PARTNER_SUMMARY_SELECT },
+  wife: { select: PARTNER_SUMMARY_SELECT },
+  familyPartners: { select: { individualId: true } },
 } as const;
+
+function withPartnerIndividualIds<
+  T extends { familyPartners: { individualId: string }[] },
+>(row: T) {
+  const { familyPartners, ...f } = row;
+  return { ...f, partnerIndividualIds: familyPartners.map((p) => p.individualId) };
+}
 
 function parseStructuredFamiliesFilters(
   searchParams: URLSearchParams
@@ -95,7 +112,7 @@ async function listFamiliesFiltered(
   const sorted = families.sort(
     (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
   );
-  return { families: sorted, total };
+  return { families: sorted.map(withPartnerIndividualIds), total };
 }
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
@@ -109,7 +126,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
   const hasStructured = hasStructuredFamilyFilters(structured);
 
   if (!hasStructured && !q) {
-    const [families, total] = await Promise.all([
+    const [rawFamilies, total] = await Promise.all([
       prisma.gedcomFamily.findMany({
         where: { fileUuid },
         select: FAMILY_SELECT,
@@ -119,6 +136,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
       }),
       prisma.gedcomFamily.count({ where: { fileUuid } }),
     ]);
+    const families = rawFamilies.map(withPartnerIndividualIds);
     return NextResponse.json({
       families,
       total,
@@ -135,7 +153,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
         { wife: { fullNameLower: { contains: lowerQ } } },
       ],
     };
-    const [families, total] = await Promise.all([
+    const [rawFamilies, total] = await Promise.all([
       prisma.gedcomFamily.findMany({
         where,
         select: FAMILY_SELECT,
@@ -145,6 +163,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
       }),
       prisma.gedcomFamily.count({ where }),
     ]);
+    const families = rawFamilies.map(withPartnerIndividualIds);
     return NextResponse.json({
       families,
       total,

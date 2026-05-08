@@ -3,7 +3,7 @@ import {
   composePlaceOriginal,
   hashGedcomDateParts,
   hashGedcomPlaceOriginal,
-} from "@/lib/gedcom/gedcom-entity-hash";
+} from "../gedcom/gedcom-entity-hash.ts";
 
 type Tx = Prisma.TransactionClient;
 
