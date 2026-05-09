@@ -21,6 +21,7 @@ import {
   FolderOpen,
   Download,
   FileCheck,
+  GitMerge,
   ScrollText,
   CircleHelp,
 } from "lucide-react";
@@ -58,6 +59,7 @@ export const adminNavSections: AdminNavSection[] = [
     items: [
       { href: "/admin/gedcom/export", label: "Export", icon: Download },
       { href: "/admin/gedcom/validator", label: "Validator", icon: FileCheck },
+      { href: "/admin/merge-records", label: "Merge records", icon: GitMerge },
     ],
   },
   {

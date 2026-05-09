@@ -37,7 +37,9 @@ function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
     o.openQuestion != null &&
     o.tagProfileMedia != null &&
     o.openQuestionSource != null &&
-    o.openQuestionNote != null
+    o.openQuestionNote != null &&
+    o.reconciliationSession != null &&
+    o.pendingGedcomImport != null
   );
 }
 
