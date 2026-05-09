@@ -149,6 +149,8 @@ export type StoryMediaBlock = {
   linkMode?: StoryEmbedLinkMode;
   /** Row width, alignment, and optional float-with-text layout. */
   rowLayout?: StoryBlockRowLayout;
+  /** Explicit crop height in px. When set, the image fills the frame with object-cover. Absent = natural aspect ratio. */
+  heightPx?: number;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
 };

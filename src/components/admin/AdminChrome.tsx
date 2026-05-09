@@ -18,16 +18,20 @@ import {
   isAdminNavActive,
   type AdminNavItem,
 } from "@/config/admin-nav";
+import {
+  ADMIN_SIDEBAR_COLLAPSED_STORAGE_KEY,
+  ADMIN_SIDEBAR_LAYOUT_CHANGED_EVENT,
+  type AdminSidebarLayoutChangedDetail,
+} from "@/lib/admin/admin-sidebar-layout";
 
 const DRAWER_ID = "admin-drawer";
-const SIDEBAR_COLLAPSED_KEY = "admin-sidebar-collapsed";
 
 function useSidebarCollapsed() {
   const [collapsed, setCollapsed] = useState(false);
 
   useLayoutEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+      setCollapsed(localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_STORAGE_KEY) === "1");
     } catch {
       /* ignore */
     }
@@ -37,10 +41,17 @@ function useSidebarCollapsed() {
     setCollapsed((c) => {
       const next = !c;
       try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+        localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_STORAGE_KEY, next ? "1" : "0");
       } catch {
         /* ignore */
       }
+      queueMicrotask(() => {
+        window.dispatchEvent(
+          new CustomEvent<AdminSidebarLayoutChangedDetail>(ADMIN_SIDEBAR_LAYOUT_CHANGED_EVENT, {
+            detail: { collapsed: next },
+          }),
+        );
+      });
       return next;
     });
   }, []);

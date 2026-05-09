@@ -121,9 +121,11 @@ export function useAdminMedia(opts?: UseAdminMediaOpts, enabled = true) {
 
       const pageSize = opts?.limit ?? 24;
       const pageOffset = opts?.offset ?? 0;
+      // Fetch just enough from each scope: the nth global item can be at most position n in its
+      // own source, so pageOffset+pageSize per scope is the minimum to guarantee a correct merge.
+      const fetchPerScope = pageOffset + pageSize;
       const fullParams = opts ? buildMediaParams(opts) : new URLSearchParams();
-      // For combined "all", fetch each scope fully, then paginate after merge/sort.
-      fullParams.set("limit", "10000");
+      fullParams.set("limit", String(fetchPerScope));
       fullParams.set("offset", "0");
       const fullQs = fullParams.toString();
       const suffix = fullQs ? `?${fullQs}` : "";
@@ -132,16 +134,17 @@ export function useAdminMedia(opts?: UseAdminMediaOpts, enabled = true) {
         fetchJson<AdminMediaListResponse>(`/api/admin/site-media${suffix}`),
         fetchJson<AdminMediaListResponse>(`/api/admin/user-media${suffix}`),
       ]);
-      const merged = [...familyTree.media, ...siteAssets.media, ...myMedia.media].sort((a, b) => {
+      const mergedItems = [...familyTree.media, ...siteAssets.media, ...myMedia.media].sort((a, b) => {
         const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
         const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
         return tb - ta;
       });
-      const page = merged.slice(pageOffset, pageOffset + pageSize);
+      const page = mergedItems.slice(pageOffset, pageOffset + pageSize);
+      const estimatedTotal = familyTree.total + siteAssets.total + myMedia.total;
       return {
         media: page,
-        total: merged.length,
-        hasMore: pageOffset + page.length < merged.length,
+        total: estimatedTotal,
+        hasMore: pageOffset + page.length < estimatedTotal,
       };
     },
     enabled,

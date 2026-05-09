@@ -20,6 +20,7 @@ import {
   Tag,
   FolderOpen,
   Download,
+  FileCheck,
   ScrollText,
   CircleHelp,
 } from "lucide-react";
@@ -50,7 +51,13 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/places", label: "Places", icon: MapPin },
       { href: "/admin/notes", label: "Notes", icon: StickyNote },
       { href: "/admin/sources", label: "Sources", icon: BookOpen },
-      { href: "/admin/export", label: "Export", icon: Download },
+    ],
+  },
+  {
+    label: "GEDCOM",
+    items: [
+      { href: "/admin/gedcom/export", label: "Export", icon: Download },
+      { href: "/admin/gedcom/validator", label: "Validator", icon: FileCheck },
     ],
   },
   {

@@ -137,6 +137,7 @@ export default function AdminGivenNamesPage() {
         viewModeKey="admin-given-names-view"
         paginationResetKey={applied.q}
         totalCount={data?.total}
+        statisticsAnalyticsSegment="given-names"
       />
     </AdminListPageShell>
   );

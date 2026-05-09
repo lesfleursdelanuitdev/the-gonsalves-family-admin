@@ -365,6 +365,7 @@ export default function AdminOpenQuestionsPage() {
         paginationResetKey={`${appliedStatus}|${appliedQ}`}
         totalCount={data?.total}
         onBulkDeleteFinished={handleBulkDeleteFinished}
+        statisticsAnalyticsSegment="open-questions"
       />
     </AdminListPageShell>
   );

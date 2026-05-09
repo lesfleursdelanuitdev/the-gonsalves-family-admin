@@ -351,6 +351,7 @@ export default function AdminPlacesPage() {
         viewModeKey="admin-places-view"
         paginationResetKey={applied.q}
         totalCount={data?.total}
+        statisticsAnalyticsSegment="places"
       />
     </AdminListPageShell>
   );

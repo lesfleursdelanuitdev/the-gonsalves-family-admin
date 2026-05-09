@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useTheme, THEME_CONFIG, type AppTheme } from "@/providers/theme-provider";
-import type { ViewMode } from "@/components/data-viewer";
 import {
   clearDataViewerGlobalDefault,
   readDataViewerGlobalDefault,
@@ -17,7 +16,8 @@ import {
   writePreferTableOnMobile,
 } from "@/lib/settings/app-user-settings";
 
-type DataViewerDefaultChoice = "auto" | ViewMode;
+/** Global default is only list or cards; per-page statistics is chosen in each list toolbar. */
+type DataViewerDefaultChoice = "auto" | "table" | "cards";
 
 const THEME_SWATCHES: Record<AppTheme, { bg: string; sidebar: string }> = {
   dark: { bg: "#252628", sidebar: "#1a1c1e" },

@@ -62,18 +62,33 @@ export async function POST(req: Request) {
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     console.error("Login error:", err.message, err.stack);
-    const isDbError =
-      err.message?.includes("DATABASE_URL") ||
-      err.message?.includes("connect") ||
-      err.message?.includes("ECONNREFUSED") ||
-      err.message?.includes("timeout") ||
+    const msg = err.message ?? "";
+    const isDbUnavailable =
+      msg.includes("DATABASE_URL") ||
+      msg.includes("connect") ||
+      msg.includes("ECONNREFUSED") ||
+      msg.includes("timeout") ||
       err.constructor?.name === "PrismaClientInitializationError";
-    if (isDbError) {
+    /** Postgres 42501 / localized “permission denied” (e.g. German “keine Berechtigung für Tabelle …”). */
+    const isDbPermission =
+      msg.includes("42501") ||
+      /permission denied for|keine Berechtigung für Tabelle/i.test(msg);
+    if (isDbUnavailable) {
       return jsonWithCors(
         req,
         {
           error:
             "Service unavailable. Check DATABASE_URL in .env.local and that the database is running.",
+        },
+        { status: 503 }
+      );
+    }
+    if (isDbPermission) {
+      return jsonWithCors(
+        req,
+        {
+          error:
+            "Database permission error: the application user cannot write to the sessions table. Grant SELECT, INSERT, UPDATE, DELETE on public.sessions (and related tables) to the DATABASE_URL role, or run migrations as a user that owns the schema.",
         },
         { status: 503 }
       );

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, List, Plus } from "lucide-react";
+import { BarChart3, LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ViewMode, DataViewerActions } from "./types";
@@ -18,6 +18,8 @@ interface DataViewerToolbarProps<TRecord> {
   globalFilter?: string;
   onGlobalFilterChange?: (value: string) => void;
   showSearch?: boolean;
+  /** When true, list / card / statistics are one join group (statistics = in-page analytics). */
+  showStatisticsToggle?: boolean;
 }
 
 export function DataViewerToolbar<TRecord>({
@@ -27,14 +29,21 @@ export function DataViewerToolbar<TRecord>({
   onViewModeChange,
   filteredCount,
   totalCount,
+  showStatisticsToggle = false,
 }: DataViewerToolbarProps<TRecord>) {
   const isFiltered = filteredCount !== totalCount;
+  const statsMode = viewMode === "statistics";
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Result count — replaces the search bar; search lives in FilterPanel */}
       <p className="text-sm text-muted-foreground">
-        {isFiltered ? (
+        {statsMode ? (
+          <>
+            <span className="font-semibold text-base-content">Statistics</span>
+            {" — "}
+            {labels.plural}
+          </>
+        ) : isFiltered ? (
           <>
             <span className="font-semibold text-base-content">{filteredCount.toLocaleString()}</span>
             {" of "}
@@ -43,43 +52,74 @@ export function DataViewerToolbar<TRecord>({
         ) : (
           <span className="font-semibold text-base-content">{totalCount.toLocaleString()}</span>
         )}
-        {" "}
-        {filteredCount === 1 ? labels.singular.toLowerCase() : labels.plural.toLowerCase()}
+        {!statsMode ? (
+          <>
+            {" "}
+            {filteredCount === 1 ? labels.singular.toLowerCase() : labels.plural.toLowerCase()}
+          </>
+        ) : null}
       </p>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        {/* View mode toggle */}
-        <div className="join rounded-box border border-primary/25 bg-base-200/50 shadow-sm shadow-black/10">
+        <div
+          className="join rounded-box border border-primary/25 bg-base-200/50 shadow-sm shadow-black/10"
+          role="tablist"
+          aria-label="Data view"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={viewMode === "table"}
             onClick={() => onViewModeChange("table")}
             className={cn(
-              "join-item btn btn-sm border-0",
+              "join-item inline-flex h-8 min-h-8 shrink-0 items-center justify-center border-0 px-2.5 text-sm font-medium transition-none sm:px-3",
               viewMode === "table"
-                ? "btn-primary text-primary-content shadow-sm"
-                : "btn-ghost bg-transparent text-primary hover:bg-primary/15 hover:text-primary",
+                ? "bg-primary text-primary-content shadow-sm hover:bg-primary hover:text-primary-content"
+                : "bg-transparent text-primary hover:bg-transparent hover:text-primary",
             )}
             aria-label="Table view"
+            title="Table view"
           >
             <List className="size-4" />
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={viewMode === "cards"}
             onClick={() => onViewModeChange("cards")}
             className={cn(
-              "join-item btn btn-sm border-0",
+              "join-item inline-flex h-8 min-h-8 shrink-0 items-center justify-center border-0 px-2.5 text-sm font-medium transition-none sm:px-3",
               viewMode === "cards"
-                ? "btn-primary text-primary-content shadow-sm"
-                : "btn-ghost bg-transparent text-primary hover:bg-primary/15 hover:text-primary",
+                ? "bg-primary text-primary-content shadow-sm hover:bg-primary hover:text-primary-content"
+                : "bg-transparent text-primary hover:bg-transparent hover:text-primary",
             )}
             aria-label="Card view"
+            title="Card view"
           >
             <LayoutGrid className="size-4" />
           </button>
+          {showStatisticsToggle ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "statistics"}
+              onClick={() => onViewModeChange("statistics")}
+              className={cn(
+                "join-item inline-flex h-8 min-h-8 shrink-0 items-center justify-center gap-1 border-0 px-2.5 text-sm font-medium transition-none sm:px-3",
+                viewMode === "statistics"
+                  ? "bg-primary text-primary-content shadow-sm hover:bg-primary hover:text-primary-content"
+                  : "bg-transparent text-primary hover:bg-transparent hover:text-primary",
+              )}
+              aria-label="Statistics view"
+              title="Statistics for this list"
+            >
+              <BarChart3 className="size-4 shrink-0" aria-hidden />
+              Statistics
+            </button>
+          ) : null}
         </div>
 
-        {/* Add action */}
-        {actions.add && (
+        {actions.add && viewMode !== "statistics" ? (
           <Button
             type="button"
             size="sm"
@@ -89,7 +129,7 @@ export function DataViewerToolbar<TRecord>({
             <Plus className="size-4" />
             {actions.add.label}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );

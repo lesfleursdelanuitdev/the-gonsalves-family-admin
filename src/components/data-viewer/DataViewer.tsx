@@ -11,6 +11,7 @@ import { DataViewerToolbar } from "./DataViewerToolbar";
 import { DataViewerTable } from "./DataViewerTable";
 import { DataViewerCardGrid } from "./DataViewerCardGrid";
 import { DataViewerSelectionBar } from "./DataViewerSelectionBar";
+import { AdminListAnalyticsPanel } from "@/components/admin/AdminListAnalyticsPanel";
 import { DataViewerBulkDeleteDialog } from "./DataViewerBulkDeleteDialog";
 import {
   APP_SETTINGS_CHANGED_EVENT,
@@ -22,7 +23,7 @@ import {
 function readStoredViewMode(key: string): ViewMode | null {
   if (typeof window === "undefined") return null;
   const v = localStorage.getItem(key);
-  return v === "table" || v === "cards" ? v : null;
+  return v === "table" || v === "cards" || v === "statistics" ? v : null;
 }
 
 function resolveAmbientViewMode(defaultViewMode: ViewMode, isMobile: boolean): ViewMode {
@@ -63,6 +64,7 @@ export function DataViewer<TRecord>({
   onSelectionDetailChange,
   batchApplyKey,
   onBulkDeleteFinished,
+  statisticsAnalyticsSegment,
 }: DataViewerProps<TRecord>) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return defaultViewMode;
@@ -85,6 +87,16 @@ export function DataViewer<TRecord>({
       window.removeEventListener(APP_SETTINGS_CHANGED_EVENT, onSettings);
     };
   }, [viewModeKey, defaultViewMode]);
+
+  /** Persisted "statistics" mode is invalid on pages without an analytics segment. */
+  useEffect(() => {
+    if (statisticsAnalyticsSegment?.trim()) return;
+    if (viewMode !== "statistics") return;
+    queueMicrotask(() => {
+      setViewMode(defaultViewMode);
+      if (viewModeKey) localStorage.setItem(viewModeKey, defaultViewMode);
+    });
+  }, [statisticsAnalyticsSegment, viewMode, defaultViewMode, viewModeKey]);
 
   const [internalFilter, setInternalFilter] = useState("");
   const filter = controlledFilter ?? internalFilter;
@@ -263,10 +275,13 @@ export function DataViewer<TRecord>({
 
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
+      if (mode === "statistics") {
+        handleClearSelection();
+      }
       setViewMode(mode);
       if (viewModeKey) localStorage.setItem(viewModeKey, mode);
     },
-    [viewModeKey],
+    [viewModeKey, handleClearSelection],
   );
 
   if (isLoading) {
@@ -343,9 +358,10 @@ export function DataViewer<TRecord>({
         globalFilter={filter}
         onGlobalFilterChange={setFilter}
         showSearch={false}
+        showStatisticsToggle={Boolean(statisticsAnalyticsSegment?.trim())}
       />
 
-      {selectionEnabled ? (
+      {selectionEnabled && viewMode !== "statistics" ? (
         <DataViewerSelectionBar
           selectedCount={selectedCount}
           pageRowIds={pageRowIds}
@@ -366,7 +382,12 @@ export function DataViewer<TRecord>({
         onConfirm={confirmBulkDelete}
       />
 
-      {viewMode === "table" ? (
+      {viewMode === "statistics" && statisticsAnalyticsSegment?.trim() ? (
+        <AdminListAnalyticsPanel
+          segment={statisticsAnalyticsSegment.trim()}
+          entityPlural={config.labels.plural}
+        />
+      ) : viewMode === "table" ? (
         <DataViewerTable
           config={config}
           data={filteredData}
@@ -411,6 +432,21 @@ export function DataViewer<TRecord>({
 }
 
 function DataViewerSkeleton({ viewMode }: { viewMode: ViewMode }) {
+  if (viewMode === "statistics") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="h-5 w-40 animate-pulse rounded-md bg-base-300/40" />
+          <div className="ml-auto h-8 w-48 animate-pulse rounded-lg bg-base-300/40" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-[280px] animate-pulse rounded-xl bg-base-300/25" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (viewMode === "table") {
     return (
       <div className="space-y-4">

@@ -140,6 +140,7 @@ export default function AdminSurnamesPage() {
         viewModeKey="admin-surnames-view"
         paginationResetKey={applied.q}
         totalCount={data?.total}
+        statisticsAnalyticsSegment="surnames"
       />
     </AdminListPageShell>
   );

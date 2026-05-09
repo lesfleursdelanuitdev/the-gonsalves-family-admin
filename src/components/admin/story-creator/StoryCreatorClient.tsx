@@ -112,6 +112,7 @@ import {
 import { migrateStoryDocument } from "@/lib/admin/story-creator/migrate-story-document";
 import { normalizeStorySlugInput, slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
 import { ApiError } from "@/lib/infra/api";
+import { mergeMediaEmbedRowLayoutPatch } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
 import { columnsBlockDepthInSection, MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import {
   resolveColumnGapRem,
@@ -1142,6 +1143,7 @@ function StoryNestedColumnsGrid({
 type StoryEditorSectionBlockCardProps = {
   sectionId: string;
   block: StoryBlock;
+  patchMediaBlock?: (sectionId: string, blockId: string, patch: Partial<StoryMediaBlock>) => void;
 } & Pick<
   StoryNestedColumnsGridProps,
   | "storySelection"
@@ -1163,6 +1165,7 @@ type StoryEditorSectionBlockCardProps = {
 function StoryEditorSectionBlockCard({
   sectionId,
   block,
+  patchMediaBlock,
   storySelection,
   isLg,
   isSm,
@@ -1386,6 +1389,25 @@ function StoryEditorSectionBlockCard({
             setInspectorTab("block");
             if (!isLg) setBlockSettingsSheetOpen(true);
           }}
+          onResizeWidth={
+            patchMediaBlock
+              ? (pct) =>
+                  patchMediaBlock(
+                    sectionId,
+                    block.id,
+                    mergeMediaEmbedRowLayoutPatch(block as StoryMediaBlock, {
+                      widthMode: pct >= 100 ? "full" : "custom",
+                      widthValue: pct >= 100 ? undefined : pct,
+                      widthUnit: "%",
+                    }),
+                  )
+              : undefined
+          }
+          onResizeHeight={
+            patchMediaBlock
+              ? (px) => patchMediaBlock(sectionId, block.id, { heightPx: px })
+              : undefined
+          }
         />
       ) : block.type === "embed" ? (
         <EmbedCanvasCard
@@ -1820,6 +1842,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       updateDoc((d) => mapDocSection(d, sid, (sec) => patchMediaInSection(sec, bid, patch)));
     },
     [activePair, selectedBlockId, updateDoc],
+  );
+
+  const patchMediaBlock = useCallback(
+    (sectionId: string, blockId: string, patch: Partial<StoryMediaBlock>) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (sec) => patchMediaInSection(sec, blockId, patch)));
+    },
+    [updateDoc],
   );
 
   const patchContainer = useCallback(
@@ -2648,6 +2677,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 | "moveBlock"
                 | "appendIntoContainer"
                 | "appendSplitSupportingPreset"
+                | "patchMediaBlock"
               > = {
                 storySelection,
                 isLg,
@@ -2663,6 +2693,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 moveBlock,
                 appendIntoContainer,
                 appendSplitSupportingPreset,
+                patchMediaBlock,
               };
               if (group.kind === "float-wrap") {
                 return (
@@ -3599,13 +3630,17 @@ function MediaEmbedCanvasCard({
   block,
   onConfigure,
   compact,
+  onResizeWidth,
+  onResizeHeight,
 }: {
   block: StoryMediaBlock;
   onConfigure: () => void;
   /** Narrow column: use a slim placeholder when no file is picked yet. */
   compact?: boolean;
+  onResizeWidth?: (pct: number) => void;
+  onResizeHeight?: (px: number | undefined) => void;
 }) {
-  return <MediaBlockContentRenderer block={block} variant="editor" compact={compact} onConfigure={onConfigure} />;
+  return <MediaBlockContentRenderer block={block} variant="editor" compact={compact} onConfigure={onConfigure} onResizeWidth={onResizeWidth} onResizeHeight={onResizeHeight} />;
 }
 
 function EmbedCanvasCard({

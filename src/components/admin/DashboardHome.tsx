@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DashboardStatisticsSection } from "@/components/admin/DashboardStatisticsSection";
 import { DashboardWelcome } from "@/components/admin/DashboardWelcome";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 import type {
@@ -258,6 +259,8 @@ export function DashboardHome() {
           ))}
         </ul>
       </section>
+
+      <DashboardStatisticsSection dashboardConfigured={Boolean(data?.configured)} />
 
       {!isLoading && data && !data.configured ? (
         <div

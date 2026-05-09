@@ -272,6 +272,7 @@ export default function AdminFamiliesPage() {
         totalCount={data?.total}
         batchApplyKey={batchApplyKey}
         onBulkDeleteFinished={handleBulkDeleteFinished}
+        statisticsAnalyticsSegment="families"
       />
     </AdminListPageShell>
   );

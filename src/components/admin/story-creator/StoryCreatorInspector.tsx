@@ -24,7 +24,6 @@ import type {
   StoryEmbedHeightPreset,
   StoryEmbedLayoutAlign,
   StoryEmbedLinkMode,
-  StoryEmbedWidthPreset,
   StoryGeneralEmbedKind,
   StoryImageMediaRef,
   StoryMediaBlock,
@@ -49,7 +48,7 @@ import {
   effectiveRowLayoutForRichText,
   mergeStoryRowLayout,
 } from "@/lib/admin/story-creator/story-block-layout";
-import { standaloneMediaEmbedLayoutPatch } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
+import { standaloneMediaEmbedLayoutPatch, mergeMediaEmbedRowLayoutPatch, effectiveMediaEmbedInspectorRowLayout } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
 import { STORY_TEXT_PLACEMENT_OPTIONS } from "@/lib/admin/story-creator/story-block-text-layout";
 import type { StoryDividerMetaPatch, StoryRichTextMetaPatch } from "@/lib/admin/story-creator/story-doc-mutators";
 import {
@@ -2549,12 +2548,13 @@ function StoryBlockRowLayoutInspector({
   );
 }
 
-const MEDIA_EMBED_STANDALONE_SIZE_OPTIONS: { value: StoryEmbedWidthPreset; label: string; hint: string }[] = [
-  { value: "full", label: "Full", hint: "Full story column width" },
-  { value: "large", label: "Large", hint: "Default emphasis width" },
-  { value: "medium", label: "Medium", hint: "Comfortable reading width" },
-  { value: "small", label: "Small", hint: "Narrow inset" },
-  { value: "content", label: "Content", hint: "Matches text column" },
+const MEDIA_WIDTH_PRESETS: { label: string; pct: number }[] = [
+  { label: "25%", pct: 25 },
+  { label: "33%", pct: 33 },
+  { label: "50%", pct: 50 },
+  { label: "66%", pct: 66 },
+  { label: "75%", pct: 75 },
+  { label: "Full", pct: 100 },
 ];
 
 const STORY_MEDIA_EMBED_LAYOUT_ALIGN_OPTIONS: { value: StoryEmbedLayoutAlign; label: string; icon: typeof AlignLeft }[] = [
@@ -2563,7 +2563,7 @@ const STORY_MEDIA_EMBED_LAYOUT_ALIGN_OPTIONS: { value: StoryEmbedLayoutAlign; la
   { value: "right", label: "Right", icon: AlignRight },
 ];
 
-/** Standalone media/embed: size + column alignment only (no text wrap / float row controls). */
+/** Standalone media/embed: percentage width presets + column alignment. */
 function StandaloneMediaEmbedLayoutInspectorSection({
   block,
   onPatchLayout,
@@ -2573,31 +2573,79 @@ function StandaloneMediaEmbedLayoutInspectorSection({
   onPatchLayout: (p: Partial<StoryMediaBlock> | Partial<StoryEmbedBlock>) => void;
   touchComfort?: boolean;
 }) {
-  const width = block.widthPreset ?? "large";
+  const rl = effectiveMediaEmbedInspectorRowLayout(block);
   const layoutAlign = block.layoutAlign ?? "center";
-  const controlH = touchComfort ? "min-h-11 h-11" : "h-10";
+  const chip = touchComfort ? "min-h-[44px] px-2 text-sm" : "h-9 px-2 text-xs";
+
+  // Resolve current width as a percentage for button highlighting
+  const currentPct =
+    rl.widthMode === "full"
+      ? 100
+      : rl.widthMode === "custom" && rl.widthValue != null
+        ? rl.widthValue
+        : rl.widthMode === "wide"
+          ? 80
+          : rl.widthMode === "medium"
+            ? 65
+            : rl.widthMode === "narrow"
+              ? 45
+              : 100;
+
+  function applyWidth(pct: number) {
+    onPatchLayout(
+      mergeMediaEmbedRowLayoutPatch(block, {
+        widthMode: pct >= 100 ? "full" : "custom",
+        widthValue: pct >= 100 ? undefined : pct,
+        widthUnit: "%",
+        displayMode: "block",
+        float: undefined,
+      }),
+    );
+  }
 
   return (
     <CollapsibleFormSection title="Size & alignment" defaultOpen>
       <p className="mb-3 text-xs leading-relaxed text-base-content/55">
-        Standalone blocks use a simple column width and alignment. For text flowing around media or embeds, add a{" "}
-        <span className="font-medium text-base-content/75">Split content</span> block instead.
+        Drag the handles on the image edges to resize, or pick a preset below.
       </p>
-      <FieldLabel>Size</FieldLabel>
-      <p className="mb-2 text-[11px] leading-relaxed text-base-content/50">How wide the frame appears in the story column.</p>
-      <select
-        className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-        value={width}
-        onChange={(e) =>
-          onPatchLayout(standaloneMediaEmbedLayoutPatch(block, { widthPreset: e.target.value as StoryEmbedWidthPreset }))
-        }
-      >
-        {MEDIA_EMBED_STANDALONE_SIZE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label} — {o.hint}
-          </option>
-        ))}
-      </select>
+      <FieldLabel>Width</FieldLabel>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {MEDIA_WIDTH_PRESETS.map(({ label, pct }) => {
+          const active = Math.abs(currentPct - pct) <= 2;
+          return (
+            <button
+              key={pct}
+              type="button"
+              onClick={() => applyWidth(pct)}
+              className={cn(
+                "rounded-lg border text-center font-semibold transition-colors",
+                chip,
+                active
+                  ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+                  : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {rl.widthMode === "custom" && rl.widthValue != null ? (
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            type="range"
+            min={10}
+            max={100}
+            step={1}
+            value={Math.round(rl.widthValue)}
+            onChange={(e) => applyWidth(Number(e.target.value))}
+            className="h-2 flex-1 cursor-pointer accent-primary"
+          />
+          <span className="w-10 text-right text-xs font-semibold tabular-nums text-base-content/70">
+            {Math.round(rl.widthValue)}%
+          </span>
+        </div>
+      ) : null}
       <div className="mt-4">
         <FieldLabel>Alignment in column</FieldLabel>
         <div className="mt-2 grid grid-cols-3 gap-2">
@@ -2637,7 +2685,6 @@ function MediaBlockInspector({
   touchComfort?: boolean;
 }) {
   const { data, isLoading } = useStoryMediaById(block.mediaId);
-  const height = block.heightPreset ?? "default";
   const linkMode = block.linkMode ?? "none";
   const titlePlacement = block.titlePlacement ?? "above";
   const captionPlacement = block.captionPlacement ?? "below";
@@ -2759,20 +2806,39 @@ function MediaBlockInspector({
 
       <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryMediaBlock>)} touchComfort={touchComfort} />
 
-      <CollapsibleFormSection title="Appearance" defaultOpen={false}>
-        <FieldLabel>Media height</FieldLabel>
-        <p className="mb-2 text-xs text-base-content/55">Controls the placeholder frame height in the editor and preview.</p>
-        <select
-          className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-          value={height}
-          onChange={(e) => onPatch({ heightPreset: e.target.value as StoryEmbedHeightPreset })}
-        >
-          {HEIGHT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label} — {o.hint}
-            </option>
-          ))}
-        </select>
+      <CollapsibleFormSection title="Appearance" defaultOpen={block.heightPx != null}>
+        <FieldLabel>Height</FieldLabel>
+        {block.heightPx != null ? (
+          <div className="mt-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min={60}
+                max={900}
+                step={10}
+                value={block.heightPx}
+                onChange={(e) => onPatch({ heightPx: Number(e.target.value) })}
+                className="h-2 flex-1 cursor-pointer accent-primary"
+              />
+              <span className="w-14 text-right text-xs font-semibold tabular-nums text-base-content/70">
+                {block.heightPx}px
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn("w-full rounded-lg border-base-content/12 font-medium", controlH)}
+              onClick={() => onPatch({ heightPx: undefined })}
+            >
+              Reset to natural height
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-1 text-xs leading-relaxed text-base-content/55">
+            Natural — height follows the image aspect ratio. Drag the bottom handle on the image to set a fixed crop height.
+          </p>
+        )}
       </CollapsibleFormSection>
 
       <CollapsibleFormSection title="Link / interaction" defaultOpen={false}>

@@ -246,6 +246,7 @@ export default function AdminNotesPage() {
         totalCount={data?.total}
         batchApplyKey={batchApplyKey}
         onBulkDeleteFinished={handleBulkDeleteFinished}
+        statisticsAnalyticsSegment="notes"
       />
     </AdminListPageShell>
   );

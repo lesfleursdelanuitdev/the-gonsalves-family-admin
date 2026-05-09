@@ -31,6 +31,8 @@ module.exports = {
         NODE_ENV: "production",
         // ligneous-gedcom-lib-api (parse / export). Override via shell when starting PM2 if needed.
         LIB_API_URL: process.env.LIB_API_URL ?? "http://127.0.0.1:8092",
+        // ligneous-python-api (/api/research proxy). Same host: loopback. No trailing slash.
+        PYTHON_API_URL: process.env.PYTHON_API_URL ?? "http://127.0.0.1:5001",
       },
     },
   ],

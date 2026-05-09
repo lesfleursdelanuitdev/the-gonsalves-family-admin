@@ -493,6 +493,7 @@ function AdminIndividualsPageInner() {
         totalCount={data?.total}
         batchApplyKey={batchApplyKey}
         onBulkDeleteFinished={handleBulkDeleteFinished}
+        statisticsAnalyticsSegment="individuals"
       />
     </div>
   );

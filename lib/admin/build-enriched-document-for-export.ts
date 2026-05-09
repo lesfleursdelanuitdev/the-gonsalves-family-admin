@@ -50,6 +50,7 @@ export async function buildEnrichedDocumentForExport(
     parentChild,
     familyChildren,
     spouses,
+    individualAssociations,
   ] = await Promise.all([
     prisma.gedcomDate.findMany({ where, orderBy: { id: "asc" } }),
     prisma.gedcomPlace.findMany({ where, orderBy: { id: "asc" } }),
@@ -95,6 +96,10 @@ export async function buildEnrichedDocumentForExport(
     prisma.gedcomParentChild.findMany({ where }),
     prisma.gedcomFamilyChild.findMany({ where }),
     prisma.gedcomSpouse.findMany({ where }),
+    prisma.gedcomIndividualAssociation.findMany({
+      where,
+      orderBy: [{ subjectIndividualId: "asc" }, { sortOrder: "asc" }],
+    }),
   ]);
 
   const dateIndex = buildIdIndex(dates);
@@ -390,6 +395,17 @@ export async function buildEnrichedDocumentForExport(
       spouse_xref: indiIdToXref[sp.spouseId] ?? "",
       family_xref: sp.familyId ? (famIdToXref[sp.familyId] ?? "") : "",
     })),
+
+    Associates: individualAssociations
+      .map((a) => ({
+        owner_xref: indiIdToXref[a.subjectIndividualId] ?? "",
+        owner_type: "INDI",
+        associate_xref: indiIdToXref[a.associateIndividualId] ?? "",
+        relationship: a.rela ?? "",
+        source_tag: "ASSO",
+        owner_event_type: "",
+      }))
+      .filter((row) => row.owner_xref !== "" && row.associate_xref !== ""),
 
     Stats: {
       individuals: individuals.length,

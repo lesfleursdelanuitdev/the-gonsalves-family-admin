@@ -174,6 +174,7 @@ export default function AdminDatesPage() {
         viewModeKey="admin-dates-view"
         paginationResetKey={applied.q}
         totalCount={data?.total}
+        statisticsAnalyticsSegment="dates"
       />
     </AdminListPageShell>
   );

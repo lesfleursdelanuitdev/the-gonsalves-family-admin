@@ -506,6 +506,7 @@ function AdminEventsPageInner() {
         totalCount={data?.total}
         batchApplyKey={batchApplyKey}
         onBulkDeleteFinished={handleBulkDeleteFinished}
+        statisticsAnalyticsSegment="events"
       />
     </div>
   );

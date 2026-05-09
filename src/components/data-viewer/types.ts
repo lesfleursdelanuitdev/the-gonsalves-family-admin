@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react";
 import type { ColumnDef, PaginationState, SortingState, Updater } from "@tanstack/react-table";
 
-export type ViewMode = "table" | "cards";
+export type ViewMode = "table" | "cards" | "statistics";
 
 export interface DataViewerActions<TRecord> {
   add?: {
@@ -161,6 +161,13 @@ export interface DataViewerProps<TRecord> {
    * without total failure — use to invalidate list queries (the viewer already shows toasts).
    */
   onBulkDeleteFinished?: () => void | Promise<void>;
+
+  /**
+   * When set, the toolbar includes a **Statistics** view mode (alongside list/cards) that loads
+   * `/api/admin/analytics/<segment>` for the admin tree (ligneous-python-api). Omit on pages without
+   * a matching analytics route (e.g. sources).
+   */
+  statisticsAnalyticsSegment?: string | null;
 }
 
 /** Argument for {@link DataViewerProps.onSelectionDetailChange}. */

@@ -1076,6 +1076,7 @@ export default function AdminMediaPage() {
         onSelectedRowIdsChange={setSelectedMediaIds}
         onSelectionDetailChange={onSelectionDetailChange}
         onBulkDeleteFinished={handleBulkDeleteFinished}
+        statisticsAnalyticsSegment="media"
       />
 
       <BatchMediaEditorModal
