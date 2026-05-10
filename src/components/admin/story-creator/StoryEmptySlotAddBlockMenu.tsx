@@ -1,6 +1,6 @@
 "use client";
 
-import { Columns2, ChevronDown, ImageIcon, Layers, LayoutTemplate, Minus, PanelRight, Table2, Type } from "lucide-react";
+import { Columns2, ChevronDown, ImageIcon, Layers, LayoutTemplate, Minus, PanelRight, Quote, ScrollText, Table2, Type } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -75,6 +75,14 @@ export function StoryEmptySlotAddBlockMenu({
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("text_paragraph")}>
             <Type className="size-3.5 opacity-80" aria-hidden />
             Text
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("text_verse")}>
+            <ScrollText className="size-3.5 opacity-80" aria-hidden />
+            Verse
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("text_quote")}>
+            <Quote className="size-3.5 opacity-80" aria-hidden />
+            Quote
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("data_table")}>
             <Table2 className="size-3.5 opacity-80" aria-hidden />

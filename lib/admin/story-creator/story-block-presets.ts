@@ -122,10 +122,10 @@ export const STORY_ADD_BLOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = [
   },
 ];
 
-/** Dock / mobile bottom sheet: same grouped layout as full-screen add, curated presets (Text = paragraph + heading + list). */
+/** Dock / mobile bottom sheet: same grouped layout as full-screen add, curated presets (Text = paragraph + heading + list + verse + quote). */
 export const STORY_ADD_BLOCK_DOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = (() => {
   const byCat = (id: StoryAddBlockCategoryId) => STORY_ADD_BLOCK_PRESET_GROUPS.find((g) => g.categoryId === id);
-  const textIds: StoryAddBlockPresetId[] = ["text_paragraph", "text_heading", "text_list"];
+  const textIds: StoryAddBlockPresetId[] = ["text_paragraph", "text_heading", "text_list", "text_verse", "text_quote"];
   const text = byCat("text")?.items.filter((i) => textIds.includes(i.id)) ?? [];
   const data = byCat("data")?.items.filter((i) => i.id === "data_table") ?? [];
   const media = byCat("media")?.items.filter((i) => i.id === "media_default") ?? [];
@@ -325,6 +325,7 @@ export function createColumnNestedBlockFromPreset(id: StoryAddBlockPresetId): St
 /** Presets allowed in a split block’s supporting rail. */
 export const STORY_SPLIT_SUPPORT_ADD_PRESET_IDS: readonly StoryAddBlockPresetId[] = [
   "text_verse",
+  "text_quote",
   "media_default",
   "data_table",
   "embed_gallery",

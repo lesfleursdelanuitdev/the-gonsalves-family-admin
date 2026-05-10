@@ -321,7 +321,7 @@ function StoryCanvasVerseResizableEditor({
   onResizeWidth?: (pct: number) => void;
 }) {
   const preset = getStoryRichTextPreset(rich);
-  const showHandles = preset === "verse" && Boolean(onResizeWidth);
+  const showHandles = (preset === "verse" || preset === "quote") && Boolean(onResizeWidth);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{
     startX: number;
