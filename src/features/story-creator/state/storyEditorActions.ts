@@ -10,7 +10,6 @@ import {
 } from "@/lib/admin/story-creator/story-doc-mutators";
 import {
   appendChildSection,
-  findSectionPath,
   firstSectionInOrder,
   insertSectionAfterSibling,
   mapSectionInDocument,
@@ -91,11 +90,9 @@ export function deleteBlockInDocument(
   doc: StoryDocument,
   blockId: string,
 ): { document: StoryDocument; nextSelectedId: string | null } {
-  const path = findSectionPath(doc.sections ?? [], doc.sections?.[0]?.id ?? "");
-  const roots = path ? doc.sections : doc.sections;
   let nextSelectedId: string | null = null;
   let changed = false;
-  const sections = (roots ?? []).map((sec) => {
+  const sections = (doc.sections ?? []).map((sec) => {
     const out = removeBlockById(sec, blockId);
     if (!out) return sec;
     changed = true;

@@ -490,6 +490,7 @@ function SectionTreePreview({ section, depth }: { section: StorySection; depth: 
   return (
     <div id={`story-sec-${section.id}`} className={cn("story-preview-section", depth > 0 && "mt-10")}>
       {titleEl}
+      {section.subtitle ? <p className="story-section-subtitle">{section.subtitle}</p> : null}
       {hasBlocks ? <SectionBlocksPreview blocks={section.blocks} /> : null}
       {hasKids ? (
         <div className={cn(hasBlocks && "mt-8", "space-y-8")}>

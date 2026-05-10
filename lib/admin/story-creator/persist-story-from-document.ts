@@ -86,6 +86,7 @@ export async function replaceStoryFromDocumentInTx(
         data: {
           chapterId: createdCh.id,
           title: sec.title,
+          subtitle: sec.subtitle,
           sortOrder: sec.sortOrder,
           slug: sec.slug,
           isChapter: sec.isChapter,

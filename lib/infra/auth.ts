@@ -18,6 +18,9 @@ const sessionCookieOptions = {
   sameSite: "lax" as const,
   path: "/",
   maxAge: SESSION_TTL_MS / 1000,
+  ...(process.env.ADMIN_SESSION_COOKIE_DOMAIN?.trim()
+    ? { domain: process.env.ADMIN_SESSION_COOKIE_DOMAIN.trim() }
+    : {}),
 };
 
 function sha256(input: string): string {

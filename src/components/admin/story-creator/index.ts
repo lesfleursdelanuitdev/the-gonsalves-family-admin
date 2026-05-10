@@ -8,3 +8,6 @@ export {
 
 export { StoryCreatorClient } from "./StoryCreatorClient";
 export { StoryCreatorInspector, type StoryInspectorTab } from "./StoryCreatorInspector";
+export { StoryBlockInspector } from "./inspector/StoryBlockInspector";
+export { StorySettingsInspector } from "./inspector/StorySettingsInspector";
+export { StoryDebugInspector } from "./inspector/StoryDebugInspector";

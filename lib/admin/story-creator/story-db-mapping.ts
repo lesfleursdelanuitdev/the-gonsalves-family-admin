@@ -92,6 +92,7 @@ export type StoryDbSerializedPayload = {
     slug: string | null;
     sections: Array<{
       title: string;
+      subtitle: string | null;
       sortOrder: number;
       slug: string | null;
       isChapter: boolean;
@@ -258,6 +259,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
         slug: null,
         sections: childList.map((ch, j) => ({
           title: ch.title,
+          subtitle: ch.subtitle?.trim() || null,
           sortOrder: j,
           slug: null,
           isChapter: j === 0 ? parentChapter : false,
@@ -273,6 +275,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
         sections: [
           {
             title: root.title,
+            subtitle: root.subtitle?.trim() || null,
             sortOrder: 0,
             slug: null,
             isChapter: root.isChapter ?? false,
@@ -338,6 +341,7 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
       roots.push({
         id: s0.id,
         title: s0.title,
+        subtitle: s0.subtitle ?? undefined,
         collapsed: false,
         isChapter: s0.isChapter ?? false,
         isPage: s0.isPage ?? false,
@@ -356,6 +360,7 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
         children: secs.map((s) => ({
           id: s.id,
           title: s.title,
+          subtitle: s.subtitle ?? undefined,
           collapsed: false,
           blocks: parseSectionContentJson(s.contentJson),
         })),

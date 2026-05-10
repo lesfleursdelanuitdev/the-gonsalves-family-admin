@@ -34,7 +34,17 @@ export function useLogin() {
     onSuccess: async (data) => {
       qc.setQueryData(AUTH_KEYS.me, data.user);
       await qc.invalidateQueries({ queryKey: AUTH_KEYS.me });
-      router.push("/admin");
+      const url = new URL(window.location.href);
+      const requested = url.searchParams.get("redirect");
+      const safeRedirect =
+        requested && requested.startsWith("/") && !requested.startsWith("//") ? requested : null;
+      if (safeRedirect) {
+        router.push(safeRedirect);
+        return;
+      }
+      router.push(
+        window.location.hostname === "storycreator.gonsalvesfamily.com" ? "/storycreator" : "/admin",
+      );
     },
   });
 }

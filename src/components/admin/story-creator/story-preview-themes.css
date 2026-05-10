@@ -102,6 +102,18 @@
   color: #374151;
 }
 
+.preview-root .story-section-subtitle {
+  font-size: 1rem;
+  line-height: 1.4;
+  font-style: italic;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.preview-root.theme-light .story-section-subtitle {
+  color: #6b7280;
+}
+
 .preview-root.theme-light .story-preview-statusline {
   color: #9ca3af;
 }
@@ -195,6 +207,10 @@
 
 .preview-root.theme-dark .story-preview-subsection-title {
   color: #d1d5db;
+}
+
+.preview-root.theme-dark .story-section-subtitle {
+  color: #9ca3af;
 }
 
 .preview-root.theme-dark .story-preview-statusline {

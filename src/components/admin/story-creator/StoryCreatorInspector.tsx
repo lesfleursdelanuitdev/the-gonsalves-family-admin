@@ -36,6 +36,7 @@ import type {
   StoryContainerWidth,
   StorySplitContentBlock,
   StoryTableBlock,
+  StorySection,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryDividerPreset, getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
@@ -109,6 +110,9 @@ import { useAdminAlbums, type AdminAlbumListItem } from "@/hooks/useAdminAlbums"
 import { useStoryMediaById } from "@/hooks/useStoryMediaById";
 import { mediaThumbSrc, resolveMediaImageSrc } from "@/lib/admin/mediaPreview";
 import { toast } from "sonner";
+import { StoryBlockInspector } from "@/components/admin/story-creator/inspector/StoryBlockInspector";
+import { StorySettingsInspector } from "@/components/admin/story-creator/inspector/StorySettingsInspector";
+import { StoryDebugInspector } from "@/components/admin/story-creator/inspector/StoryDebugInspector";
 
 export type StoryInspectorTab = "block" | "story" | "debug";
 
@@ -131,7 +135,7 @@ const LINK_OPTIONS: { value: StoryEmbedLinkMode; label: string }[] = [
 
 const OTHER_EMBED_KINDS: StoryGeneralEmbedKind[] = ["document", "timeline", "map", "tree", "graph"];
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/50">{children}</p>;
 }
 
@@ -179,7 +183,7 @@ function StoryTextPlacementGrid({
   );
 }
 
-function HelperCard({ title, children }: { title: string; children: React.ReactNode }) {
+export function HelperCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-base-content/10 bg-base-100/70 p-4 shadow-sm ring-1 ring-base-content/[0.04]">
       <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">{title}</p>
@@ -209,7 +213,7 @@ function splitMatchesCurrent(current: [number, number], preset: [number, number]
   return Math.abs(current[0] - preset[0]) <= 1 && Math.abs(current[1] - preset[1]) <= 1;
 }
 
-function ColumnsLayoutInspector({
+export function ColumnsLayoutInspector({
   block,
   nestingDepth,
   onPatch,
@@ -391,24 +395,24 @@ function ColumnsLayoutInspector({
   );
 }
 
-const STORY_KIND_OPTIONS: { value: StoryDocumentKind; label: string; hint: string }[] = [
+export const STORY_KIND_OPTIONS: { value: StoryDocumentKind; label: string; hint: string }[] = [
   { value: "story", label: "Story", hint: "Narrative, chapter-led family story." },
   { value: "article", label: "Article", hint: "Long-form article layout and tone." },
   { value: "post", label: "Post", hint: "Shorter update or blog-style post." },
 ];
 
-function tagsToCommaInput(tags: string[] | undefined): string {
+export function tagsToCommaInput(tags: string[] | undefined): string {
   return (tags ?? []).join(", ");
 }
 
-function parseCommaTags(raw: string): string[] {
+export function parseCommaTags(raw: string): string[] {
   return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
-function StoryLinkedAlbumsField({
+export function StoryLinkedAlbumsField({
   linkedAlbums,
   onStoryMetaChange,
   panelId,
@@ -538,7 +542,7 @@ function storyLinkedPlaceFromSuggestionRow(row: AdminPlaceSuggestionRow): StoryL
   };
 }
 
-function InspectorStoryLinkedRecords({
+export function InspectorStoryLinkedRecords({
   doc,
   storyId,
   onStoryMetaChange,
@@ -897,7 +901,7 @@ function InspectorStoryImageRow({
   );
 }
 
-function InspectorStoryImagesSection({
+export function InspectorStoryImagesSection({
   doc,
   storyId,
   onStoryMetaChange,
@@ -967,7 +971,7 @@ function authorsPatch(next: StoryAuthorCredit[]): StoryDocumentMetaPatch {
   };
 }
 
-function InspectorStoryAuthorsSection({
+export function InspectorStoryAuthorsSection({
   doc,
   controlH,
   authorPrefixOptionClass,
@@ -1150,364 +1154,7 @@ function InspectorStoryAuthorsSection({
   );
 }
 
-function InspectorStoryTabContent({
-  doc,
-  storyId,
-  onTitleChange,
-  onExcerptChange,
-  onStoryMetaChange,
-  touchComfort,
-}: {
-  doc: StoryDocument;
-  storyId: string;
-  onTitleChange: (title: string) => void;
-  onExcerptChange: (excerpt: string) => void;
-  onStoryMetaChange: (patch: StoryDocumentMetaPatch) => void;
-  touchComfort?: boolean;
-}) {
-  const controlH = touchComfort ? "h-11 min-h-[44px]" : "h-10";
-  const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
-  const kind = doc.kind ?? "story";
-  const status = doc.status ?? "draft";
-  const [slugError, setSlugError] = useState<string | null>(null);
-  const publicOrigin =
-    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_PUBLIC_STORY_SITE_ORIGIN?.trim()) ||
-    "https://gonsalves.family";
-
-  const checkSlugAvailability = useCallback(
-    async (slugOverride?: string) => {
-      const slug = normalizeStorySlugInput(slugOverride ?? doc.slug ?? "");
-      if (!slug) {
-        setSlugError(null);
-        return;
-      }
-      try {
-        const res = await fetchJson<{ available: boolean }>(
-          `/api/admin/stories/check-slug?slug=${encodeURIComponent(slug)}&excludeId=${encodeURIComponent(storyId)}`,
-        );
-        setSlugError(res.available ? null : "This URL slug is already taken. Try another.");
-      } catch {
-        setSlugError(null);
-      }
-    },
-    [doc.slug, storyId],
-  );
-
-  const chipBtn = (active: boolean) =>
-    cn(
-      "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
-      chip,
-      active
-        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
-        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
-    );
-
-  const authorPrefixOptionClass = (active: boolean) =>
-    cn(
-      "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
-      touchComfort ? "min-h-[52px]" : "min-h-0",
-      active
-        ? "border-primary/45 bg-primary/15 shadow-sm ring-1 ring-primary/15"
-        : "border-base-content/12 bg-base-100/70 hover:border-base-content/20",
-    );
-
-  const authorCredits = useMemo(() => getStoryAuthorCredits(doc), [doc]);
-  const authorsSectionDefaultOpen = authorCredits.length > 0;
-  const summaryDefaultOpen = Boolean((doc.excerpt ?? "").trim());
-  const slugPreview = normalizeStorySlugInput(doc.slug ?? "");
-
-  return (
-    <div className="space-y-4">
-      <CollapsibleFormSection title="Basic details" defaultOpen>
-        <div>
-          <FieldLabel>Title</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">Shown in the editor header, story list, and (when synced) the public page title.</p>
-          <input
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100",
-              controlH,
-            )}
-            value={doc.title}
-            onChange={(e) => onTitleChange(e.target.value)}
-          />
-        </div>
-        <div>
-          <FieldLabel>Slug</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            Lowercase letters, numbers, and hyphens. Spaces become hyphens; other characters are removed. Used on the public site at{" "}
-            <span className="font-medium text-base-content/70">/stories/your-slug</span>.
-          </p>
-          <input
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
-              controlH,
-              slugError ? "border-error/60" : "",
-            )}
-            placeholder="e.g. the-gonsalves-of-berbice"
-            value={doc.slug ?? ""}
-            onChange={(e) => {
-              const live = normalizeStorySlugInputLive(e.target.value);
-              if (!live.length) {
-                const auto = !doc.title.trim()
-                  ? ""
-                  : normalizeStorySlugInput(slugifyStoryTitle(doc.title));
-                onStoryMetaChange({
-                  slug: auto.length ? auto : undefined,
-                  slugManuallyEdited: false,
-                });
-              } else {
-                onStoryMetaChange({ slug: live, slugManuallyEdited: true });
-              }
-              if (slugError) setSlugError(null);
-            }}
-            onBlur={() => {
-              const raw = doc.slug ?? "";
-              const committed = normalizeStorySlugInput(raw);
-              if (committed !== raw) {
-                onStoryMetaChange({ slug: committed.length ? committed : undefined });
-              }
-              void checkSlugAvailability(committed);
-            }}
-            spellCheck={false}
-            aria-invalid={Boolean(slugError)}
-          />
-          {slugError ? <p className="mt-1.5 text-xs font-medium text-error">{slugError}</p> : null}
-        </div>
-        <div className="rounded-lg border border-base-content/10 bg-base-100/40 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-base-content/45">Public URL preview</p>
-          <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-base-content/70">
-            {publicOrigin.replace(/\/$/, "")}/stories/{slugPreview.length > 0 ? slugPreview : "…"}
-          </p>
-        </div>
-      </CollapsibleFormSection>
-
-      <CollapsibleFormSection title="Authors" defaultOpen={authorsSectionDefaultOpen}>
-        <InspectorStoryAuthorsSection
-          doc={doc}
-          controlH={controlH}
-          authorPrefixOptionClass={authorPrefixOptionClass}
-          onStoryMetaChange={onStoryMetaChange}
-        />
-      </CollapsibleFormSection>
-
-      <CollapsibleFormSection title="Summary" defaultOpen={summaryDefaultOpen}>
-        <div>
-          <FieldLabel>Subtitle / short description</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            Optional teaser for cards, search, and social previews. Keep it one or two sentences.
-          </p>
-          <textarea
-            className="textarea textarea-bordered textarea-sm min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500"
-            placeholder="e.g. How the family came to California…"
-            value={doc.excerpt ?? ""}
-            onChange={(e) => onExcerptChange(e.target.value)}
-          />
-        </div>
-      </CollapsibleFormSection>
-
-      <CollapsibleFormSection title="Publishing state" defaultOpen={false}>
-        <div>
-          <FieldLabel>Status</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            Draft vs published is stored on the document. Use <span className="font-medium text-base-content/75">Save draft</span> or{" "}
-            <span className="font-medium text-base-content/75">Publish</span> in the toolbar to write changes to local storage.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={chipBtn(status === "draft")} onClick={() => onStoryMetaChange({ status: "draft" })}>
-              Draft
-            </button>
-            <button
-              type="button"
-              className={chipBtn(status === "published")}
-              onClick={() => onStoryMetaChange({ status: "published" })}
-            >
-              Published
-            </button>
-          </div>
-        </div>
-        <div className="rounded-lg border border-base-content/10 bg-base-100/40 px-3 py-2.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Visibility</p>
-          <p className="mt-1 text-xs leading-relaxed text-base-content/60">
-            Stories live in this admin app and your browser storage until a public API exists. Both draft and published
-            remain private to your account here.
-          </p>
-        </div>
-        <div>
-          <FieldLabel>Content type</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">
-            Drives how the piece is labeled for listings and URLs when synced (
-            <code className="rounded bg-base-200/80 px-1 py-0.5 text-[10px]">StoryKind</code>).
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {STORY_KIND_OPTIONS.map((opt) => {
-              const active = kind === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  title={opt.hint}
-                  onClick={() => onStoryMetaChange({ kind: opt.value })}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
-                    touchComfort ? "min-h-[44px] min-w-[5.5rem]" : "min-h-9",
-                    active
-                      ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
-                      : "border-base-content/12 bg-base-100/70 text-base-content/75 hover:border-base-content/20",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </CollapsibleFormSection>
-
-      <InspectorStoryImagesSection doc={doc} storyId={storyId} onStoryMetaChange={onStoryMetaChange} touchComfort={touchComfort} />
-
-      <CollapsibleFormSection title="Story context" defaultOpen>
-        <InspectorStoryLinkedRecords
-          doc={doc}
-          storyId={storyId}
-          onStoryMetaChange={onStoryMetaChange}
-          touchComfort={touchComfort}
-          embedded
-        />
-      </CollapsibleFormSection>
-
-      <CollapsibleFormSection title="Organization" defaultOpen={false}>
-        <div>
-          <FieldLabel>Tags</FieldLabel>
-          <p className="mb-2 text-xs leading-relaxed text-base-content/55">Comma-separated keywords for your own organization and future search.</p>
-          <input
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100",
-              controlH,
-            )}
-            placeholder="e.g. immigration, civil-war"
-            value={tagsToCommaInput(doc.tags)}
-            onChange={(e) => onStoryMetaChange({ tags: parseCommaTags(e.target.value) })}
-          />
-          <p className="mt-1.5 text-xs text-base-content/50">
-            Persists on this draft; maps to <code className="rounded bg-base-200/70 px-1 text-[10px]">stories.tags</code> /{" "}
-            <code className="rounded bg-base-200/70 px-1 text-[10px]">story_tags</code> when the API is wired.
-          </p>
-        </div>
-        <StoryLinkedAlbumsField
-          linkedAlbums={doc.linkedAlbums ?? []}
-          onStoryMetaChange={onStoryMetaChange}
-          panelId={`story-albums-${storyId}`}
-          touchComfort={touchComfort}
-        />
-      </CollapsibleFormSection>
-
-      <CollapsibleFormSection title="Advanced" defaultOpen={false}>
-        <div>
-          <FieldLabel>Story ID</FieldLabel>
-          <p className="mb-2 text-xs text-base-content/55">Stable identifier in local storage and future sync.</p>
-          <input
-            readOnly
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-200/40 font-mono text-xs",
-              controlH,
-            )}
-            value={doc.id}
-          />
-        </div>
-        <div>
-          <FieldLabel>Document format</FieldLabel>
-          <p className="mb-2 text-xs text-base-content/55">Schema version for migrations when the editor format changes.</p>
-          <input
-            readOnly
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-200/40 font-mono text-xs",
-              controlH,
-            )}
-            value={`version ${doc.version}`}
-          />
-        </div>
-        <div>
-          <FieldLabel>Last updated (on document)</FieldLabel>
-          <p className="mb-2 text-xs text-base-content/55">Refreshed when you save draft or publish to local storage.</p>
-          <input
-            readOnly
-            className={cn(
-              "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-200/40 font-mono text-xs",
-              controlH,
-            )}
-            value={doc.updatedAt}
-          />
-        </div>
-        <p className="text-xs leading-relaxed text-base-content/50">
-          Import and server-side migration notes will appear here when available. Until then, use the{" "}
-          <span className="font-medium text-base-content/65">Debug</span> tab to inspect raw JSON.
-        </p>
-      </CollapsibleFormSection>
-    </div>
-  );
-}
-
-function InspectorDebugTabContent({
-  doc,
-  selectedBlockId,
-  selectedBlock,
-  storyEditorDirty,
-}: {
-  doc: StoryDocument;
-  selectedBlockId: string | null;
-  selectedBlock: StoryBlock | null;
-  storyEditorDirty: boolean;
-}) {
-  const payload = useMemo(
-    () => ({
-      summary: {
-        storyId: doc.id,
-        schemaVersion: doc.version,
-        documentUpdatedAt: doc.updatedAt,
-        selectedBlockId,
-        selectedBlockType: selectedBlock?.type ?? null,
-        dirtyVersusLastLocalSave: storyEditorDirty,
-        validationErrors: null,
-      },
-      documentInMemory: doc,
-      /** Shape of the next `saveStoryDocument` write (`updatedAt` refreshed at save time). */
-      localStorageSavePayloadPreview: storyDocumentWithSaveTimestamp(doc),
-    }),
-    [doc, selectedBlockId, selectedBlock, storyEditorDirty],
-  );
-
-  const jsonText = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
-
-  const copyJson = () => {
-    void navigator.clipboard.writeText(jsonText).then(
-      () => toast.success("Copied debug JSON"),
-      () => toast.error("Could not copy to clipboard"),
-    );
-  };
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col space-y-4">
-      <p className="text-xs leading-relaxed text-base-content/55">
-        Read-only developer view. <span className="font-medium text-base-content/75">documentInMemory</span> is the live
-        editor state; <span className="font-medium text-base-content/75">localStorageSavePayloadPreview</span> matches the
-        JSON persisted by <code className="rounded bg-base-200/80 px-1 font-mono text-[10px]">saveStoryDocument</code>{" "}
-        (a new <code className="rounded bg-base-200/80 px-1 font-mono text-[10px]">updatedAt</code> is applied on each save).
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" className="gap-2 font-medium" onClick={copyJson}>
-          <Copy className="size-3.5 opacity-80" aria-hidden />
-          Copy JSON
-        </Button>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Combined payload</p>
-        <pre className="max-h-[min(55vh,520px)] min-h-[200px] flex-1 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-base-content/12 bg-base-300/25 p-3 font-mono text-[11px] leading-relaxed text-base-content/90">
-          {jsonText}
-        </pre>
-      </div>
-    </div>
-  );
-}
+// Story and debug tab components were extracted to ./inspector.
 
 function StoryInspectorSheetStoryOrDebug({
   storyId,
@@ -1566,7 +1213,7 @@ function StoryInspectorSheetStoryOrDebug({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         {sub === "story" ? (
-          <InspectorStoryTabContent
+          <StorySettingsInspector
             doc={doc}
             storyId={storyId}
             onTitleChange={onTitleChange}
@@ -1575,7 +1222,7 @@ function StoryInspectorSheetStoryOrDebug({
             touchComfort={touchComfort}
           />
         ) : (
-          <InspectorDebugTabContent
+          <StoryDebugInspector
             doc={doc}
             selectedBlockId={selectedBlockId}
             selectedBlock={selectedBlock}
@@ -1587,7 +1234,7 @@ function StoryInspectorSheetStoryOrDebug({
   );
 }
 
-function ContainerLayoutInspector({
+export function ContainerLayoutInspector({
   block,
   onPatch,
   touchComfort,
@@ -1707,7 +1354,7 @@ function ContainerLayoutInspector({
   );
 }
 
-function StoryBlockDesignInspector({
+export function StoryBlockDesignInspector({
   blockId,
   design,
   onPatchDesign,
@@ -1776,7 +1423,7 @@ function StoryBlockDesignInspector({
   );
 }
 
-function BlockDateAnnotationInspector({
+export function BlockDateAnnotationInspector({
   dateAnnotations,
   legacyDateAnnotation,
   placeAnnotations,
@@ -1985,7 +1632,7 @@ function BlockDateAnnotationInspector({
 
 const RICH_TEXT_PRESET_OPTIONS: StoryRichTextTextPreset[] = ["paragraph", "heading", "list", "verse", "quote"];
 
-function RichTextBlockInspector({
+export function RichTextBlockInspector({
   block,
   onPatch,
   onPatchRowLayout,
@@ -2102,7 +1749,7 @@ function RichTextBlockInspector({
 
 const DIVIDER_PRESET_OPTIONS: StoryDividerVariant[] = ["line", "ornamental", "spacer", "sectionBreak"];
 
-function DividerBlockInspector({
+export function DividerBlockInspector({
   block,
   onPatch,
   onPatchRowLayout,
@@ -2192,7 +1839,7 @@ function DividerBlockInspector({
 
 // ─── Table block inspector ────────────────────────────────────────────────────
 
-type TableLayoutPatch = Partial<Pick<StoryTableBlock, "hasHeaderRow" | "hasHeaderColumn" | "rowCount" | "columnCount" | "widthPct" | "widthAlign">>;
+export type TableLayoutPatch = Partial<Pick<StoryTableBlock, "hasHeaderRow" | "hasHeaderColumn" | "rowCount" | "columnCount" | "widthPct" | "widthAlign">>;
 
 const TABLE_WIDTH_PRESETS = [
   { pct: 33, label: "33%" },
@@ -2202,7 +1849,7 @@ const TABLE_WIDTH_PRESETS = [
   { pct: 100, label: "Full" },
 ] as const;
 
-function TableBlockInspector({
+export function TableBlockInspector({
   block,
   onPatch,
   touchComfort,
@@ -2382,7 +2029,7 @@ const SPLIT_GAP_PRESETS = [
   { rem: 2.5, label: "Wide" },
 ] as const;
 
-function SplitContentInspector({
+export function SplitContentInspector({
   block,
   onPatch,
   touchComfort,
@@ -2440,185 +2087,14 @@ function SplitContentInspector({
   );
 }
 
-function InspectorBlockTabContent({
-  storyId,
-  selectedBlock,
-  columnsLayoutBlock,
-  columnsNestingDepth,
-  onPatchColumns,
-  onPatchColumnSlot,
-  onPatchEmbed,
-  onPatchMedia,
-  onPatchContainer,
-  onPatchBlockRowLayout,
-  onPatchBlockDesign,
-  onPatchBlockDateAnnotation,
-  onPatchRichTextMeta,
-  onPatchDividerMeta,
-  onDeleteBlock,
-  onPatchSplitContent,
-  onPatchTable,
-  selectedBlockInSplitPanel = false,
-  touchComfort,
-}: {
-  storyId: string;
-  selectedBlock: StoryBlock | null;
-  columnsLayoutBlock: StoryColumnsBlock | null;
-  columnsNestingDepth: number;
-  onPatchColumns?: (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem">>) => void;
-  onPatchColumnSlot?: (columnIndex: 0 | 1, patch: Partial<Pick<StoryColumnSlot, "stackJustify" | "stackGapRem">>) => void;
-  onPatchEmbed: (patch: Partial<StoryEmbedBlock>) => void;
-  onPatchMedia: (patch: Partial<StoryMediaBlock>) => void;
-  onPatchContainer?: (patch: Partial<StoryContainerBlockProps>) => void;
-  onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
-  onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
-  onPatchBlockDateAnnotation?: (next: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => void;
-  onPatchRichTextMeta?: (patch: StoryRichTextMetaPatch) => void;
-  onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
-  onDeleteBlock?: () => void;
-  onPatchSplitContent?: (patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
-  onPatchTable?: (patch: TableLayoutPatch) => void;
-  selectedBlockInSplitPanel?: boolean;
-  touchComfort?: boolean;
-}) {
-  return (
-    <>
-      {columnsLayoutBlock && onPatchColumns && onPatchColumnSlot ? (
-        <ColumnsLayoutInspector
-          block={columnsLayoutBlock}
-          nestingDepth={columnsNestingDepth}
-          onPatch={onPatchColumns}
-          onPatchColumnSlot={onPatchColumnSlot}
-          touchComfort={touchComfort}
-        />
-      ) : null}
-      {selectedBlock?.type === "media" ? (
-        <MediaBlockInspector
-          storyId={storyId}
-          block={selectedBlock}
-          onPatch={onPatchMedia}
-          hideLayoutSection={selectedBlockInSplitPanel}
-          touchComfort={touchComfort}
-        />
-      ) : selectedBlock?.type === "embed" ? (
-        <OtherEmbedInspector block={selectedBlock} onPatch={onPatchEmbed} hideLayoutSection={selectedBlockInSplitPanel} touchComfort={touchComfort} />
-      ) : selectedBlock?.type === "container" && onPatchContainer ? (
-        <ContainerLayoutInspector block={selectedBlock} onPatch={onPatchContainer} touchComfort={touchComfort} />
-      ) : selectedBlock?.type === "columns" ? (
-        <HelperCard title="Columns (2)">
-          Each column can stack rich text, media from the library, and embed blocks. Add blocks on the canvas; adjust
-          widths, gaps, and per-column layout in the sections above.
-        </HelperCard>
-      ) : selectedBlock?.type === "richText" ? (
-        <div className="space-y-4">
-          {onPatchRichTextMeta ? (
-            <>
-              <HelperCard title="Rich text">
-                Use the global toolbar for inline formatting (bold, links, highlight). Preset controls the block role and
-                editor styling—structural TipTap commands stay in the canvas, not here.
-              </HelperCard>
-              <RichTextBlockInspector
-                block={selectedBlock}
-                onPatch={onPatchRichTextMeta}
-                onPatchRowLayout={onPatchBlockRowLayout}
-                touchComfort={touchComfort}
-              />
-            </>
-          ) : (
-            <StoryBlockRowLayoutInspector
-              rowLayout={effectiveRowLayoutForRichText(selectedBlock.rowLayout)}
-              onPatch={(patch) => onPatchBlockRowLayout({ ...patch, displayMode: "block", float: undefined })}
-              touchComfort={touchComfort}
-            />
-          )}
-        </div>
-      ) : selectedBlock?.type === "divider" ? (
-        <div className="space-y-4">
-          {onPatchDividerMeta ? (
-            <>
-              <HelperCard title="Divider / spacer">
-                Spacers publish as whitespace only. Line, ornamental, and section break render visibly on the live site.
-              </HelperCard>
-              <DividerBlockInspector
-                block={selectedBlock}
-                onPatch={onPatchDividerMeta}
-                onPatchRowLayout={onPatchBlockRowLayout}
-                touchComfort={touchComfort}
-              />
-            </>
-          ) : (
-            <HelperCard title="Divider">Select this block on the canvas to adjust presets when the editor provides patch handlers.</HelperCard>
-          )}
-        </div>
-      ) : selectedBlock?.type === "table" && onPatchTable ? (
-        <TableBlockInspector block={selectedBlock} onPatch={onPatchTable} touchComfort={touchComfort} />
-      ) : selectedBlock?.type === "table" ? (
-        <HelperCard title="Table">Select this block on the canvas to adjust headers and sizing.</HelperCard>
-      ) : selectedBlock?.type === "splitContent" && onPatchSplitContent ? (
-        <SplitContentInspector block={selectedBlock} onPatch={onPatchSplitContent} touchComfort={touchComfort} />
-      ) : selectedBlock?.type === "splitContent" ? (
-        <HelperCard title="Split content">
-          Select side, width, and gap in the inspector above to adjust the supporting panel layout.
-        </HelperCard>
-      ) : columnsLayoutBlock ? null : (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-content/15 bg-base-100/40 px-4 py-12 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-base-200/80 ring-1 ring-base-content/10">
-            <Info className="size-6 text-base-content/35" aria-hidden />
-          </div>
-          <p className="max-w-[220px] text-sm leading-relaxed text-base-content/60">
-            Select a block in the editor to edit layout, media, and metadata here.
-          </p>
-        </div>
-      )}
-      {selectedBlock && onPatchBlockDateAnnotation ? (
-        <div className="mt-6 border-t border-base-content/10 pt-6">
-          <BlockDateAnnotationInspector
-            dateAnnotations={selectedBlock.dateAnnotations}
-            legacyDateAnnotation={selectedBlock.dateAnnotation}
-            placeAnnotations={selectedBlock.placeAnnotations}
-            onCommit={onPatchBlockDateAnnotation}
-            touchComfort={touchComfort}
-          />
-        </div>
-      ) : null}
-      {selectedBlock ? (
-        <div className="mt-6 border-t border-base-content/10 pt-6">
-          <StoryBlockDesignInspector
-            blockId={selectedBlock.id}
-            design={selectedBlock.design}
-            onPatchDesign={onPatchBlockDesign}
-            touchComfort={touchComfort}
-          />
-        </div>
-      ) : null}
-      {selectedBlock && onDeleteBlock ? (
-        <div className="border-t border-base-content/10 pt-6">
-          <CollapsibleFormSection title="Danger zone" defaultOpen={false}>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className={cn(
-                "w-full gap-2 rounded-lg border-error/40 font-medium text-error hover:border-error/55 hover:bg-error/10",
-                touchComfort ? "min-h-[44px] h-11" : "h-10",
-              )}
-              onClick={onDeleteBlock}
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Delete block
-            </Button>
-          </CollapsibleFormSection>
-        </div>
-      ) : null}
-    </>
-  );
-}
+// Block tab component was extracted to ./inspector.
 
 export function StoryCreatorInspector({
   doc,
   storyId,
   inspectorTab,
   onInspectorTab,
+  selectedSection,
   selectedBlock,
   selectedBlockId = null,
   storyEditorDirty = false,
@@ -2632,6 +2108,7 @@ export function StoryCreatorInspector({
   onPatchBlockRowLayout,
   onPatchBlockDesign,
   onPatchBlockDateAnnotation,
+  onPatchSection,
   onPatchRichTextMeta,
   onPatchDividerMeta,
   onPatchSplitContent,
@@ -2649,6 +2126,7 @@ export function StoryCreatorInspector({
   storyId: string;
   inspectorTab: StoryInspectorTab;
   onInspectorTab: (t: StoryInspectorTab) => void;
+  selectedSection?: StorySection | null;
   selectedBlock: StoryBlock | null;
   /** Block id in the active section (for Debug tab). */
   selectedBlockId?: string | null;
@@ -2665,6 +2143,7 @@ export function StoryCreatorInspector({
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
   onPatchBlockDateAnnotation?: (next: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => void;
+  onPatchSection?: (sectionId: string, patch: Partial<StorySection>) => void;
   onPatchRichTextMeta?: (patch: StoryRichTextMetaPatch) => void;
   onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
   onPatchSplitContent?: (patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
@@ -2684,9 +2163,10 @@ export function StoryCreatorInspector({
     return (
       <div className={cn("flex min-h-0 w-full flex-col bg-transparent", className)}>
         <div className="min-h-0 flex-1 space-y-6">
-          <InspectorBlockTabContent
+          <StoryBlockInspector
             storyId={storyId}
             selectedBlock={selectedBlock}
+            selectedSection={selectedSection ?? null}
             columnsLayoutBlock={columnsLayoutBlock ?? null}
             columnsNestingDepth={columnsNestingDepth ?? 1}
             onPatchColumns={onPatchColumns}
@@ -2697,6 +2177,7 @@ export function StoryCreatorInspector({
             onPatchBlockRowLayout={onPatchBlockRowLayout}
             onPatchBlockDesign={onPatchBlockDesign}
             onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
+            onPatchSection={onPatchSection}
             onPatchRichTextMeta={onPatchRichTextMeta}
             onPatchDividerMeta={onPatchDividerMeta}
             onPatchSplitContent={onPatchSplitContent}
@@ -2790,7 +2271,7 @@ export function StoryCreatorInspector({
 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
         {inspectorTab === "story" ? (
-          <InspectorStoryTabContent
+          <StorySettingsInspector
             doc={doc}
             storyId={storyId}
             onTitleChange={onTitleChange}
@@ -2798,16 +2279,17 @@ export function StoryCreatorInspector({
             onStoryMetaChange={storyMeta}
           />
         ) : inspectorTab === "debug" ? (
-          <InspectorDebugTabContent
+          <StoryDebugInspector
             doc={doc}
             selectedBlockId={selectedBlockId}
             selectedBlock={selectedBlock}
             storyEditorDirty={storyEditorDirty}
           />
         ) : (
-          <InspectorBlockTabContent
+          <StoryBlockInspector
             storyId={storyId}
             selectedBlock={selectedBlock}
+            selectedSection={selectedSection ?? null}
             columnsLayoutBlock={columnsLayoutBlock ?? null}
             columnsNestingDepth={columnsNestingDepth ?? 1}
             onPatchColumns={onPatchColumns}
@@ -2818,6 +2300,7 @@ export function StoryCreatorInspector({
             onPatchBlockRowLayout={onPatchBlockRowLayout}
             onPatchBlockDesign={onPatchBlockDesign}
             onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
+            onPatchSection={onPatchSection}
             onPatchRichTextMeta={onPatchRichTextMeta}
             onPatchDividerMeta={onPatchDividerMeta}
             onPatchSplitContent={onPatchSplitContent}
@@ -2845,7 +2328,7 @@ const ROW_ALIGN_OPTIONS: { value: StoryBlockRowAlignment; label: string; icon: t
   { value: "right", label: "Right", icon: AlignRight },
 ];
 
-function StoryBlockRowLayoutInspector({
+export function StoryBlockRowLayoutInspector({
   rowLayout,
   onPatch,
   touchComfort,
@@ -3072,7 +2555,7 @@ function StandaloneMediaEmbedLayoutInspectorSection({
   );
 }
 
-function MediaBlockInspector({
+export function MediaBlockInspector({
   storyId,
   block,
   onPatch,
@@ -3280,7 +2763,7 @@ function MediaBlockInspector({
   );
 }
 
-function OtherEmbedInspector({
+export function OtherEmbedInspector({
   block,
   onPatch,
   hideLayoutSection,

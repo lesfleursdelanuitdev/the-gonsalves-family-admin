@@ -1,4 +1,4 @@
-# Deploy admin.gonsalvesfamily.com
+# Deploy admin.gonsalvesfamily.com (+ storycreator.gonsalvesfamily.com)
 
 Production stack: **Next.js** (`next start` on **port 3040**) behind **nginx**, managed with **PM2**.
 
@@ -10,9 +10,10 @@ Canonical app path on the server (adjust if yours differs):
 
 ## 1. DNS
 
-Create an **A** (and **AAAA** if you use IPv6) record:
+Create **A** (and **AAAA** if you use IPv6) records:
 
 - **Host:** `admin` (or `admin.gonsalvesfamily.com`, depending on your DNS UI)
+- **Host:** `storycreator` (or `storycreator.gonsalvesfamily.com`)
 - **Target:** your server’s public IP
 
 ---
@@ -28,6 +29,7 @@ On the server, in the app root, create or update **`.env`** / **`.env.production
 | Session / auth secrets | Whatever `requireAuth` and login use in this app |
 | `NEXT_PUBLIC_*` | Any public config the client needs |
 | `NEXT_PUBLIC_RESEARCH_STATISTICS_URL` | Base URL of the **public** site’s statistics page (no trailing slash), e.g. `https://temp.gonsalvesfamily.com/statistics-test`. Required for the Data Viewer **Statistics** button (client bundle); must be present when **`npm run build`** runs (`deploy.sh` sources `.env` / `.env.production` / `.env.local` first). In **`next dev`**, a localhost default applies if unset. |
+| `ADMIN_SESSION_COOKIE_DOMAIN` | Optional but recommended when using both subdomains. Set to `.gonsalvesfamily.com` so login at `admin.gonsalvesfamily.com` is recognized by `storycreator.gonsalvesfamily.com` (and vice versa). Leave unset in localhost/dev. |
 | `ADMIN_MEDIA_FILES_ROOT` | **Production:** absolute path under **`/mnt/`** to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Default in code if unset: `/mnt/storage/uploads`. Example: `/mnt/storage/uploads` → files in `…/gedcom-admin/`. Must be **writable** by the user running PM2 (see §9). |
 | `LIB_API_URL` | Base URL for **ligneous-gedcom-lib-api** (server-side `fetch` from Next). Required for **Admin → Export** (`/api/admin/export`). If unset, the app defaults to `http://localhost:8092` (fine for local dev). **Production on this host:** run the lib API on loopback **8092** and set `LIB_API_URL=http://127.0.0.1:8092` (also the default in `deployment/ecosystem.config.cjs`). **Remote API:** set to your HTTPS origin, e.g. `https://gedcom-api.example.com`. Install/always-on: [`../../ligneous-gedcom-lib-api/deploy/README.md`](../../ligneous-gedcom-lib-api/deploy/README.md). |
 | `PYTHON_API_URL` | Base URL for **ligneous-python-api** (server-side proxy `/api/research/*`). **Production on this host:** `http://127.0.0.1:5001` with Gunicorn bound to loopback (default in `deployment/ecosystem.config.cjs`). Public TLS hostname (e.g. `analytics.gonsalvesfamily.com`) is for browsers hitting nginx; Next should prefer loopback when colocated. Install: [`../../ligneous-python-api/deploy/README.md`](../../ligneous-python-api/deploy/README.md). |
@@ -59,12 +61,12 @@ sudo systemctl start nginx
 **Option B — certbot nginx** (nginx already serving HTTP for this host):
 
 ```bash
-sudo certbot --nginx -d admin.gonsalvesfamily.com
+sudo certbot --nginx -d admin.gonsalvesfamily.com -d storycreator.gonsalvesfamily.com
 ```
 
 Certificates are expected at:
 
-`/etc/letsencrypt/live/admin.gonsalvesfamily.com/`
+`/etc/letsencrypt/live/admin.gonsalvesfamily.com/` (or per-host paths if you issued separate certs)
 
 If `options-ssl-nginx.conf` is missing, install `certbot`’s nginx plugin packages for your OS or merge the SSL directives certbot prints.
 
@@ -78,11 +80,15 @@ Copy the site config and enable it:
 sudo cp /apps/gonsalves-genealogy/the-gonsalves-family-admin/deployment/nginx-admin.gonsalvesfamily.com.conf \
   /etc/nginx/sites-available/admin.gonsalvesfamily.com
 sudo ln -sf /etc/nginx/sites-available/admin.gonsalvesfamily.com /etc/nginx/sites-enabled/
+sudo cp /apps/gonsalves-genealogy/the-gonsalves-family-admin/deployment/nginx-storycreator.gonsalvesfamily.com.conf \
+  /etc/nginx/sites-available/storycreator.gonsalvesfamily.com
+sudo ln -sf /etc/nginx/sites-available/storycreator.gonsalvesfamily.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
 - **Upstream:** `http://127.0.0.1:3040` (must match PM2 / `start:prod`).
 - **Logs:** `/var/log/nginx/admin.gonsalvesfamily.com.*.log`
+- **StoryCreator logs:** `/var/log/nginx/storycreator.gonsalvesfamily.com.*.log`
 
 If `nginx -t` fails because SSL files are not there yet, obtain the certificate first (step 4), or temporarily comment out the `listen 443` server block until certs exist.
 
@@ -126,6 +132,7 @@ This runs `scripts/deploy.sh`: production **build**, checks **`.next/static`**, 
 
 - `pm2 status` — `admin-gonsalvesfamily` online  
 - `curl -sI https://admin.gonsalvesfamily.com` — `200` or redirect to login  
+- `curl -sI https://storycreator.gonsalvesfamily.com` — `200` or redirect to login  
 - **GEDCOM lib API** (export and any server route that calls it):  
   `curl -fsS "${LIB_API_URL:-http://127.0.0.1:8092}/health"` → `{"status":"ok"}`  
   If this fails, start **ligneous-gedcom-lib-api** on the same host (Docker or systemd) or fix `LIB_API_URL` / firewall.

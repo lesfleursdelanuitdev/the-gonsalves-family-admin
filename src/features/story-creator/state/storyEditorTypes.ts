@@ -86,8 +86,8 @@ export type StoryEditorActions = {
   commitSnapshot: (reason: string) => void;
   undo: () => void;
   redo: () => void;
-  /** Escape hatch during migration: update doc with a recipe and optional history snapshot reason. */
-  updateDocumentRecipe: (recipe: (document: StoryDocument) => StoryDocument, snapshotReason?: string) => void;
+  updateDocumentRecipeWithSnapshot: (recipe: (document: StoryDocument) => StoryDocument, reason: string) => void;
+  updateDocumentRecipeNoHistory: (recipe: (document: StoryDocument) => StoryDocument) => void;
 };
 
 export type StoryEditorStore = StoryEditorState & StoryEditorActions;

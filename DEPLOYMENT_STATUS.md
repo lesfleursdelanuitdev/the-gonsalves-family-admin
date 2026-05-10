@@ -1,7 +1,7 @@
 # Deployment: admin.gonsalvesfamily.com
 
 **App:** `the-gonsalves-family-admin` (Next.js)  
-**Public URL:** https://admin.gonsalvesfamily.com  
+**Public URLs:** https://admin.gonsalvesfamily.com, https://storycreator.gonsalvesfamily.com  
 **Process manager:** PM2 name **`admin-gonsalvesfamily`**  
 **Local bind:** `127.0.0.1:3040` (`npm run start:prod`)
 
@@ -12,10 +12,12 @@ Full first-time and ongoing steps: **[deployment/README.md](deployment/README.md
 ## Nginx (reference)
 
 - **Repo template:** [deployment/nginx-admin.gonsalvesfamily.com.conf](deployment/nginx-admin.gonsalvesfamily.com.conf)
+- **Standalone StoryCreator template:** [deployment/nginx-storycreator.gonsalvesfamily.com.conf](deployment/nginx-storycreator.gonsalvesfamily.com.conf)
 - **Typical install:** `/etc/nginx/sites-available/admin.gonsalvesfamily.com` → `sites-enabled`
+- **StoryCreator install:** `/etc/nginx/sites-available/storycreator.gonsalvesfamily.com` → `sites-enabled`
 - **Proxy:** `http://127.0.0.1:3040`
 - **TLS:** `/etc/letsencrypt/live/admin.gonsalvesfamily.com/`
-- **Logs:** `/var/log/nginx/admin.gonsalvesfamily.com.access.log` and `.error.log`
+- **Logs:** `/var/log/nginx/admin.gonsalvesfamily.com.access.log`, `.error.log`, and matching `storycreator...` logs
 
 Do **not** cache HTML aggressively at nginx for this app; `/_next/static/*` is safe to cache (immutable hashes from Next).
 

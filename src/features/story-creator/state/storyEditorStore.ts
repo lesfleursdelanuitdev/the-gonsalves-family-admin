@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
 import { findSectionById } from "@/lib/admin/story-creator/story-section-tree";
 import type { StoryDocument } from "@/lib/admin/story-creator/story-types";
@@ -27,8 +27,25 @@ function cloneDoc(doc: StoryDocument): StoryDocument {
   return JSON.parse(JSON.stringify(doc)) as StoryDocument;
 }
 
-export const useStoryEditorStore = create<StoryEditorStore>()(
-  immer<StoryEditorStore>((set) => ({
+export function createStoryEditorStore() {
+  let pendingSnapshotTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearPendingSnapshotTimer = () => {
+    if (!pendingSnapshotTimer) return;
+    clearTimeout(pendingSnapshotTimer);
+    pendingSnapshotTimer = null;
+  };
+
+  const _debouncedCommitSnapshot = (reason: string, delayMs: number, commitSnapshot: (reason: string) => void) => {
+    clearPendingSnapshotTimer();
+    pendingSnapshotTimer = setTimeout(() => {
+      pendingSnapshotTimer = null;
+      commitSnapshot(reason);
+    }, delayMs);
+  };
+
+  return createStore<StoryEditorStore>()(
+    immer<StoryEditorStore>((set, get) => ({
     document: null,
     selectedBlockId: null,
     selectedSectionId: null,
@@ -45,6 +62,7 @@ export const useStoryEditorStore = create<StoryEditorStore>()(
 
     initializeDocument: (document) =>
       set((state) => {
+        clearPendingSnapshotTimer();
         const normalized = normalizeDocumentForStore(document);
         state.document = normalized;
         state.selectedSectionId = chooseDefaultSectionId(normalized);
@@ -57,19 +75,9 @@ export const useStoryEditorStore = create<StoryEditorStore>()(
         state.lastSavedAt = normalized.updatedAt ?? null;
       }),
 
-    resetDocument: (document) =>
-      set((state) => {
-        const normalized = normalizeDocumentForStore(document);
-        state.document = normalized;
-        state.selectedSectionId = chooseDefaultSectionId(normalized);
-        state.selectedBlockId = null;
-        state.activeRichTextBlockId = null;
-        state.activeEditorId = null;
-        state.validationErrors = [];
-        state.history = { ...state.history, past: [], future: [] };
-        state.dirty = false;
-        state.lastSavedAt = normalized.updatedAt ?? null;
-      }),
+    resetDocument: (document) => {
+      get().initializeDocument(document);
+    },
 
     updateStorySettings: (patch) =>
       set((state) => {
@@ -103,10 +111,7 @@ export const useStoryEditorStore = create<StoryEditorStore>()(
     updateBlock: (blockId, patch) =>
       set((state) => {
         if (!state.document) return;
-        state.history = pushHistorySnapshot(
-          state.history,
-          makeSnapshot(state.document, state.selectedBlockId, state.selectedSectionId, "update-block"),
-        );
+        _debouncedCommitSnapshot("update-block", 500, get().commitSnapshot);
         state.document = {
           ...state.document,
           sections: (state.document.sections ?? []).map((sec) => updateBlockInSection(sec, blockId, patch)),
@@ -296,18 +301,24 @@ export const useStoryEditorStore = create<StoryEditorStore>()(
         state.dirty = true;
       }),
 
-    updateDocumentRecipe: (recipe, snapshotReason) =>
+    updateDocumentRecipeWithSnapshot: (recipe, reason) =>
       set((state) => {
         if (!state.document) return;
-        if (snapshotReason) {
-          state.history = pushHistorySnapshot(
-            state.history,
-            makeSnapshot(state.document, state.selectedBlockId, state.selectedSectionId, snapshotReason),
-          );
-        }
+        state.history = pushHistorySnapshot(
+          state.history,
+          makeSnapshot(state.document, state.selectedBlockId, state.selectedSectionId, reason),
+        );
         state.document = recipe(state.document);
         state.dirty = true;
       }),
-  })),
-);
+
+    updateDocumentRecipeNoHistory: (recipe) =>
+      set((state) => {
+        if (!state.document) return;
+        state.document = recipe(state.document);
+        state.dirty = true;
+      }),
+    })),
+  );
+}
 

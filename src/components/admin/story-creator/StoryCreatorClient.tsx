@@ -93,7 +93,7 @@ import { MediaBlockContentRenderer } from "@/components/admin/story-creator/stor
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { StoryCreatorInspector, type StoryInspectorTab } from "@/components/admin/story-creator/StoryCreatorInspector";
-import { useStoryEditorStore } from "@/features/story-creator/state/storyEditorStore";
+import { useStoryEditorStore } from "@/features/story-creator/state/storyEditorContext";
 import {
   StoryAddBlockBottomSheet,
   StoryBlockSettingsBottomSheet,
@@ -1797,7 +1797,8 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const setPanelOpen = useStoryEditorStore((s) => s.setPanelOpen);
   const setMode = useStoryEditorStore((s) => s.setMode);
   const markSaved = useStoryEditorStore((s) => s.markSaved);
-  const updateDocumentRecipe = useStoryEditorStore((s) => s.updateDocumentRecipe);
+  const updateSectionInStore = useStoryEditorStore((s) => s.updateSection);
+  const updateDocumentRecipeNoHistory = useStoryEditorStore((s) => s.updateDocumentRecipeNoHistory);
   const [mobileShellTab, setMobileShellTab] = useState<StoryMobileShellTab>("add-block");
   const [addBlockSheetOpen, setAddBlockSheetOpen] = useState(false);
   const [blockSettingsSheetOpen, setBlockSettingsSheetOpen] = useState(false);
@@ -1838,7 +1839,8 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         const existing = await loadStoryDocument(storyId);
         if (cancelled) return;
         if (!existing) {
-          useStoryEditorStore.setState({ document: null, selectedSectionId: null, selectedBlockId: null, dirty: false });
+          setActiveSectionId(null);
+          setSelectedBlockId(null);
           setLoadError("Story not found.");
           return;
         }
@@ -1864,7 +1866,8 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       } catch (err) {
         console.error("Story load / migration failed", err);
         if (cancelled) return;
-        useStoryEditorStore.setState({ document: null, selectedSectionId: null, selectedBlockId: null, dirty: false });
+        setActiveSectionId(null);
+        setSelectedBlockId(null);
         const msg =
           err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Could not load story.";
         setLoadError(msg);
@@ -2102,9 +2105,9 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   });
   storySelectionRepairRef.current = { doc, activeSectionId };
 
-  const updateDoc = useCallback((fn: (d: StoryDocument) => StoryDocument, snapshotReason?: string) => {
-    updateDocumentRecipe((cur: StoryDocument) => fn(cloneDoc(cur)), snapshotReason);
-  }, [updateDocumentRecipe]);
+  const updateDoc = useCallback((fn: (d: StoryDocument) => StoryDocument) => {
+    updateDocumentRecipeNoHistory((cur: StoryDocument) => fn(cloneDoc(cur)));
+  }, [updateDocumentRecipeNoHistory]);
 
   const handleSaveDraft = useCallback(() => {
     if (!doc) return;
@@ -3157,6 +3160,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         storyId={storyId}
         inspectorTab={inspectorTab}
         onInspectorTab={setInspectorTab}
+        selectedSection={activePair?.section ?? null}
         selectedBlock={selectedBlock}
         selectedBlockId={selectedBlockId}
         storyEditorDirty={storyEditorDirty}
@@ -3170,6 +3174,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onPatchBlockRowLayout={patchBlockRowLayout}
         onPatchBlockDesign={patchBlockDesign}
         onPatchBlockDateAnnotation={patchBlockDateAnnotation}
+        onPatchSection={updateSectionInStore}
         onPatchRichTextMeta={patchRichTextMeta}
         onPatchDividerMeta={patchDividerMeta}
         onPatchSplitContent={activePair && selectedBlockId ? (patch) => patchSplitContentBlock(activePair.section.id, selectedBlockId, patch) : undefined}
@@ -3555,6 +3560,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   storyId={storyId}
                   inspectorTab="story"
                   onInspectorTab={setInspectorTab}
+                  selectedSection={activePair?.section ?? null}
                   selectedBlock={selectedBlock}
                   selectedBlockId={selectedBlockId}
                   storyEditorDirty={storyEditorDirty}
@@ -3579,6 +3585,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   storyId={storyId}
                   inspectorTab="block"
                   onInspectorTab={setInspectorTab}
+                  selectedSection={activePair?.section ?? null}
                   selectedBlock={selectedBlock}
                   columnsLayoutBlock={columnsLayoutBlock}
                   columnsNestingDepth={columnsNestingDepth}
@@ -3590,6 +3597,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   onPatchBlockRowLayout={patchBlockRowLayout}
                   onPatchBlockDesign={patchBlockDesign}
                   onPatchBlockDateAnnotation={patchBlockDateAnnotation}
+                  onPatchSection={updateSectionInStore}
                   onPatchRichTextMeta={patchRichTextMeta}
                   onPatchDividerMeta={patchDividerMeta}
                   onPatchSplitContent={activePair && selectedBlockId ? (patch) => patchSplitContentBlock(activePair.section.id, selectedBlockId, patch) : undefined}

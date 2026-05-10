@@ -429,6 +429,7 @@ export type StoryBlock =
 export type StorySection = {
   id: string;
   title: string;
+  subtitle?: string;
   /** When true, nested sections are hidden in the outline (editor only). */
   collapsed?: boolean;
   /**

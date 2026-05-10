@@ -268,7 +268,12 @@ function OutlineSectionBranch({
                     onRenameTargetChange({ kind: "section", id: sec.id });
                   }}
                 >
-                  <span className="truncate">{sec.title}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{sec.title}</span>
+                    {sec.subtitle ? (
+                      <span className="block truncate text-[11px] font-normal text-base-content/55">{sec.subtitle}</span>
+                    ) : null}
+                  </span>
                 </button>
               )}
             </div>
