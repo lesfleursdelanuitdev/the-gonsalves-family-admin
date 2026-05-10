@@ -333,7 +333,7 @@ function StoryTipTapToolbarLive({
             touch
             label="Align left"
             active={s.textAlign === "left"}
-            onClick={() => editor.chain().focus().unsetTextAlign().run()}
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
           >
             <AlignLeft className="size-4" />
           </ToolbarBtn>
@@ -634,7 +634,7 @@ function StoryTipTapToolbarLive({
         <ToolbarBtn
           label="Align left"
           active={s.textAlign === "left"}
-          onClick={() => editor.chain().focus().unsetTextAlign().run()}
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
         >
           <AlignLeft className="size-4" />
         </ToolbarBtn>

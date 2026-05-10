@@ -53,6 +53,11 @@ export type StoryBlockDateAnnotation = {
   endDate?: string;
 };
 
+export type StoryBlockPlaceAnnotation = {
+  placeId?: string;
+  label: string;
+};
+
 /** Semantic text preset (Add Block); TipTap remains the inline engine inside `doc`. */
 export type StoryRichTextTextPreset = "paragraph" | "heading" | "list" | "verse" | "quote";
 
@@ -100,6 +105,8 @@ export type StoryRichTextBlock = {
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
   /** Canonical semantic preset (paragraph, heading, list, quote, verse). New writes use this only. */
   preset?: StoryRichTextTextPreset;
   /**
@@ -134,7 +141,7 @@ export type StoryMediaBlock = {
   id: string;
   type: "media";
   mediaId?: string;
-  /** Display title for this block (optional). Shown as “Untitled media” when empty. */
+  /** Display title for this block (optional). Shown as "Untitled media" when empty. */
   label: string;
   caption?: string;
   /** Position of the title relative to the media frame. Defaults to `above` when omitted. */
@@ -153,6 +160,8 @@ export type StoryMediaBlock = {
   heightPx?: number;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
 
 /** Non-media embeds: maps, timelines, trees, documents, graphs, and genealogy UI scaffolds. */
@@ -200,6 +209,8 @@ export type StoryEmbedBlock = {
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
 
 /**
@@ -250,30 +261,44 @@ export type StoryColumnsBlock = {
   columnGapRem?: number;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
 
 /** Custom grid table (not TipTap table). */
 export type StoryTableBlock = {
   id: string;
   type: "table";
+  /** Whether to render an extra top header row (`<th scope="col">` cells). */
   hasHeaderRow?: boolean;
+  /** Whether to render an extra first header column (`<th scope="row">` cells). */
+  hasHeaderColumn?: boolean;
+  /** Body column count (excludes optional header column). */
   columnCount: number;
+  /** Body row count (excludes optional header row). */
   rowCount: number;
-  /** Row-major plain-text cells. */
-  cells: string[][];
+  /** Row-major rich-text cells including any optional header row/column. */
+  cells: JSONContent[][];
+  /** Block width as a percentage of its container. Default: 100. */
+  widthPct?: number;
+  /** Horizontal alignment when `widthPct < 100`. Default: "center". */
+  widthAlign?: "left" | "center" | "right";
+  /** Per-column widths as percentages summing to 100. Absent = equal distribution. */
+  columnWidths?: number[];
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
 
-/** Blocks allowed in the split “supporting” rail (scaffold; expand later). */
+/** Blocks allowed in the split "supporting" rail. */
 export type StorySplitSupportBlock =
+  | StoryRichTextBlock
   | StoryMediaBlock
   | StoryEmbedBlock
-  | StoryColumnsBlock
-  | StoryContainerBlock
   | StoryTableBlock;
 
-/** One primary text flow plus a supporting stack (media/embed). Wrap layout is scaffolded for a later pass. */
+/** One primary text flow plus a supporting stack (media/embed/table). */
 export type StorySplitSupportingSlot = {
   id: string;
   blocks: StorySplitSupportBlock[];
@@ -284,9 +309,22 @@ export type StorySplitContentBlock = {
   type: "splitContent";
   text: StoryRichTextBlock;
   supporting: StorySplitSupportingSlot;
+  /** Which side the supporting panel floats to. Default: right. */
   supportingSide?: "left" | "right";
+  /** Width of the supporting panel as a percentage (20-50). Default: 33. */
+  supportingWidthPct?: number;
+  /** Gap between panel and text in rem. Default: 1.5. */
+  supportingGapRem?: number;
+  /**
+   * Vertical float position in preview. Implemented as a margin-top on the
+   * floated rail so text before it renders full-width above the drop point.
+   * Default: "top" (no margin-top).
+   */
+  supportingFloatPosition?: "top" | "center" | "bottom";
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
 
 export type StoryDividerBlock = {
@@ -306,6 +344,8 @@ export type StoryDividerBlock = {
   ornamentalStyle?: "dots" | "diamonds";
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
 
 const STORY_DIVIDER_VARIANTS: readonly StoryDividerVariant[] = ["line", "spacer", "ornamental", "sectionBreak"];
@@ -363,6 +403,8 @@ export type StoryContainerBlock = {
   children: StoryBlock[];
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
   /**
    * When true, this container was inserted as Card / Callout / Hero from the add-block presets;
    * the layout preset cannot be switched to default or quote in the inspector (padding, border, etc. stay editable).
@@ -382,7 +424,7 @@ export type StoryBlock =
 
 /**
  * Ordered structural unit: optional `blocks`, optional nested `children` (both may be set).
- * Naming is free-form (e.g. “Chapter 1”, “Acknowledgments”, “Appendix A”).
+ * Naming is free-form (e.g. "Chapter 1", "Acknowledgments", "Appendix A").
  */
 export type StorySection = {
   id: string;
@@ -414,7 +456,7 @@ export type StoryDocument = {
    */
   slugManuallyEdited?: boolean;
   /**
-   * Byline credits (each with its own prefix), e.g. “Written by …” / “Narrated by …”.
+   * Byline credits (each with its own prefix), e.g. "Written by …" / "Narrated by …".
    * Preferred over legacy `author` / `authorPrefix*` when non-empty.
    */
   authors?: StoryAuthorCredit[];

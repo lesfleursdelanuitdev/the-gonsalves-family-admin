@@ -144,7 +144,7 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
           touch={touch}
           label="Align left"
           active={s.textAlign === "left"}
-          onClick={() => editor.chain().focus().unsetTextAlign().run()}
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
         >
           <AlignLeft className="size-4" />
         </ToolbarButton>

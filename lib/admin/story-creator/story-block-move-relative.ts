@@ -69,26 +69,8 @@ function moveInSplitContentBlock(
     nb[j] = a;
     return { next: { ...split, supporting: { ...split.supporting, blocks: nb } }, changed: true };
   }
-  let slotChanged = false;
-  const nextBlocks = split.supporting.blocks.map((sb) => {
-    if (sb.type === "container") {
-      const r = moveInStoryBlockChildren(sb.children, blockId, dir);
-      if (r.changed) {
-        slotChanged = true;
-        return { ...sb, children: r.next };
-      }
-      return sb;
-    }
-    if (sb.type === "columns") {
-      const r = moveInColumnsBlock(sb, blockId, dir);
-      if (r.changed) {
-        slotChanged = true;
-        return r.next;
-      }
-      return sb;
-    }
-    return sb;
-  });
+  const slotChanged = false;
+  const nextBlocks = split.supporting.blocks.map((sb) => sb);
   if (slotChanged) {
     return { next: { ...split, supporting: { ...split.supporting, blocks: nextBlocks } }, changed: true };
   }

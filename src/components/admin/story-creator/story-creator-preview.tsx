@@ -5,7 +5,7 @@
  * interpretation of structured story data, but consuming websites may render the same data differently.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Moon, Sun } from "lucide-react";
 import { generateHTML } from "@tiptap/core";
 import type { Extensions, JSONContent } from "@tiptap/core";
@@ -336,20 +336,60 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
   }
   if (block.type === "table") {
     const rows = block.cells ?? [];
-    const hasHeader = block.hasHeaderRow ?? false;
+    const hasHeaderRow = block.hasHeaderRow ?? false;
+    const hasHeaderCol = block.hasHeaderColumn ?? false;
+    const widthPct = block.widthPct ?? 100;
+    const widthAlign = block.widthAlign ?? "center";
+    const columnWidths = block.columnWidths;
+    const containerStyle: CSSProperties =
+      widthPct < 100
+        ? {
+            width: `${widthPct}%`,
+            marginLeft: widthAlign === "right" ? "auto" : widthAlign === "center" ? "auto" : undefined,
+            marginRight: widthAlign === "left" ? "auto" : widthAlign === "center" ? "auto" : undefined,
+          }
+        : {};
     return (
-      <div className="story-preview-table-outer overflow-x-auto rounded-lg border border-solid border-[color:var(--story-subtle-border)] p-3 text-sm">
-        <table className="w-full border-collapse">
+      <div className="story-preview-table-outer overflow-x-auto" style={containerStyle}>
+        <table className="w-full border-collapse text-sm">
+          {columnWidths && (
+            <colgroup>
+              {columnWidths.map((w, ci) => (
+                <col key={ci} style={{ width: `${w}%` }} />
+              ))}
+            </colgroup>
+          )}
           <tbody>
-            {rows.map((row, ri) => (
-              <tr key={ri} className={cn(hasHeader && ri === 0 && "bg-base-300/40 font-medium")}>
-                {row.map((cell, ci) => (
-                  <td key={ci} className="border border-base-content/10 px-2 py-1">
-                    {cell?.trim() ? cell : "\u00a0"}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((row, ri) => {
+              const isHeaderRow = hasHeaderRow && ri === 0;
+              return (
+                <tr key={ri}>
+                  {row.map((cell, ci) => {
+                    const isHeaderCol = hasHeaderCol && ci === 0;
+                    const isHeader = isHeaderRow || isHeaderCol;
+                    const scope = isHeaderRow && isHeaderCol
+                      ? "rowgroup"
+                      : isHeaderRow
+                        ? "col"
+                        : isHeaderCol
+                          ? "row"
+                          : undefined;
+                    const Tag = isHeader ? "th" : "td";
+                    return (
+                      <Tag
+                        key={ci}
+                        scope={scope}
+                        className={cn(
+                          "border border-base-content/10 px-2 py-1.5 text-left",
+                          isHeader && "bg-base-300/40 font-medium",
+                        )}
+                        dangerouslySetInnerHTML={{ __html: richHtml(cell) }}
+                      />
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -357,16 +397,22 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
   }
   if (block.type === "splitContent") {
     const textPreset = getStoryRichTextPreset(block.text);
-    const textCol = (
-      <div className={cn("min-w-0 flex-1", storyRichTextPresetPreviewClass(block.text))}>
-        <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.text.doc) }} />
-        {textPreset === "quote" && block.text.quoteAttribution?.trim() ? (
-          <p className="story-preview-statusline mt-2 text-right text-xs font-medium">— {block.text.quoteAttribution.trim()}</p>
-        ) : null}
-      </div>
-    );
+    const widthPct = block.supportingWidthPct ?? 33;
+    const gapRem = block.supportingGapRem ?? 1.5;
+    const side = block.supportingSide ?? "right";
+    const floatPos = block.supportingFloatPosition ?? "top";
+    const railStyle: CSSProperties = previewMobile
+      ? {}
+      : {
+          float: side,
+          width: `${widthPct}%`,
+          marginTop: floatPos === "center" ? "4.5rem" : floatPos === "bottom" ? "9rem" : 0,
+          marginBottom: `${gapRem}rem`,
+          marginLeft: side === "right" ? `${gapRem}rem` : 0,
+          marginRight: side === "left" ? `${gapRem}rem` : 0,
+        };
     const rail = (
-      <div className="preview-split-rail mt-4 w-full shrink-0 space-y-3 rounded-lg border border-solid border-[color:var(--story-subtle-border)] p-3 md:mt-0 md:w-[min(38%,320px)]">
+      <div className="preview-split-rail space-y-3 rounded-lg border border-solid border-[color:var(--story-subtle-border)] p-3" style={railStyle}>
         {block.supporting.blocks.length === 0 ? (
           <p className="preview-empty-hint rounded-md px-2 py-3 text-center text-xs">Supporting area</p>
         ) : (
@@ -374,18 +420,27 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
         )}
       </div>
     );
-    if (block.supportingSide === "left") {
-      return (
-        <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          {rail}
-          {textCol}
-        </div>
-      );
-    }
+    const textCol = (
+      <div className={cn(storyRichTextPresetPreviewClass(block.text))} style={{ alignSelf: "stretch", minWidth: 0 }}>
+        <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.text.doc) }} />
+        {textPreset === "quote" && block.text.quoteAttribution?.trim() ? (
+          <p className="story-preview-statusline mt-2 text-right text-xs font-medium">— {block.text.quoteAttribution.trim()}</p>
+        ) : null}
+      </div>
+    );
     return (
-      <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        {textCol}
-        {rail}
+      <div className={cn("min-w-0", !previewMobile && "flow-root")}>
+        {previewMobile ? (
+          <>
+            {side === "left" ? rail : textCol}
+            {side === "left" ? textCol : rail}
+          </>
+        ) : (
+          <>
+            {rail}
+            {textCol}
+          </>
+        )}
       </div>
     );
   }

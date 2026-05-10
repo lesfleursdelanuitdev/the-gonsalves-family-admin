@@ -5,6 +5,12 @@ export type LibApiValidationError = {
   Code: string;
   Message: string;
   Xref: string;
+  /** From ligneous-gedcom-lib `ValidationError.RelatedXref` (JSON). */
+  RelatedXref?: string;
+  /** From ligneous-gedcom-lib `ValidationError.AssociatedXrefs` (JSON). */
+  AssociatedXrefs?: string[];
+  /** From ligneous-gedcom-lib `ValidationError.Details` (JSON). */
+  Details?: Record<string, string>;
 };
 
 export type LibApiValidateResponse = {

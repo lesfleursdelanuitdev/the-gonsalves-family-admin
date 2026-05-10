@@ -28,7 +28,7 @@ const DialogBackdrop = React.forwardRef<
   <DialogPrimitive.Backdrop
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:animate-in data-[open]:fade-in-0",
+      "fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:animate-in data-[open]:fade-in-0",
       className
     )}
     {...props}
@@ -43,7 +43,7 @@ const DialogViewport = React.forwardRef<
   <DialogPrimitive.Viewport
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 flex min-h-full w-full items-center justify-center p-4",
+      "fixed inset-0 z-[110] flex min-h-full w-full items-center justify-center p-4",
       className
     )}
     {...props}

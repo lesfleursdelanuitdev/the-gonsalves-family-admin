@@ -25,6 +25,7 @@ import type {
   StoryMediaBlock,
   StoryRichTextBlock,
   StorySection,
+  StorySplitContentBlock,
   StorySplitSupportBlock,
   StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
@@ -380,44 +381,98 @@ function padCells(cells: string[], nCols: number): string[] {
   return out.slice(0, nCols);
 }
 
+function emptyTableCellDoc(): JSONContent {
+  return { type: "doc", content: [{ type: "paragraph" }] };
+}
+
+function stringCellToDoc(s: string): JSONContent {
+  const text = s.trim();
+  if (!text) return emptyTableCellDoc();
+  return { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] };
+}
+
+function isTipTapDoc(v: unknown): v is JSONContent {
+  return typeof v === "object" && v !== null && (v as Record<string, unknown>)["type"] === "doc";
+}
+
+function coerceCellRow(row: unknown, nCols: number): JSONContent[] {
+  if (!Array.isArray(row)) return Array.from({ length: nCols }, emptyTableCellDoc);
+  const out: JSONContent[] = [];
+  for (let i = 0; i < nCols; i++) {
+    const cell = row[i];
+    if (isTipTapDoc(cell)) {
+      out.push(cell);
+    } else if (typeof cell === "string") {
+      out.push(stringCellToDoc(cell));
+    } else {
+      out.push(emptyTableCellDoc());
+    }
+  }
+  return out;
+}
+
 /** Convert legacy standalone `table` JSON → native {@link StoryTableBlock} (same id). */
 function legacyTableToNativeTable(b: LegacyStoryTableJson): StoryTableBlock {
   const headers = coerceStringArray(b.headers);
   const rows = coerceRows(b.rows);
   const hasHeadingRow = b.hasHeadingRow !== false;
   const nCols = Math.max(headers.length, rows.reduce((m, r) => Math.max(m, r.length), 0), 1);
-  const cells: string[][] = [];
+  const stringCells: string[][] = [];
   if (hasHeadingRow && headers.some((h) => String(h).trim().length > 0)) {
-    cells.push(padCells(headers, nCols));
-    for (const r of rows) cells.push(padCells(r, nCols));
+    stringCells.push(padCells(headers, nCols));
+    for (const r of rows) stringCells.push(padCells(r, nCols));
   } else if (rows.length > 0) {
-    for (const r of rows) cells.push(padCells(r, nCols));
+    for (const r of rows) stringCells.push(padCells(r, nCols));
   } else {
-    cells.push(Array.from({ length: nCols }, () => ""));
+    stringCells.push(Array.from({ length: nCols }, () => ""));
   }
+  const cells: JSONContent[][] = stringCells.map((row) => row.map(stringCellToDoc));
+  const hasHeaderRow = hasHeadingRow && headers.length > 0;
+  const bodyRowCount = Math.max(1, cells.length - (hasHeaderRow ? 1 : 0));
   return {
     id: b.id,
     type: "table",
-    hasHeaderRow: hasHeadingRow && headers.length > 0,
+    hasHeaderRow,
     columnCount: nCols,
-    rowCount: cells.length,
+    rowCount: bodyRowCount,
     cells,
   };
 }
 
 function migrateNativeTableOnDisk(b: StoryTableBlock): StoryTableBlock {
-  const cols = Math.max(1, b.columnCount || 1);
-  const rows = Array.isArray(b.cells) ? b.cells.map((r) => coerceStringArray(r as unknown)) : [];
-  const padded = rows.map((r) => padCells(r, cols));
-  while (padded.length < Math.max(1, b.rowCount || 1)) {
-    padded.push(Array.from({ length: cols }, () => ""));
+  const hasHeaderRow = b.hasHeaderRow ?? false;
+  const hasHeaderColumn = b.hasHeaderColumn ?? false;
+  const inferredCols = Array.isArray(b.cells)
+    ? b.cells.reduce((max, row) => (Array.isArray(row) ? Math.max(max, row.length) : max), 0)
+    : 0;
+  const totalCols = Math.max(1, Number.isFinite(inferredCols) ? inferredCols : 0, b.columnCount || 1);
+  const rawRows = Array.isArray(b.cells) ? b.cells : [];
+  const inferredTotalRows = Math.max(1, rawRows.length || 1, b.rowCount || 1);
+  const bodyRows = Math.max(1, inferredTotalRows - (hasHeaderRow ? 1 : 0));
+  const bodyCols = Math.max(1, totalCols - (hasHeaderColumn ? 1 : 0));
+  const targetTotalRows = bodyRows + (hasHeaderRow ? 1 : 0);
+  const targetTotalCols = bodyCols + (hasHeaderColumn ? 1 : 0);
+  const cells: JSONContent[][] = [];
+  for (let ri = 0; ri < targetTotalRows; ri++) {
+    cells.push(coerceCellRow(rawRows[ri], targetTotalCols));
   }
-  const cells = padded.map((r) => padCells(r, cols));
+  const widthPct = typeof b.widthPct === "number" && b.widthPct > 0 ? Math.min(100, b.widthPct) : 100;
+  const widthAlign: StoryTableBlock["widthAlign"] =
+    b.widthAlign === "left" || b.widthAlign === "right" ? b.widthAlign : "center";
+  const columnWidths =
+    Array.isArray(b.columnWidths) && b.columnWidths.length === targetTotalCols
+      ? b.columnWidths
+      : undefined;
   return {
     ...b,
-    columnCount: cols,
-    rowCount: cells.length,
+    columnCount: bodyCols,
+    rowCount: bodyRows,
     cells,
+    widthPct,
+    widthAlign,
+    columnWidths,
+    hasHeaderRow,
+    hasHeaderColumn,
   };
 }
 
@@ -430,6 +485,7 @@ function migrateBlock(b: StoryBlock): StoryBlock {
     }
     return legacyTableToNativeTable(b as unknown as LegacyStoryTableJson) as StoryBlock;
   }
+
   if (b.type === "columns") return migrateColumns(b);
   if (b.type === "container") {
     return {
@@ -445,6 +501,32 @@ function migrateBlock(b: StoryBlock): StoryBlock {
   }
   if (b.type === "richText") return migrateRichTextBlock(b);
   if (b.type === "divider") return migrateDividerBlock(b);
+  if (b.type === "splitContent") {
+    const sc = b as unknown as StorySplitContentBlock;
+    const supportingWidthPct =
+      typeof sc.supportingWidthPct === "number" && Number.isFinite(sc.supportingWidthPct)
+        ? Math.min(50, Math.max(20, Math.round(sc.supportingWidthPct)))
+        : 33;
+    const supportingGapRem =
+      typeof sc.supportingGapRem === "number" && Number.isFinite(sc.supportingGapRem) ? sc.supportingGapRem : 1.5;
+    const supportingFloatPosition: StorySplitContentBlock["supportingFloatPosition"] =
+      sc.supportingFloatPosition === "center" || sc.supportingFloatPosition === "bottom"
+        ? sc.supportingFloatPosition
+        : "top";
+    return {
+      ...sc,
+      supportingWidthPct,
+      supportingGapRem,
+      supportingFloatPosition,
+      text: migrateRichTextBlock(sc.text),
+      supporting: {
+        ...sc.supporting,
+        blocks: (sc.supporting.blocks as unknown as StoryBlock[])
+          .filter((sb) => sb.type === "media" || sb.type === "embed" || sb.type === "table")
+          .map((sb) => migrateBlock(sb) as StorySplitSupportBlock),
+      },
+    } as unknown as StoryBlock;
+  }
   return b;
 }
 

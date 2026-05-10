@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import type {
   StoryBlock,
   StoryBlockDateAnnotation,
+  StoryBlockPlaceAnnotation,
   StoryBlockDesign,
   StoryBlockRowLayout,
   StoryColumnNestedBlock,
@@ -16,6 +17,7 @@ import type {
   StorySection,
   StorySplitContentBlock,
   StorySplitSupportBlock,
+  StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
 import {
@@ -43,20 +45,6 @@ function mapSplitSupportingDeep(
 }
 
 function mapOneSplitSupporting(sb: StorySplitSupportBlock, mapper: (b: StoryBlock) => StoryBlock): StorySplitSupportBlock {
-  if (sb.type === "container") {
-    const inner = mapStoryBlocksDeep(sb.children, mapper);
-    return mapper({ ...sb, children: inner }) as StoryContainerBlock;
-  }
-  if (sb.type === "columns") {
-    const inner: StoryColumnsBlock = {
-      ...sb,
-      columns: [
-        { ...sb.columns[0], blocks: mapColumnNestedDeep(sb.columns[0].blocks, mapper) },
-        { ...sb.columns[1], blocks: mapColumnNestedDeep(sb.columns[1].blocks, mapper) },
-      ],
-    };
-    return mapper(inner) as StoryColumnsBlock;
-  }
   return mapper(sb as StoryBlock) as StorySplitSupportBlock;
 }
 
@@ -159,22 +147,6 @@ function patchColumnSlotDeep(
       }
       let splitChanged = false;
       const sbNext = nb.supporting.blocks.map((sb) => {
-        if (sb.type === "container") {
-          const nextChildren = mapStoryBlocksDeep(sb.children, (b) => fn(b as StoryColumnNestedBlock) as StoryBlock);
-          if (nextChildren !== sb.children) {
-            splitChanged = true;
-            return { ...sb, children: nextChildren };
-          }
-          return sb;
-        }
-        if (sb.type === "columns") {
-          const c0 = patchColumnSlotDeep(sb.columns[0], childId, fn);
-          const c1 = patchColumnSlotDeep(sb.columns[1], childId, fn);
-          if (c0 !== sb.columns[0] || c1 !== sb.columns[1]) {
-            splitChanged = true;
-            return { ...sb, columns: columnPair(c0, c1) };
-          }
-        }
         return sb;
       });
       if (splitChanged) {
@@ -215,6 +187,19 @@ export function patchMediaInSection(
     ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
       b.type === "media" && b.id === mediaBlockId ? { ...b, ...patch } : b,
+    ),
+  };
+}
+
+export function patchSplitContentLayoutInSection(
+  sec: StorySection,
+  splitBlockId: string,
+  patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" },
+): StorySection {
+  return {
+    ...sec,
+    blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
+      b.type === "splitContent" && b.id === splitBlockId ? { ...b, ...patch } : b,
     ),
   };
 }
@@ -371,15 +356,39 @@ export function patchDividerBlockInSection(sec: StorySection, dividerId: string,
   };
 }
 
-export function patchBlockDateAnnotationInSection(
+export function patchBlockAnnotationsInSection(
   sec: StorySection,
   blockId: string,
-  dateAnnotation: StoryBlockDateAnnotation | undefined,
+  patch: {
+    dateAnnotations?: StoryBlockDateAnnotation[];
+    placeAnnotations?: StoryBlockPlaceAnnotation[];
+  },
 ): StorySection {
+  const dateAnnotations = (patch.dateAnnotations ?? [])
+    .map((a) => ({
+      date: String(a.date ?? "").trim(),
+      dateDisplay: String(a.dateDisplay ?? "").trim(),
+      ...(String(a.endDate ?? "").trim() ? { endDate: String(a.endDate ?? "").trim() } : {}),
+    }))
+    .filter((a) => a.date.length > 0 && a.dateDisplay.length > 0);
+  const placeAnnotations = (patch.placeAnnotations ?? [])
+    .map((p) => ({
+      label: String(p.label ?? "").trim(),
+      ...(String(p.placeId ?? "").trim() ? { placeId: String(p.placeId ?? "").trim() } : {}),
+    }))
+    .filter((p) => p.label.length > 0);
+  const dateAnnotation = dateAnnotations[0];
   return {
     ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
-      b.id === blockId ? ({ ...b, dateAnnotation } as StoryBlock) : b,
+      b.id === blockId
+        ? ({
+            ...b,
+            dateAnnotation,
+            dateAnnotations: dateAnnotations.length > 0 ? dateAnnotations : undefined,
+            placeAnnotations: placeAnnotations.length > 0 ? placeAnnotations : undefined,
+          } as StoryBlock)
+        : b,
     ),
   };
 }
@@ -990,25 +999,7 @@ function tryInsertInSplitContent(
     nextSb.splice(at, 0, insert as StorySplitSupportBlock);
     return { ...split, supporting: { ...split.supporting, blocks: nextSb } };
   }
-  let any = false;
-  const nextSb = split.supporting.blocks.map((sb) => {
-    if (sb.type === "container") {
-      const inner = tryInsertInStoryBlocks(sb.children, targetBlockId, position, insert);
-      if (inner) {
-        any = true;
-        return { ...sb, children: inner };
-      }
-    }
-    if (sb.type === "columns") {
-      const inner = tryInsertInColumnTree(sb, targetBlockId, position, insert as StoryColumnNestedBlock);
-      if (inner) {
-        any = true;
-        return inner;
-      }
-    }
-    return sb;
-  });
-  return any ? { ...split, supporting: { ...split.supporting, blocks: nextSb } } : null;
+  return null;
 }
 
 function tryInsertInColumnNestedSlotList(
@@ -1191,6 +1182,46 @@ function findInColumnNestedAsStoryBlock(nb: StoryColumnNestedBlock, id: string):
     }
   }
   return null;
+}
+
+/**
+ * Returns true when `blockId` is a direct child of any `splitContent` supporting slot in
+ * the section tree (i.e. the block is `SplitContent.Panel.Media/Embed/Table`).
+ * Does NOT return true for the split block itself or its text block.
+ */
+export function isBlockInSplitSupportingSlot(sec: StorySection, blockId: string): boolean {
+  return sec.blocks.some((b) => checkInSplitSupport(b, blockId));
+}
+
+function checkInSplitSupport(b: StoryBlock, blockId: string): boolean {
+  if (b.type === "splitContent") {
+    if (b.supporting.blocks.some((sb) => sb.id === blockId)) return true;
+    // Also recurse into supporting blocks (they could themselves be containers with children,
+    // but our current union only allows media/embed/table which have no children — keeping
+    // this future-safe costs nothing).
+    return false;
+  }
+  if (b.type === "container") {
+    return b.children.some((c) => checkInSplitSupport(c, blockId));
+  }
+  if (b.type === "columns") {
+    return b.columns.some((slot) => slot.blocks.some((nb) => checkInSplitSupportColumnNested(nb, blockId)));
+  }
+  return false;
+}
+
+function checkInSplitSupportColumnNested(nb: StoryColumnNestedBlock, blockId: string): boolean {
+  if (nb.type === "splitContent") {
+    if (nb.supporting.blocks.some((sb) => sb.id === blockId)) return true;
+    return false;
+  }
+  if (nb.type === "container") {
+    return nb.children.some((c) => checkInSplitSupport(c, blockId));
+  }
+  if (nb.type === "columns") {
+    return nb.columns.some((slot) => slot.blocks.some((inner) => checkInSplitSupportColumnNested(inner, blockId)));
+  }
+  return false;
 }
 
 /** Find a block by id anywhere in the section tree (including inside columns and containers). */
@@ -1465,3 +1496,157 @@ export function appendBlockIntoContainer(
 }
 
 export { moveStoryBlockRelative } from "./story-block-move-relative";
+
+// ─── Table block mutators ────────────────────────────────────────────────────
+
+function emptyTableCellDoc(): JSONContent {
+  return { type: "doc", content: [{ type: "paragraph" }] };
+}
+
+function mapTableInSection(
+  sec: StorySection,
+  tableId: string,
+  fn: (b: StoryTableBlock) => StoryTableBlock,
+): StorySection {
+  return {
+    ...sec,
+    blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
+      b.type === "table" && b.id === tableId ? fn(b as StoryTableBlock) : b,
+    ),
+  };
+}
+
+export function patchTableInSection(
+  sec: StorySection,
+  tableId: string,
+  patch: Partial<Pick<StoryTableBlock, "hasHeaderRow" | "hasHeaderColumn" | "rowCount" | "columnCount" | "widthPct" | "widthAlign">>,
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => {
+    const hasHeaderRow = patch.hasHeaderRow ?? b.hasHeaderRow ?? false;
+    const hasHeaderColumn = patch.hasHeaderColumn ?? b.hasHeaderColumn ?? false;
+    const rowCount = Math.max(1, Math.round(patch.rowCount ?? b.rowCount ?? 1));
+    const columnCount = Math.max(1, Math.round(patch.columnCount ?? b.columnCount ?? 1));
+    const totalRows = rowCount + (hasHeaderRow ? 1 : 0);
+    const totalCols = columnCount + (hasHeaderColumn ? 1 : 0);
+    const source = Array.isArray(b.cells) ? b.cells : [];
+    const cells: JSONContent[][] = Array.from({ length: totalRows }, (_, ri) =>
+      Array.from({ length: totalCols }, (_, ci) => source[ri]?.[ci] ?? emptyTableCellDoc()),
+    );
+    const columnWidths =
+      Array.isArray(b.columnWidths) && b.columnWidths.length === totalCols
+        ? b.columnWidths
+        : Array.isArray(b.columnWidths)
+          ? Array.from({ length: totalCols }, () => Math.round((100 / totalCols) * 10) / 10)
+          : b.columnWidths;
+    return {
+      ...b,
+      ...patch,
+      hasHeaderRow,
+      hasHeaderColumn,
+      rowCount,
+      columnCount,
+      cells,
+      columnWidths,
+    };
+  });
+}
+
+export function setTableCellInSection(
+  sec: StorySection,
+  tableId: string,
+  row: number,
+  col: number,
+  content: JSONContent,
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => {
+    const cells = b.cells.map((r, ri) =>
+      ri === row ? r.map((c, ci) => (ci === col ? content : c)) : r,
+    );
+    return { ...b, cells };
+  });
+}
+
+export function setTableColumnWidthsInSection(
+  sec: StorySection,
+  tableId: string,
+  widths: number[],
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => ({ ...b, columnWidths: widths }));
+}
+
+export function addTableRowInSection(
+  sec: StorySection,
+  tableId: string,
+  afterIndex: number,
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => {
+    const hasHeaderRow = b.hasHeaderRow ?? false;
+    const hasHeaderColumn = b.hasHeaderColumn ?? false;
+    const totalCols = b.columnCount + (hasHeaderColumn ? 1 : 0);
+    const newRow = Array.from({ length: totalCols }, emptyTableCellDoc);
+    const bodyInsertPos = Math.max(0, Math.min(afterIndex + 1, b.rowCount));
+    const insertAt = (hasHeaderRow ? 1 : 0) + bodyInsertPos;
+    const cells = [...b.cells.slice(0, insertAt), newRow, ...b.cells.slice(insertAt)];
+    return { ...b, cells, rowCount: b.rowCount + 1 };
+  });
+}
+
+export function removeTableRowInSection(
+  sec: StorySection,
+  tableId: string,
+  rowIndex: number,
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => {
+    if (b.rowCount <= 1) return b;
+    if (rowIndex < 0 || rowIndex >= b.rowCount) return b;
+    const removeAt = rowIndex + ((b.hasHeaderRow ?? false) ? 1 : 0);
+    const cells = b.cells.filter((_, ri) => ri !== removeAt);
+    return { ...b, cells, rowCount: b.rowCount - 1 };
+  });
+}
+
+export function addTableColumnInSection(
+  sec: StorySection,
+  tableId: string,
+  afterIndex: number,
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => {
+    const hasHeaderColumn = b.hasHeaderColumn ?? false;
+    const bodyInsertPos = Math.max(0, Math.min(afterIndex + 1, b.columnCount));
+    const insertAt = (hasHeaderColumn ? 1 : 0) + bodyInsertPos;
+    const cells = b.cells.map((row) => [
+      ...row.slice(0, insertAt),
+      emptyTableCellDoc(),
+      ...row.slice(insertAt),
+    ]);
+    const newBodyColCount = b.columnCount + 1;
+    const newTotalCols = newBodyColCount + (hasHeaderColumn ? 1 : 0);
+    let columnWidths: number[] | undefined;
+    if (b.columnWidths) {
+      const eq = 100 / newTotalCols;
+      columnWidths = Array.from({ length: newTotalCols }, () => Math.round(eq * 10) / 10);
+    }
+    return { ...b, cells, columnCount: newBodyColCount, columnWidths };
+  });
+}
+
+export function removeTableColumnInSection(
+  sec: StorySection,
+  tableId: string,
+  colIndex: number,
+): StorySection {
+  return mapTableInSection(sec, tableId, (b) => {
+    if (b.columnCount <= 1) return b;
+    if (colIndex < 0 || colIndex >= b.columnCount) return b;
+    const removeAt = colIndex + ((b.hasHeaderColumn ?? false) ? 1 : 0);
+    const cells = b.cells.map((row) => row.filter((_, ci) => ci !== removeAt));
+    const newBodyColCount = b.columnCount - 1;
+    let columnWidths: number[] | undefined;
+    if (b.columnWidths) {
+      const filtered = b.columnWidths.filter((_, ci) => ci !== removeAt);
+      const total = filtered.reduce((s, w) => s + w, 0);
+      columnWidths = total > 0 ? filtered.map((w) => (w / total) * 100) : undefined;
+    }
+    return { ...b, cells, columnCount: newBodyColCount, columnWidths };
+  });
+}

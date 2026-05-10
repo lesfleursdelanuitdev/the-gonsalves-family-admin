@@ -164,7 +164,8 @@ export async function saveStoryDocument(doc: StoryDocument): Promise<StoryDocume
     doc,
   );
   /** Avoid a follow-up GET: re-fetching after every save replaced `doc` with server-shaped JSON and felt like a full UI reset. */
-  return migrateStoryDocument({ ...doc, updatedAt });
+  /** Keep in-memory shape stable while editing; migration is applied on load paths. */
+  return { ...doc, updatedAt };
 }
 
 export function createEmptyStoryDocument(id?: string): StoryDocument {

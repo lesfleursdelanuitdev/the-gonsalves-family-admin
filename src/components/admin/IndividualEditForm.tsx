@@ -12,9 +12,11 @@ import {
   Lightbulb,
   Link2,
   StickyNote,
+  TriangleAlert,
   User,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
 import { IndividualEditorNotesTabPanel } from "@/components/admin/individual-editor/IndividualEditorNotesTabPanel";
 import type { ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
@@ -36,6 +38,7 @@ import type { PersonEditorAccordionKey } from "@/components/admin/individual-edi
 import { PersonEditorResponsiveSection } from "@/components/admin/individual-editor/PersonEditorResponsiveSection";
 import { PersonEditorSidebarNav } from "@/components/admin/individual-editor/PersonEditorSidebarNav";
 import { PersonEditorStickySaveBar } from "@/components/admin/individual-editor/PersonEditorStickySaveBar";
+import { Button } from "@/components/ui/button";
 import {
   personEditorAssociatesSummary,
   personEditorBasicSummary,
@@ -53,6 +56,7 @@ import { useIndividualEditorFormState } from "@/hooks/useIndividualEditorFormSta
 import { useIndividualEditorInitialJoins } from "@/hooks/useIndividualEditorInitialJoins";
 import { useIndividualEditorUserLinks } from "@/hooks/useIndividualEditorUserLinks";
 import { useIndividualEditorSubmit } from "@/hooks/useIndividualEditorSubmit";
+import { useDeleteIndividual } from "@/hooks/useAdminIndividuals";
 
 type Props =
   | { mode: "create" }
@@ -60,6 +64,7 @@ type Props =
 
 export function IndividualEditForm(props: Props) {
   const router = useRouter();
+  const deleteIndividual = useDeleteIndividual();
   const mode = props.mode;
   const individualId = mode === "edit" ? props.individualId : "";
   const initialIndividual = mode === "edit" ? props.initialIndividual : undefined;
@@ -164,6 +169,29 @@ export function IndividualEditForm(props: Props) {
 
   const cancelHref = mode === "edit" ? `/admin/individuals/${individualId}` : "/admin/individuals";
   const mobileBackHref = mode === "edit" ? `/admin/individuals/${individualId}` : "/admin/individuals";
+
+  const handleDeleteIndividual = useCallback(async () => {
+    if (mode !== "edit") return;
+    const name =
+      personLabel?.trim() ||
+      editor.seed.xref.trim() ||
+      individualId;
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${name}? This will remove them and all their associated data (events, family links, etc.). This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteIndividual.mutateAsync(individualId);
+      toast.success(`Deleted ${name}.`);
+      router.push("/admin/individuals");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Failed to delete ${name}: ${msg}`);
+    }
+  }, [deleteIndividual, editor.seed.xref, individualId, mode, personLabel, router]);
   const formTitle =
     mode === "create" ? "New person" : personLabel ? `Edit · ${personLabel}` : "Edit person";
 
@@ -580,6 +608,31 @@ export function IndividualEditForm(props: Props) {
           {allSections(false)}
         </div>
       )}
+
+      {mode === "edit" ? (
+        <section className="mt-8 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:p-6">
+          <div className="flex items-start gap-2">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-destructive">Danger zone</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Permanently delete this person and their associated data (events, family memberships, notes, media
+                links, sources, etc.). This cannot be undone.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="mt-4"
+            disabled={deleteIndividual.isPending || pending}
+            onClick={() => void handleDeleteIndividual()}
+          >
+            {deleteIndividual.isPending ? "Deleting…" : "Delete person"}
+          </Button>
+        </section>
+      ) : null}
 
       <PersonEditorStickySaveBar mode={mode} pending={pending} cancelHref={cancelHref} />
     </form>

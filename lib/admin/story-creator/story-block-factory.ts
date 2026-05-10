@@ -84,22 +84,29 @@ export function createDividerBlock(opts?: { variant?: StoryDividerBlock["variant
   return { id: newStoryId(), type: "divider", preset, variant: preset };
 }
 
-/** Native grid table (not TipTap). */
+function emptyTableCellDoc(): JSONContent {
+  return { type: "doc", content: [{ type: "paragraph" }] };
+}
+
+/** Native grid table (not TipTap). `rowCount`/`columnCount` are body counts (excluding optional header row/column). */
 export function createTableBlock(rowCount = 3, columnCount = 3, hasHeaderRow = true): StoryTableBlock {
-  const rows = Math.max(1, rowCount);
-  const cols = Math.max(1, columnCount);
-  const cells = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""));
+  const bodyRows = Math.max(1, rowCount);
+  const bodyCols = Math.max(1, columnCount);
+  const totalRows = bodyRows + (hasHeaderRow ? 1 : 0);
+  const cells = Array.from({ length: totalRows }, () => Array.from({ length: bodyCols }, emptyTableCellDoc));
   return {
     id: newStoryId(),
     type: "table",
     hasHeaderRow,
-    rowCount: rows,
-    columnCount: cols,
+    rowCount: bodyRows,
+    columnCount: bodyCols,
     cells,
   };
 }
 
-/** Primary text + supporting media/embed rail (wrap layout scaffolded later). */
+export { emptyTableCellDoc };
+
+/** Primary text + supporting panel (media/embed/table, wrap layout). */
 export function createSplitContentBlock(): StorySplitContentBlock {
   const text = createRichTextBlock();
   return {
@@ -108,6 +115,8 @@ export function createSplitContentBlock(): StorySplitContentBlock {
     text: { ...text, preset: "paragraph" },
     supporting: { id: newStoryId(), blocks: [] },
     supportingSide: "right",
+    supportingWidthPct: 33,
+    supportingGapRem: 1.5,
   };
 }
 
@@ -193,6 +202,8 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         rowLayout: nb.rowLayout ? { ...nb.rowLayout } : undefined,
         design: nb.design ? { ...nb.design } : undefined,
         dateAnnotation: nb.dateAnnotation,
+        dateAnnotations: nb.dateAnnotations ? [...nb.dateAnnotations] : undefined,
+        placeAnnotations: nb.placeAnnotations ? [...nb.placeAnnotations] : undefined,
         preset: nb.preset,
         headingLevel: nb.headingLevel,
         listVariant: nb.listVariant,
@@ -245,6 +256,8 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         supportingSide: nb.supportingSide,
         design: nb.design ? { ...nb.design } : undefined,
         dateAnnotation: nb.dateAnnotation,
+        dateAnnotations: nb.dateAnnotations ? [...nb.dateAnnotations] : undefined,
+        placeAnnotations: nb.placeAnnotations ? [...nb.placeAnnotations] : undefined,
       };
   }
 }
@@ -264,6 +277,8 @@ export function cloneStoryBlock(block: StoryBlock): StoryBlock {
         rowLayout: block.rowLayout ? { ...block.rowLayout } : undefined,
         design: block.design ? { ...block.design } : undefined,
         dateAnnotation: block.dateAnnotation,
+        dateAnnotations: block.dateAnnotations ? [...block.dateAnnotations] : undefined,
+        placeAnnotations: block.placeAnnotations ? [...block.placeAnnotations] : undefined,
         preset: block.preset,
         headingLevel: block.headingLevel,
         listVariant: block.listVariant,

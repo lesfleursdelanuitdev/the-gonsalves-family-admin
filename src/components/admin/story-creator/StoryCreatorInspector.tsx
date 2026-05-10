@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   StoryBlock,
   StoryBlockDateAnnotation,
+  StoryBlockPlaceAnnotation,
   StoryBlockDesign,
   StoryBlockRowAlignment,
   StoryBlockRowLayout,
@@ -33,6 +34,8 @@ import type {
   StoryRichTextTextPreset,
   StoryContainerPreset,
   StoryContainerWidth,
+  StorySplitContentBlock,
+  StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryDividerPreset, getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
@@ -48,7 +51,7 @@ import {
   effectiveRowLayoutForRichText,
   mergeStoryRowLayout,
 } from "@/lib/admin/story-creator/story-block-layout";
-import { standaloneMediaEmbedLayoutPatch, mergeMediaEmbedRowLayoutPatch, effectiveMediaEmbedInspectorRowLayout } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
+import { standaloneMediaEmbedLayoutPatch, mergeMediaEmbedRowLayoutPatch, effectiveMediaEmbedInspectorRowLayout, layoutAlignToRowAlignment } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
 import { STORY_TEXT_PLACEMENT_OPTIONS } from "@/lib/admin/story-creator/story-block-text-layout";
 import type { StoryDividerMetaPatch, StoryRichTextMetaPatch } from "@/lib/admin/story-creator/story-doc-mutators";
 import {
@@ -153,7 +156,7 @@ function StoryTextPlacementGrid({
   return (
     <div>
       <FieldLabel>{heading}</FieldLabel>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2">
         {STORY_TEXT_PLACEMENT_OPTIONS.map(({ value: v, label }) => (
           <button
             key={v}
@@ -1607,7 +1610,7 @@ function ContainerLayoutInspector({
         : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
     );
 
-  const layoutPresets: StoryContainerPreset[] = ["default", "card", "callout", "hero", "quote"];
+  const layoutPresets: StoryContainerPreset[] = ["default", "card", "callout", "quote"];
   const presetLabel = (v: StoryContainerPreset) => (v === "default" ? "Default" : v.charAt(0).toUpperCase() + v.slice(1));
 
   return (
@@ -1636,7 +1639,7 @@ function ContainerLayoutInspector({
         <FieldLabel>Label (editor only)</FieldLabel>
         <Input
           className={cn("input input-bordered input-sm mt-2 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-          placeholder="Optional — e.g. “Hero”"
+          placeholder="Optional — e.g. “Callout”"
           value={p.label ?? ""}
           onChange={(e) => onPatch({ label: e.target.value ? e.target.value : undefined })}
         />
@@ -1774,97 +1777,206 @@ function StoryBlockDesignInspector({
 }
 
 function BlockDateAnnotationInspector({
-  annotation,
+  dateAnnotations,
+  legacyDateAnnotation,
+  placeAnnotations,
   onCommit,
   touchComfort,
 }: {
-  annotation: StoryBlockDateAnnotation | undefined;
-  onCommit: (next: StoryBlockDateAnnotation | undefined) => void;
+  dateAnnotations?: StoryBlockDateAnnotation[];
+  legacyDateAnnotation?: StoryBlockDateAnnotation;
+  placeAnnotations?: StoryBlockPlaceAnnotation[];
+  onCommit: (next: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => void;
   touchComfort?: boolean;
 }) {
   const controlH = touchComfort ? "h-11 min-h-[44px]" : "h-10";
-  const [date, setDate] = useState(annotation?.date ?? "");
-  const [dateDisplay, setDateDisplay] = useState(annotation?.dateDisplay ?? "");
-  const [endDate, setEndDate] = useState(annotation?.endDate ?? "");
+  const [dates, setDates] = useState<Array<{ id: string; date: string; dateDisplay: string; endDate: string }>>([]);
+  const [places, setPlaces] = useState<Array<{ id: string; label: string; placeId: string }>>([]);
 
   useEffect(() => {
-    setDate(annotation?.date ?? "");
-    setDateDisplay(annotation?.dateDisplay ?? "");
-    setEndDate(annotation?.endDate ?? "");
-  }, [annotation]);
+    const incomingDates =
+      dateAnnotations && dateAnnotations.length > 0
+        ? dateAnnotations
+        : legacyDateAnnotation
+          ? [legacyDateAnnotation]
+          : [];
+    setDates(
+      incomingDates.map((a) => ({
+        id: newStoryId(),
+        date: a.date ?? "",
+        dateDisplay: a.dateDisplay ?? "",
+        endDate: a.endDate ?? "",
+      })),
+    );
+    setPlaces(
+      (placeAnnotations ?? []).map((p) => ({
+        id: newStoryId(),
+        label: p.label ?? "",
+        placeId: p.placeId ?? "",
+      })),
+    );
+  }, [dateAnnotations, legacyDateAnnotation, placeAnnotations]);
 
   const flush = useCallback(() => {
-    const d = date.trim();
-    const dd = dateDisplay.trim();
-    const ed = endDate.trim();
-    if (!d || !dd) {
-      onCommit(undefined);
-      return;
-    }
-    onCommit({ date: d, dateDisplay: dd, ...(ed ? { endDate: ed } : {}) });
-  }, [date, dateDisplay, endDate, onCommit]);
+    const nextDates = dates
+      .map((a) => ({
+        date: a.date.trim(),
+        dateDisplay: a.dateDisplay.trim(),
+        ...(a.endDate.trim() ? { endDate: a.endDate.trim() } : {}),
+      }))
+      .filter((a) => a.date.length > 0 && a.dateDisplay.length > 0);
+    const nextPlaces = places
+      .map((p) => ({
+        label: p.label.trim(),
+        ...(p.placeId.trim() ? { placeId: p.placeId.trim() } : {}),
+      }))
+      .filter((p) => p.label.length > 0);
+    onCommit({
+      dateAnnotations: nextDates.length > 0 ? nextDates : undefined,
+      placeAnnotations: nextPlaces.length > 0 ? nextPlaces : undefined,
+    });
+  }, [dates, places, onCommit]);
+
+  const patchDate = (id: string, patch: Partial<{ date: string; dateDisplay: string; endDate: string }>) =>
+    setDates((cur) => cur.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  const patchPlace = (id: string, patch: Partial<{ label: string; placeId: string }>) =>
+    setPlaces((cur) => cur.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
   return (
-    <CollapsibleFormSection title="Date annotation" defaultOpen={false}>
+    <CollapsibleFormSection title="Date & Place Annotation" defaultOpen={false}>
       <p className="mb-3 text-xs leading-relaxed text-base-content/55">
-        Optional dated marker for the public timeline view. Use an ISO 8601 date (e.g. <span className="font-mono">1887-03-14</span>) and a
-        human label (e.g. “March 1887” or “circa 1920”).
+        Add one or more timeline markers. Use ISO 8601 dates (for example <span className="font-mono">1887-03-14</span>)
+        and a human-readable label.
       </p>
-      <div className="space-y-3">
-        <div>
-          <FieldLabel>Date (ISO 8601)</FieldLabel>
-          <input
-            className={cn(
-              "input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
-              controlH,
-            )}
-            placeholder="1887-03-14"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            onBlur={() => flush()}
-            spellCheck={false}
-          />
+      <div className="space-y-4">
+        {dates.map((a, idx) => (
+          <div key={a.id} className="space-y-3 rounded-lg border border-base-content/10 bg-base-100/60 p-3">
+            <div className="flex items-center justify-between">
+              <FieldLabel>Date annotation {idx + 1}</FieldLabel>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                onClick={() => {
+                  setDates((cur) => cur.filter((x) => x.id !== a.id));
+                  queueMicrotask(flush);
+                }}
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+              </button>
+            </div>
+            <input
+              className={cn(
+                "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
+                controlH,
+              )}
+              placeholder="1887-03-14"
+              value={a.date}
+              onChange={(e) => patchDate(a.id, { date: e.target.value })}
+              onBlur={flush}
+              spellCheck={false}
+            />
+            <input
+              className={cn(
+                "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 text-sm",
+                controlH,
+              )}
+              placeholder="March 1887"
+              value={a.dateDisplay}
+              onChange={(e) => patchDate(a.id, { dateDisplay: e.target.value })}
+              onBlur={flush}
+            />
+            <input
+              className={cn(
+                "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
+                controlH,
+              )}
+              placeholder="1920-12-31 (optional end date)"
+              value={a.endDate}
+              onChange={(e) => patchDate(a.id, { endDate: e.target.value })}
+              onBlur={flush}
+              spellCheck={false}
+            />
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("w-full gap-2 font-medium", touchComfort ? "min-h-11 h-11" : "h-9")}
+          onClick={() => setDates((cur) => [...cur, { id: newStoryId(), date: "", dateDisplay: "", endDate: "" }])}
+        >
+          <Plus className="size-3.5" aria-hidden />
+          Add date annotation
+        </Button>
+      </div>
+
+      <div className="mt-5 border-t border-base-content/10 pt-4">
+        <p className="mb-3 text-xs leading-relaxed text-base-content/55">Add one or more place annotations.</p>
+        <div className="space-y-3">
+          {places.map((p, idx) => (
+            <div key={p.id} className="space-y-2 rounded-lg border border-base-content/10 bg-base-100/60 p-3">
+              <div className="flex items-center justify-between">
+                <FieldLabel>Place annotation {idx + 1}</FieldLabel>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                  onClick={() => {
+                    setPlaces((cur) => cur.filter((x) => x.id !== p.id));
+                    queueMicrotask(flush);
+                  }}
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                </button>
+              </div>
+              <input
+                className={cn(
+                  "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 text-sm",
+                  controlH,
+                )}
+                placeholder="Place label"
+                value={p.label}
+                onChange={(e) => patchPlace(p.id, { label: e.target.value })}
+                onBlur={flush}
+              />
+              <input
+                className={cn(
+                  "input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
+                  controlH,
+                )}
+                placeholder="place id (optional)"
+                value={p.placeId}
+                onChange={(e) => patchPlace(p.id, { placeId: e.target.value })}
+                onBlur={flush}
+                spellCheck={false}
+              />
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn("w-full gap-2 font-medium", touchComfort ? "min-h-11 h-11" : "h-9")}
+            onClick={() => setPlaces((cur) => [...cur, { id: newStoryId(), label: "", placeId: "" }])}
+          >
+            <Plus className="size-3.5" aria-hidden />
+            Add place annotation
+          </Button>
         </div>
-        <div>
-          <FieldLabel>Display label</FieldLabel>
-          <input
-            className={cn(
-              "input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100 text-sm",
-              controlH,
-            )}
-            placeholder="March 1887"
-            value={dateDisplay}
-            onChange={(e) => setDateDisplay(e.target.value)}
-            onBlur={() => flush()}
-          />
-        </div>
-        <div>
-          <FieldLabel>End date (ISO, optional)</FieldLabel>
-          <input
-            className={cn(
-              "input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100 font-mono text-xs",
-              controlH,
-            )}
-            placeholder="1920-12-31"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            onBlur={() => flush()}
-            spellCheck={false}
-          />
-        </div>
+      </div>
+
+      <div className="mt-4">
         <Button
           type="button"
           variant="outline"
           size="sm"
           className={cn("w-full gap-2 font-medium", touchComfort ? "min-h-11 h-11" : "h-9")}
           onClick={() => {
-            setDate("");
-            setDateDisplay("");
-            setEndDate("");
-            onCommit(undefined);
+            setDates([]);
+            setPlaces([]);
+            onCommit({});
           }}
         >
-          Clear date annotation
+          Clear annotations
         </Button>
       </div>
     </CollapsibleFormSection>
@@ -2078,6 +2190,256 @@ function DividerBlockInspector({
   );
 }
 
+// ─── Table block inspector ────────────────────────────────────────────────────
+
+type TableLayoutPatch = Partial<Pick<StoryTableBlock, "hasHeaderRow" | "hasHeaderColumn" | "rowCount" | "columnCount" | "widthPct" | "widthAlign">>;
+
+const TABLE_WIDTH_PRESETS = [
+  { pct: 33, label: "33%" },
+  { pct: 50, label: "50%" },
+  { pct: 66, label: "66%" },
+  { pct: 75, label: "75%" },
+  { pct: 100, label: "Full" },
+] as const;
+
+function TableBlockInspector({
+  block,
+  onPatch,
+  touchComfort,
+}: {
+  block: StoryTableBlock;
+  onPatch: (patch: TableLayoutPatch) => void;
+  touchComfort?: boolean;
+}) {
+  const widthPct = block.widthPct ?? 100;
+  const widthAlign = block.widthAlign ?? "center";
+  const bodyRowCount = Math.max(1, block.rowCount ?? 1);
+  const bodyColumnCount = Math.max(1, block.columnCount ?? 1);
+  const chipH = touchComfort ? "h-9 min-h-[36px]" : "h-8";
+  return (
+    <div className="space-y-4">
+      <HelperCard title="Table">
+        Click any cell to edit its rich-text content. Rows/columns below are body counts; enabling headers adds an
+        extra top row and/or first column.
+      </HelperCard>
+
+      <CollapsibleFormSection title="Body dimensions" defaultOpen>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Rows</FieldLabel>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex w-8 items-center justify-center rounded-md border border-base-content/15 bg-base-100 text-base-content transition-colors hover:bg-base-200 disabled:opacity-40",
+                  chipH,
+                )}
+                onClick={() => onPatch({ rowCount: Math.max(1, bodyRowCount - 1) })}
+                disabled={bodyRowCount <= 1}
+              >
+                <ArrowDown className="size-3.5" />
+              </button>
+              <Input
+                type="number"
+                min={1}
+                value={bodyRowCount}
+                onChange={(e) => {
+                  const next = Number.parseInt(e.currentTarget.value || "", 10);
+                  if (Number.isFinite(next)) onPatch({ rowCount: Math.max(1, next) });
+                }}
+                className={cn(chipH, "text-center")}
+              />
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex w-8 items-center justify-center rounded-md border border-base-content/15 bg-base-100 text-base-content transition-colors hover:bg-base-200",
+                  chipH,
+                )}
+                onClick={() => onPatch({ rowCount: bodyRowCount + 1 })}
+              >
+                <ArrowUp className="size-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Columns</FieldLabel>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex w-8 items-center justify-center rounded-md border border-base-content/15 bg-base-100 text-base-content transition-colors hover:bg-base-200 disabled:opacity-40",
+                  chipH,
+                )}
+                onClick={() => onPatch({ columnCount: Math.max(1, bodyColumnCount - 1) })}
+                disabled={bodyColumnCount <= 1}
+              >
+                <ArrowDown className="size-3.5" />
+              </button>
+              <Input
+                type="number"
+                min={1}
+                value={bodyColumnCount}
+                onChange={(e) => {
+                  const next = Number.parseInt(e.currentTarget.value || "", 10);
+                  if (Number.isFinite(next)) onPatch({ columnCount: Math.max(1, next) });
+                }}
+                className={cn(chipH, "text-center")}
+              />
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex w-8 items-center justify-center rounded-md border border-base-content/15 bg-base-100 text-base-content transition-colors hover:bg-base-200",
+                  chipH,
+                )}
+                onClick={() => onPatch({ columnCount: bodyColumnCount + 1 })}
+              >
+                <ArrowUp className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </CollapsibleFormSection>
+
+      {/* Headers */}
+      <CollapsibleFormSection title="Headers" defaultOpen>
+        <div className="space-y-2">
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <Checkbox
+              checked={block.hasHeaderRow ?? false}
+              onCheckedChange={(v) => onPatch({ hasHeaderRow: Boolean(v) })}
+            />
+            Header row (first row)
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <Checkbox
+              checked={block.hasHeaderColumn ?? false}
+              onCheckedChange={(v) => onPatch({ hasHeaderColumn: Boolean(v) })}
+            />
+            Header column (first column)
+          </label>
+        </div>
+      </CollapsibleFormSection>
+
+      {/* Block width */}
+      <CollapsibleFormSection title="Block width" defaultOpen>
+        <div className="flex flex-wrap gap-1.5">
+          {TABLE_WIDTH_PRESETS.map(({ pct, label }) => (
+            <button
+              key={pct}
+              type="button"
+              className={cn(
+                "rounded-md border px-2.5 text-xs font-medium transition-colors",
+                chipH,
+                widthPct === pct
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-base-content/15 bg-base-100 text-base-content hover:bg-base-200",
+              )}
+              onClick={() => onPatch({ widthPct: pct })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Alignment — only when not full-width */}
+        {widthPct < 100 && (
+          <div className="mt-2 flex gap-1.5">
+            {(["left", "center", "right"] as const).map((a) => (
+              <button
+                key={a}
+                type="button"
+                title={`Align ${a}`}
+                className={cn(
+                  "flex flex-1 items-center justify-center rounded-md border transition-colors",
+                  chipH,
+                  widthAlign === a
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-base-content/15 bg-base-100 text-base-content hover:bg-base-200",
+                )}
+                onClick={() => onPatch({ widthAlign: a })}
+              >
+                {a === "left" ? <AlignLeft className="size-3.5" /> : a === "right" ? <AlignRight className="size-3.5" /> : <AlignCenter className="size-3.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </CollapsibleFormSection>
+    </div>
+  );
+}
+
+const SPLIT_WIDTH_PRESETS = [
+  { pct: 20, label: "20%" },
+  { pct: 25, label: "25%" },
+  { pct: 33, label: "33%" },
+  { pct: 40, label: "40%" },
+  { pct: 50, label: "50%" },
+] as const;
+
+const SPLIT_GAP_PRESETS = [
+  { rem: 0.75, label: "Tight" },
+  { rem: 1.5, label: "Normal" },
+  { rem: 2.5, label: "Wide" },
+] as const;
+
+function SplitContentInspector({
+  block,
+  onPatch,
+  touchComfort,
+}: {
+  block: StorySplitContentBlock;
+  onPatch: (patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
+  touchComfort?: boolean;
+}) {
+  const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
+  const chipBtn = (active: boolean) =>
+    cn(
+      "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
+      chip,
+      active
+        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+    );
+  const widthPct = block.supportingWidthPct ?? 33;
+  const gapRem = block.supportingGapRem ?? 1.5;
+  const side = block.supportingSide ?? "right";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <FieldLabel>Panel side</FieldLabel>
+        <div className="flex gap-2">
+          {(["left", "right"] as const).map((s) => (
+            <button key={s} type="button" className={cn(chipBtn(side === s), "flex-1 capitalize")} onClick={() => onPatch({ supportingSide: s })}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <FieldLabel>Panel width</FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {SPLIT_WIDTH_PRESETS.map(({ pct, label }) => (
+            <button key={pct} type="button" className={chipBtn(Math.abs(widthPct - pct) <= 2)} onClick={() => onPatch({ supportingWidthPct: pct })}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <FieldLabel>Gap</FieldLabel>
+        <div className="flex gap-2">
+          {SPLIT_GAP_PRESETS.map(({ rem, label }) => (
+            <button key={rem} type="button" className={cn(chipBtn(Math.abs(gapRem - rem) < 0.1), "flex-1")} onClick={() => onPatch({ supportingGapRem: rem })}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InspectorBlockTabContent({
   storyId,
   selectedBlock,
@@ -2094,6 +2456,9 @@ function InspectorBlockTabContent({
   onPatchRichTextMeta,
   onPatchDividerMeta,
   onDeleteBlock,
+  onPatchSplitContent,
+  onPatchTable,
+  selectedBlockInSplitPanel = false,
   touchComfort,
 }: {
   storyId: string;
@@ -2107,10 +2472,13 @@ function InspectorBlockTabContent({
   onPatchContainer?: (patch: Partial<StoryContainerBlockProps>) => void;
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
-  onPatchBlockDateAnnotation?: (next: StoryBlockDateAnnotation | undefined) => void;
+  onPatchBlockDateAnnotation?: (next: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => void;
   onPatchRichTextMeta?: (patch: StoryRichTextMetaPatch) => void;
   onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
   onDeleteBlock?: () => void;
+  onPatchSplitContent?: (patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
+  onPatchTable?: (patch: TableLayoutPatch) => void;
+  selectedBlockInSplitPanel?: boolean;
   touchComfort?: boolean;
 }) {
   return (
@@ -2129,10 +2497,11 @@ function InspectorBlockTabContent({
           storyId={storyId}
           block={selectedBlock}
           onPatch={onPatchMedia}
+          hideLayoutSection={selectedBlockInSplitPanel}
           touchComfort={touchComfort}
         />
       ) : selectedBlock?.type === "embed" ? (
-        <OtherEmbedInspector block={selectedBlock} onPatch={onPatchEmbed} touchComfort={touchComfort} />
+        <OtherEmbedInspector block={selectedBlock} onPatch={onPatchEmbed} hideLayoutSection={selectedBlockInSplitPanel} touchComfort={touchComfort} />
       ) : selectedBlock?.type === "container" && onPatchContainer ? (
         <ContainerLayoutInspector block={selectedBlock} onPatch={onPatchContainer} touchComfort={touchComfort} />
       ) : selectedBlock?.type === "columns" ? (
@@ -2181,15 +2550,15 @@ function InspectorBlockTabContent({
             <HelperCard title="Divider">Select this block on the canvas to adjust presets when the editor provides patch handlers.</HelperCard>
           )}
         </div>
+      ) : selectedBlock?.type === "table" && onPatchTable ? (
+        <TableBlockInspector block={selectedBlock} onPatch={onPatchTable} touchComfort={touchComfort} />
       ) : selectedBlock?.type === "table" ? (
-        <HelperCard title="Table (custom grid)">
-          Scaffold block: rows, columns, and plain-text cells. Editing tools will be added later; content is stored as
-          plain strings (safe for preview).
-        </HelperCard>
+        <HelperCard title="Table">Select this block on the canvas to adjust headers and sizing.</HelperCard>
+      ) : selectedBlock?.type === "splitContent" && onPatchSplitContent ? (
+        <SplitContentInspector block={selectedBlock} onPatch={onPatchSplitContent} touchComfort={touchComfort} />
       ) : selectedBlock?.type === "splitContent" ? (
         <HelperCard title="Split content">
-          Primary rich text plus a supporting rail for media, embeds, tables, and layout blocks. Wrap-around layout is
-          scaffolded for a later pass.
+          Select side, width, and gap in the inspector above to adjust the supporting panel layout.
         </HelperCard>
       ) : columnsLayoutBlock ? null : (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-content/15 bg-base-100/40 px-4 py-12 text-center">
@@ -2204,7 +2573,9 @@ function InspectorBlockTabContent({
       {selectedBlock && onPatchBlockDateAnnotation ? (
         <div className="mt-6 border-t border-base-content/10 pt-6">
           <BlockDateAnnotationInspector
-            annotation={selectedBlock.dateAnnotation}
+            dateAnnotations={selectedBlock.dateAnnotations}
+            legacyDateAnnotation={selectedBlock.dateAnnotation}
+            placeAnnotations={selectedBlock.placeAnnotations}
             onCommit={onPatchBlockDateAnnotation}
             touchComfort={touchComfort}
           />
@@ -2263,9 +2634,13 @@ export function StoryCreatorInspector({
   onPatchBlockDateAnnotation,
   onPatchRichTextMeta,
   onPatchDividerMeta,
+  onPatchSplitContent,
+  onPatchTable,
+  selectedBlockInSplitPanel = false,
   onTitleChange,
   onExcerptChange,
   onStoryMetaChange,
+  onClose,
   onDeleteBlock,
   className,
   layout = "sidebar",
@@ -2289,12 +2664,17 @@ export function StoryCreatorInspector({
   onPatchContainer?: (patch: Partial<StoryContainerBlockProps>) => void;
   onPatchBlockRowLayout: (patch: Partial<StoryBlockRowLayout>) => void;
   onPatchBlockDesign: (patch: Partial<StoryBlockDesign> | null) => void;
-  onPatchBlockDateAnnotation?: (next: StoryBlockDateAnnotation | undefined) => void;
+  onPatchBlockDateAnnotation?: (next: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => void;
   onPatchRichTextMeta?: (patch: StoryRichTextMetaPatch) => void;
   onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
+  onPatchSplitContent?: (patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
+  onPatchTable?: (patch: TableLayoutPatch) => void;
+  /** True when the selected media/embed block lives inside a splitContent supporting panel. */
+  selectedBlockInSplitPanel?: boolean;
   onTitleChange: (title: string) => void;
   onExcerptChange: (excerpt: string) => void;
   onStoryMetaChange?: (patch: StoryDocumentMetaPatch) => void;
+  onClose?: () => void;
   onDeleteBlock?: () => void;
   className?: string;
   layout?: StoryInspectorLayout;
@@ -2319,6 +2699,9 @@ export function StoryCreatorInspector({
             onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
             onPatchRichTextMeta={onPatchRichTextMeta}
             onPatchDividerMeta={onPatchDividerMeta}
+            onPatchSplitContent={onPatchSplitContent}
+            onPatchTable={onPatchTable}
+            selectedBlockInSplitPanel={selectedBlockInSplitPanel}
             onDeleteBlock={onDeleteBlock}
             touchComfort
           />
@@ -2351,7 +2734,20 @@ export function StoryCreatorInspector({
         className,
       )}
     >
-      <div className="flex shrink-0 gap-1 border-b border-base-content/10 p-2.5">
+      <div className="flex shrink-0 items-center gap-1 border-b border-base-content/10 p-2.5">
+        {onClose ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-9 w-9 shrink-0 rounded-lg p-0 text-base-content/65 hover:bg-base-content/[0.08] hover:text-base-content"
+            title="Hide inspector"
+            aria-label="Hide inspector panel"
+            onClick={onClose}
+          >
+            <ChevronRight className="size-4" aria-hidden />
+          </Button>
+        ) : null}
         <button
           type="button"
           onClick={() => onInspectorTab("block")}
@@ -2424,6 +2820,9 @@ export function StoryCreatorInspector({
             onPatchBlockDateAnnotation={onPatchBlockDateAnnotation}
             onPatchRichTextMeta={onPatchRichTextMeta}
             onPatchDividerMeta={onPatchDividerMeta}
+            onPatchSplitContent={onPatchSplitContent}
+            onPatchTable={onPatchTable}
+            selectedBlockInSplitPanel={selectedBlockInSplitPanel}
             onDeleteBlock={onDeleteBlock}
           />
         )}
@@ -2654,7 +3053,7 @@ function StandaloneMediaEmbedLayoutInspectorSection({
               key={value}
               type="button"
               title={label}
-              onClick={() => onPatchLayout(standaloneMediaEmbedLayoutPatch(block, { layoutAlign: value }))}
+              onClick={() => onPatchLayout(mergeMediaEmbedRowLayoutPatch(block, { alignment: layoutAlignToRowAlignment(value), displayMode: "block", float: undefined }))}
               className={cn(
                 "flex flex-col items-center gap-1.5 rounded-lg border text-[10px] font-semibold uppercase tracking-wide transition-colors",
                 touchComfort ? "min-h-[44px] py-2" : "py-2.5",
@@ -2677,11 +3076,14 @@ function MediaBlockInspector({
   storyId,
   block,
   onPatch,
+  hideLayoutSection,
   touchComfort,
 }: {
   storyId: string;
   block: StoryMediaBlock;
   onPatch: (p: Partial<StoryMediaBlock>) => void;
+  /** Suppress Size & alignment when block lives inside a split content supporting panel. */
+  hideLayoutSection?: boolean;
   touchComfort?: boolean;
 }) {
   const { data, isLoading } = useStoryMediaById(block.mediaId);
@@ -2778,7 +3180,7 @@ function MediaBlockInspector({
           <FieldLabel>Caption</FieldLabel>
           <textarea
             className={cn(
-              "textarea textarea-bordered textarea-sm mt-1 min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500",
+              "textarea textarea-bordered textarea-sm mt-1 min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed placeholder:text-base-content/40",
               touchComfort && "min-h-[100px]",
             )}
             placeholder="Optional caption shown with the media…"
@@ -2804,7 +3206,9 @@ function MediaBlockInspector({
         </div>
       </CollapsibleFormSection>
 
-      <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryMediaBlock>)} touchComfort={touchComfort} />
+      {!hideLayoutSection && (
+        <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryMediaBlock>)} touchComfort={touchComfort} />
+      )}
 
       <CollapsibleFormSection title="Appearance" defaultOpen={block.heightPx != null}>
         <FieldLabel>Height</FieldLabel>
@@ -2879,10 +3283,13 @@ function MediaBlockInspector({
 function OtherEmbedInspector({
   block,
   onPatch,
+  hideLayoutSection,
   touchComfort,
 }: {
   block: StoryEmbedBlock;
   onPatch: (p: Partial<StoryEmbedBlock>) => void;
+  /** Suppress Size & alignment when block lives inside a split content supporting panel. */
+  hideLayoutSection?: boolean;
   touchComfort?: boolean;
 }) {
   const height = block.heightPreset ?? "default";
@@ -2978,7 +3385,9 @@ function OtherEmbedInspector({
         </div>
       </CollapsibleFormSection>
 
-      <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryEmbedBlock>)} touchComfort={touchComfort} />
+      {!hideLayoutSection && (
+        <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryEmbedBlock>)} touchComfort={touchComfort} />
+      )}
 
       <CollapsibleFormSection title="Appearance" defaultOpen={false}>
         <FieldLabel>Embed height</FieldLabel>

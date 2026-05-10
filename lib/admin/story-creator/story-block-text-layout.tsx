@@ -5,15 +5,15 @@ import { cn } from "@/lib/utils";
 export const STORY_TEXT_PLACEMENT_OPTIONS: { value: StoryBlockTextPlacement; label: string }[] = [
   { value: "above", label: "Above" },
   { value: "below", label: "Below" },
-  { value: "left", label: "Left" },
-  { value: "right", label: "Right" },
 ];
 
 export function resolveStoryBlockTextPlacement(
   raw: StoryBlockTextPlacement | undefined,
   fallback: StoryBlockTextPlacement,
 ): StoryBlockTextPlacement {
-  if (raw === "above" || raw === "below" || raw === "left" || raw === "right") return raw;
+  if (raw === "above") return "above";
+  if (raw === "below") return "below";
+  // "left"/"right" are no longer offered; treat as the field's default placement.
   return fallback;
 }
 

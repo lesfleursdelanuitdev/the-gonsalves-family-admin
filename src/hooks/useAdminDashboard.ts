@@ -5,6 +5,10 @@ import { fetchJson } from "@/lib/infra/api";
 import type {
   AdminDashboardSnapshot,
   DashboardActivityItem,
+  DashboardArchiveHealth,
+  DashboardDiscoveryItem,
+  DashboardHeatmapDay,
+  DashboardInsightsPayload,
   DashboardNeedsAttentionRow,
 } from "@/lib/admin/admin-dashboard-snapshot";
 
@@ -22,6 +26,12 @@ export type AdminDashboardResponse =
       activity: DashboardActivityItem[];
       needsAttention: DashboardNeedsAttentionRow[];
       needsAttentionTotal: number;
+      lastImportAt: string | null;
+      newThisWeek: { individuals: number; media: number; events: number };
+      archiveHealth: DashboardArchiveHealth;
+      heatmap: DashboardHeatmapDay[];
+      insights: DashboardInsightsPayload;
+      discoveries: DashboardDiscoveryItem[];
     };
 
 const KEY = ["admin", "dashboard"] as const;

@@ -42,6 +42,27 @@ export const GET = withAdminAuth(async (_req, user) => {
         activity: [],
         needsAttention: [],
         needsAttentionTotal: 0,
+        lastImportAt: null,
+        newThisWeek: { individuals: 0, media: 0, events: 0 },
+        archiveHealth: {
+          score: 0,
+          linkedMediaPct: 0,
+          datedEventsPct: 0,
+          geocodedPlacesPct: 0,
+          sourcedFactsPct: 0,
+          peopleWithPhotosPct: 0,
+          peopleWithStoriesPct: 0,
+        },
+        heatmap: [],
+        insights: {
+          topSurnames: [],
+          birthsByDecade: [],
+          branchSlices: [],
+          topBirthPlaces: [],
+          mediaCoverage: [],
+          generationCoverage: [],
+        },
+        discoveries: [],
       });
     }
     throw e;

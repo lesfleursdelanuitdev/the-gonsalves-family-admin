@@ -142,6 +142,10 @@ export function resolveStorySelection(section: StorySection, id: string | null):
       const inner = findInStoryBlockFromChildren(b.children, id);
       if (inner) return { mode: "section", block: inner };
     }
+    if (b.type === "splitContent") {
+      const inner = findInStoryBlock(b as StoryBlock, id);
+      if (inner) return { mode: "section", block: inner };
+    }
   }
   for (const b of section.blocks) {
     if (b.type === "columns") {

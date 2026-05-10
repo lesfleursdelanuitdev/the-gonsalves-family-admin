@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   isLikelyAudioFile,
@@ -22,7 +22,7 @@ import { ImageIcon, Settings } from "lucide-react";
 
 export type MediaBlockContentVariant = "editor" | "preview";
 
-const THUMB_W = { editor: 1200, preview: 1200 } as const;
+const THUMB_W = { editor: 800, preview: 1200 } as const;
 
 const SNAP_POINTS = [25, 33, 50, 66, 75, 100];
 
@@ -33,16 +33,12 @@ function snapWidth(pct: number): number {
   return pct;
 }
 
-type DragState =
-  | { kind: "width"; startX: number; startWidthPx: number; parentWidthPx: number; scopeEl: HTMLElement; side: "left" | "right" }
-  | { kind: "height"; startY: number; startHeightPx: number; assetEl: HTMLElement };
+type DragState = { kind: "width"; startX: number; startWidthPx: number; parentWidthPx: number; scopeEl: HTMLElement; side: "left" | "right" };
 
 /**
  * Shared media block body. Images render at their natural aspect ratio by default.
- * When `heightPx` is set on the block, a fixed-height crop frame is applied instead.
- *
- * In editor mode, drag handles on the left/right edges resize width and a handle on
- * the bottom edge sets an explicit crop height. Both update the block via callbacks.
+ * When `heightPx` is set on the block (inspector-only), a fixed-height crop frame is applied.
+ * In editor mode, drag handles on the left/right edges resize the block width.
  */
 export function MediaBlockContentRenderer({
   block,
@@ -58,7 +54,7 @@ export function MediaBlockContentRenderer({
   onConfigure?: () => void;
   /** Editor-only: called with new percentage (15–100) when user drags a side handle. */
   onResizeWidth?: (pct: number) => void;
-  /** Editor-only: called with new px height when user drags the bottom handle. Pass undefined to clear. */
+  /** Editor-only: still accepted for inspector-driven height control; not triggered by canvas handles. */
   onResizeHeight?: (px: number | undefined) => void;
 }) {
   const { data, isLoading } = useStoryMediaById(block.mediaId);
@@ -76,8 +72,12 @@ export function MediaBlockContentRenderer({
   const [isDragging, setIsDragging] = useState(false);
   const dragState = useRef<DragState | null>(null);
   const lastWidthPctRef = useRef(100);
-  const lastHeightPxRef = useRef<number>(300);
-  const assetWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Track whether the <img> has finished loading so we can fade it in.
+  const [imgLoaded, setImgLoaded] = useState(false);
+  // Reset whenever the resolved fileRef changes (new media selected, block swapped).
+  const resolvedFileRef = data?.fileRef?.trim() || null;
+  useEffect(() => { setImgLoaded(false); }, [resolvedFileRef]);
 
   // --- Width handle ---
   function onSidePointerDown(e: React.PointerEvent<HTMLDivElement>, side: "left" | "right") {
@@ -89,8 +89,12 @@ export function MediaBlockContentRenderer({
     if (!scopeEl || !parentEl) return;
     const scopeRect = scopeEl.getBoundingClientRect();
     const parentRect = parentEl.getBoundingClientRect();
-    dragState.current = { kind: "width", startX: e.clientX, startWidthPx: scopeRect.width, parentWidthPx: parentRect.width, scopeEl, side };
-    lastWidthPctRef.current = Math.round((scopeRect.width / parentRect.width) * 100);
+    // CSS % widths resolve against the parent's content box, not border box.
+    // Subtract horizontal padding so the denominator matches what the browser uses.
+    const cs = window.getComputedStyle(parentEl);
+    const parentContentWidth = parentRect.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    dragState.current = { kind: "width", startX: e.clientX, startWidthPx: scopeRect.width, parentWidthPx: parentContentWidth, scopeEl, side };
+    lastWidthPctRef.current = Math.round((scopeRect.width / parentContentWidth) * 100);
     setIsDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -99,7 +103,8 @@ export function MediaBlockContentRenderer({
     const state = dragState.current;
     if (!state || state.kind !== "width") return;
     const delta = state.side === "right" ? e.clientX - state.startX : state.startX - e.clientX;
-    const pct = snapWidth(Math.min(100, Math.max(15, Math.round(((state.startWidthPx + delta) / state.parentWidthPx) * 100))));
+    // Raw value during drag — no snapping so the handle tracks the cursor exactly.
+    const pct = Math.min(100, Math.max(15, Math.round(((state.startWidthPx + delta) / state.parentWidthPx) * 100)));
     lastWidthPctRef.current = pct;
     state.scopeEl.style.width = `${pct}%`;
     state.scopeEl.style.maxWidth = "100%";
@@ -112,41 +117,8 @@ export function MediaBlockContentRenderer({
     state.scopeEl.style.maxWidth = "";
     dragState.current = null;
     setIsDragging(false);
-    onResizeWidth?.(lastWidthPctRef.current);
-  }
-
-  // --- Height handle ---
-  function onBottomPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!onResizeHeight) return;
-    e.stopPropagation();
-    e.preventDefault();
-    const assetEl = assetWrapperRef.current?.firstElementChild as HTMLElement | null;
-    if (!assetEl) return;
-    const startHeightPx = assetEl.getBoundingClientRect().height;
-    dragState.current = { kind: "height", startY: e.clientY, startHeightPx, assetEl };
-    lastHeightPxRef.current = startHeightPx;
-    setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function onBottomPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const state = dragState.current;
-    if (!state || state.kind !== "height") return;
-    const newPx = Math.max(60, state.startHeightPx + (e.clientY - state.startY));
-    lastHeightPxRef.current = newPx;
-    state.assetEl.style.height = `${newPx}px`;
-    state.assetEl.style.overflow = "hidden";
-  }
-
-  function onBottomPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const state = dragState.current;
-    if (!state || state.kind !== "height") return;
-    // Reset inline style — React will re-apply from block.heightPx after patch
-    state.assetEl.style.height = "";
-    state.assetEl.style.overflow = "";
-    dragState.current = null;
-    setIsDragging(false);
-    onResizeHeight?.(Math.round(lastHeightPxRef.current));
+    // Snap only on release so the commit value lands on a clean preset when close.
+    onResizeWidth?.(snapWidth(lastWidthPctRef.current));
   }
 
   const sideHandleEvents = (side: "left" | "right") => ({
@@ -155,13 +127,6 @@ export function MediaBlockContentRenderer({
     onPointerUp: onSidePointerUp,
     onPointerCancel: onSidePointerUp,
   });
-
-  const bottomHandleEvents = {
-    onPointerDown: onBottomPointerDown,
-    onPointerMove: onBottomPointerMove,
-    onPointerUp: onBottomPointerUp,
-    onPointerCancel: onBottomPointerUp,
-  };
 
   if (compact && isEditor && isStoryMediaUnconfigured(block) && onConfigure) {
     return (
@@ -226,55 +191,71 @@ export function MediaBlockContentRenderer({
         className="relative w-full overflow-hidden rounded-xl border border-base-content/10 bg-base-200/10 ring-1 ring-base-content/[0.06]"
         style={fixedHeight ? { height: fixedHeight } : undefined}
       >
+        {/* Shimmer sits behind the image and disappears once it loads */}
+        {!imgLoaded && (
+          <div
+            className={cn(
+              "w-full bg-base-200/60",
+              fixedHeight ? "absolute inset-0" : "aspect-video animate-pulse",
+            )}
+            aria-hidden
+          />
+        )}
         {/* eslint-disable-next-line @next/next/no-img-element -- admin canvas; thumb API or native raster */}
-        <img src={imgSrc} alt={alt} className={cn("block w-full", fixedHeight ? "h-full object-cover" : "h-auto")} />
+        <img
+          src={imgSrc}
+          alt={alt}
+          className={cn(
+            "block w-full transition-opacity duration-300",
+            fixedHeight ? "h-full object-cover" : "h-auto",
+            imgLoaded ? "opacity-100" : "opacity-0",
+          )}
+          onLoad={() => setImgLoaded(true)}
+        />
       </div>
     );
   } else {
     asset = (
       <div
-        className="flex w-full flex-col items-center justify-center gap-1 rounded-xl border border-base-content/10 bg-base-200/45 p-3 text-center text-xs leading-snug text-base-content/45 ring-1 ring-base-content/[0.06]"
-        style={fixedHeight ? { height: fixedHeight } : { minHeight: "8rem" }}
+        className="w-full overflow-hidden rounded-xl border border-base-content/10 ring-1 ring-base-content/[0.06]"
+        style={fixedHeight ? { height: fixedHeight } : undefined}
       >
         {isLoading && block.mediaId ? (
-          <span>Loading preview…</span>
-        ) : isEditor ? (
-          <span>No media selected — use the inspector to pick a file.</span>
+          // Data fetch in progress — show a shimmer placeholder
+          <div className="aspect-video w-full animate-pulse bg-base-200/60" aria-hidden />
         ) : (
-          <span className="text-base-content/40">No media attached</span>
+          <div className="flex w-full flex-col items-center justify-center gap-1 bg-base-200/45 p-3 text-center text-xs leading-snug text-base-content/45" style={{ minHeight: "8rem" }}>
+            {isEditor ? (
+              <span>No media selected — use the inspector to pick a file.</span>
+            ) : (
+              <span className="text-base-content/40">No media attached</span>
+            )}
+          </div>
         )}
       </div>
     );
   }
 
   const titleNode = showTitleSlot ? (
-    <p className="text-sm font-semibold tracking-tight text-base-content">{titleDisplay}</p>
+    <p
+      className="text-sm font-semibold tracking-tight text-neutral-900"
+      style={!isEditor ? { color: "var(--story-media-label-color, #111827)" } : undefined}
+    >{titleDisplay}</p>
   ) : null;
 
   const captionNode = showCaptionSlot ? (
-    <p className={cn("text-xs leading-relaxed", isEditor ? "text-base-content/50" : "text-base-content/60")}>{captionDisplay}</p>
+    <p
+      className="text-xs leading-relaxed text-neutral-500"
+      style={!isEditor ? { color: "var(--story-media-caption-color, #6b7280)" } : undefined}
+    >{captionDisplay}</p>
   ) : null;
 
-  const showHandles = isEditor && !compact && (Boolean(onResizeWidth) || Boolean(onResizeHeight));
+  const showHandles = isEditor && !compact && Boolean(onResizeWidth);
   const sideHandleBase = cn(
     "absolute inset-y-0 z-20 flex w-4 cursor-col-resize touch-none select-none items-center justify-center opacity-0 transition-opacity duration-150 group-hover/mediaresize:opacity-100",
     isDragging && "opacity-100",
   );
-  const bottomHandleBase = cn(
-    "absolute inset-x-0 -bottom-2 z-20 flex h-4 cursor-row-resize touch-none select-none items-center justify-center opacity-0 transition-opacity duration-150 group-hover/mediaresize:opacity-100",
-    isDragging && "opacity-100",
-  );
-
-  const assetWithHandles = (
-    <div ref={assetWrapperRef} className="relative">
-      {asset}
-      {showHandles && onResizeHeight && (
-        <div className={bottomHandleBase} {...bottomHandleEvents}>
-          <div className="h-1 w-10 rounded-full bg-primary/60 shadow" />
-        </div>
-      )}
-    </div>
-  );
+  const assetWithHandles = asset;
 
   return (
     <figure className={cn("group/mediaresize relative min-w-0", alignClass)}>
@@ -292,8 +273,8 @@ export function MediaBlockContentRenderer({
         <StoryAssetWithTitleCaption
           titlePlacement={block.titlePlacement}
           captionPlacement={block.captionPlacement}
-          titleClassName="min-w-0 max-w-full sm:max-w-[min(100%,22rem)]"
-          captionClassName="min-w-0 max-w-full sm:max-w-[min(100%,22rem)]"
+          titleClassName="min-w-0 max-w-full sm:max-w-[min(100%,22rem)] text-center"
+          captionClassName="min-w-0 max-w-full sm:max-w-[min(100%,22rem)] text-center"
           asset={assetWithHandles}
           title={titleNode}
           caption={captionNode}

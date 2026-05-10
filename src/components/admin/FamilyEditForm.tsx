@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
@@ -33,7 +35,8 @@ import { FamilyEditorSourcesTabPanel } from "@/components/admin/family-editor/Fa
 import { FamilyEditorStickySaveBar } from "@/components/admin/family-editor/FamilyEditorStickySaveBar";
 import { PersonEditorLayout } from "@/components/admin/individual-editor/PersonEditorLayout";
 import { PersonEditorMobileFormHeader } from "@/components/admin/individual-editor/PersonEditorMobileFormHeader";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useDeleteFamily } from "@/hooks/useAdminFamilies";
 import { useFamilyEditorState } from "@/hooks/useFamilyEditorState";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { buildChildNonBirthIndicatorMap, type ParentChildRelForChildIndicator } from "@/lib/gedcom/pedigree-display";
@@ -47,6 +50,8 @@ export function FamilyEditForm({
   /** `create`: add flow (e.g. `/admin/families/create`); omits parent-based edit title and XREF line. */
   mode?: "create" | "edit";
 }) {
+  const router = useRouter();
+  const deleteFamily = useDeleteFamily();
   const e = useFamilyEditorState({ familyId, mode });
   const isDesktop = useMediaQueryMinLg();
   const childNonBirthById = useMemo(
@@ -142,6 +147,32 @@ export function FamilyEditForm({
       toast.error(err instanceof Error ? err.message : "Could not save family.");
     }
   }, [e]);
+
+  const handleDeleteFamily = useCallback(async () => {
+    if (e.mode !== "edit") return;
+    const partners = [e.husband?.fullName ?? "", e.wife?.fullName ?? ""]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" & ");
+    const xref = (e.xref ?? "").trim();
+    const label =
+      partners && xref ? `${partners} (${xref})` : partners || xref || e.familyId;
+    if (
+      !window.confirm(
+        `Delete ${label}? This removes the family record and its links (children in this family, family events, notes, etc.). Individuals are not deleted. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteFamily.mutateAsync(e.familyId);
+      toast.success(`Deleted ${label}.`);
+      router.push("/admin/families");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Failed to delete ${label}: ${msg}`);
+    }
+  }, [deleteFamily, e.familyId, e.husband?.fullName, e.mode, e.wife?.fullName, e.xref, router]);
 
   const desktopHeader = (
     <header className="space-y-3 border-b border-base-content/10 pb-6">
@@ -460,6 +491,32 @@ export function FamilyEditForm({
           <p className="mt-4 text-sm text-destructive" role="alert">
             {e.finalizeErr}
           </p>
+        ) : null}
+
+        {e.mode === "edit" ? (
+          <section className="mt-8 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:p-6">
+            <div className="flex items-start gap-2">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-destructive">Danger zone</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Delete this family record and its links (children in this family, family events, notes, sources,
+                  media, etc.). Spouses and children as people are not deleted—only this union record is removed. This
+                  cannot be undone.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="mt-4"
+              disabled={deleteFamily.isPending || e.pending}
+              onClick={() => void handleDeleteFamily()}
+            >
+              {deleteFamily.isPending ? "Deleting…" : "Delete family"}
+            </Button>
+          </section>
         ) : null}
 
         <FamilyEditorStickySaveBar

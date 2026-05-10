@@ -5,6 +5,7 @@ import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
 import { dbRecordToStoryDocument, STORY_DB_READ_INCLUDE } from "@/lib/admin/story-creator/story-db-mapping";
 import { replaceStoryFromDocumentInTx } from "@/lib/admin/story-creator/persist-story-from-document";
+import { validateStoryDocumentStrictBlocks } from "@/lib/admin/story-creator/story-document-strict-validate";
 import type { StoryDocument } from "@/lib/admin/story-creator/story-types";
 
 async function assertOwnedStory(storyId: string, userId: string, treeId: string) {
@@ -62,6 +63,16 @@ export const PUT = withAdminAuth(async (request, user, ctx) => {
   }
   if (!Array.isArray(doc.sections)) {
     return NextResponse.json({ error: "sections must be an array" }, { status: 400 });
+  }
+  const strictValidation = validateStoryDocumentStrictBlocks(doc);
+  if (!strictValidation.ok) {
+    return NextResponse.json(
+      {
+        error: "Unsupported or legacy block shape in document",
+        detail: strictValidation.error,
+      },
+      { status: 400 },
+    );
   }
 
   try {

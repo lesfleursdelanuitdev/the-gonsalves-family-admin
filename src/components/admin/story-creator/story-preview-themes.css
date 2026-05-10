@@ -142,6 +142,8 @@
   --preview-toc-tab-bg: rgba(15, 23, 42, 0.95);
   --preview-toc-tab-fg: #4ade80;
   --story-subtle-border: rgba(255, 255, 255, 0.2);
+  --story-media-label-color: #f3f4f6;
+  --story-media-caption-color: #9ca3af;
 }
 
 .preview-root.theme-dark .preview-background {

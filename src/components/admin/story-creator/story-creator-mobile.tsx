@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { LayoutList, Plus, Settings, X } from "lucide-react";
+import { ChevronDown, ChevronUp, LayoutList, Plus, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -20,12 +20,15 @@ export function StoryEditorBottomDock({
   active,
   onNavigate,
   emphasizeAddBlockFab,
+  onCollapse,
 }: {
   /** When `null`, side tabs show no selection; FAB uses {@link emphasizeAddBlockFab}. */
   active: StoryMobileShellTab | null;
   onNavigate: (t: StoryMobileShellTab) => void;
   /** When active is null (desktop dock), keep the center FAB visibly primary. */
   emphasizeAddBlockFab?: boolean;
+  /** Called when the user clicks the collapse handle. */
+  onCollapse?: () => void;
 }) {
   const Item = ({
     id,
@@ -70,9 +73,19 @@ export function StoryEditorBottomDock({
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-base-content/10 bg-base-100/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-md shadow-[0_-6px_28px_rgba(0,0,0,0.28)] lg:z-30"
+      className="group/dock fixed bottom-0 left-0 right-0 z-40 border-t border-base-content/10 bg-base-100/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md shadow-[0_-6px_28px_rgba(0,0,0,0.28)] lg:z-30"
       aria-label="Story editor navigation"
     >
+      {onCollapse && (
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-label="Collapse toolbar"
+          className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-t-md border border-b-0 border-base-content/15 bg-base-100/90 px-3 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 group-hover/dock:opacity-100"
+        >
+          <ChevronDown className="size-3.5 text-base-content/50" aria-hidden />
+        </button>
+      )}
       <div className="mx-auto flex w-full max-w-lg items-end justify-between gap-2 px-2 lg:max-w-none lg:px-4">
         <Item id="structure" label="Structure" icon={LayoutList} />
         <div className="flex min-w-0 shrink-0 flex-col items-center justify-end pb-[2px] pt-0.5">
@@ -117,6 +130,21 @@ export function StoryEditorBottomDock({
 
 /** @deprecated Use {@link StoryEditorBottomDock} */
 export const StoryMobileBottomNav = StoryEditorBottomDock;
+
+/** Tab that peeks at the bottom edge when the dock is collapsed. */
+export function StoryEditorDockPullTab({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="Open toolbar"
+      className="fixed bottom-0 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-t-lg border border-b-0 border-base-content/15 bg-base-100/95 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-base-content/55 shadow-[0_-4px_16px_rgba(0,0,0,0.18)] backdrop-blur-md transition-colors duration-150 hover:bg-base-200/95 hover:text-base-content/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <ChevronUp className="size-3.5" aria-hidden />
+      Toolbar
+    </button>
+  );
+}
 
 /** Bottom sheet shell (drag handle, title, close) — reusable for toolbar sheets, etc. */
 export function StoryEditorBottomSheet({

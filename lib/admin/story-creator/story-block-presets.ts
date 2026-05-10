@@ -28,7 +28,6 @@ export type StoryAddBlockPresetId =
   | "text_quote"
   | "data_table"
   | "media_default"
-  | "media_wrapped"
   | "embed_gallery"
   | "embed_timeline"
   | "embed_map"
@@ -83,11 +82,6 @@ export const STORY_ADD_BLOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = [
     title: "Media",
     items: [
       { id: "media_default", label: "Media", description: "Image, video, or audio" },
-      {
-        id: "media_wrapped",
-        label: "Text + media (wrap)",
-        description: "Split content: write beside a media slot (wrap layout when enabled)",
-      },
     ],
   },
   {
@@ -120,11 +114,6 @@ export const STORY_ADD_BLOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = [
         label: "Callout",
         description: "Soft background panel for tips, asides, or short highlights",
       },
-      {
-        id: "layout_hero",
-        label: "Hero",
-        description: "Full-width band for titles, imagery, or featured content up front",
-      },
       { id: "layout_divider", label: "Divider", description: "Simple horizontal rule" },
       { id: "layout_divider_ornamental", label: "Ornamental divider", description: "Decorative rule" },
       { id: "layout_section_break", label: "Section break", description: "Strong separation between sections" },
@@ -138,18 +127,20 @@ export const STORY_ADD_BLOCK_DOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = ((
   const byCat = (id: StoryAddBlockCategoryId) => STORY_ADD_BLOCK_PRESET_GROUPS.find((g) => g.categoryId === id);
   const textIds: StoryAddBlockPresetId[] = ["text_paragraph", "text_heading", "text_list"];
   const text = byCat("text")?.items.filter((i) => textIds.includes(i.id)) ?? [];
+  const data = byCat("data")?.items.filter((i) => i.id === "data_table") ?? [];
   const media = byCat("media")?.items.filter((i) => i.id === "media_default") ?? [];
   const embeds = byCat("embeds")?.items.filter((i) => i.id === "embed_document") ?? [];
   const layoutIds: StoryAddBlockPresetId[] = [
     "layout_columns",
+    "layout_split",
     "layout_container",
     "layout_callout",
-    "layout_hero",
     "layout_divider",
   ];
   const layout = byCat("layout")?.items.filter((i) => layoutIds.includes(i.id)) ?? [];
   return [
     { categoryId: "text", title: "Text", items: text },
+    { categoryId: "data", title: "Data / structured", items: data },
     { categoryId: "media", title: "Media", items: media },
     { categoryId: "embeds", title: "Embeds", items: embeds },
     { categoryId: "layout", title: "Layout", items: layout },
@@ -240,18 +231,6 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
       return createTableBlock(3, 3, true);
     case "media_default":
       return createMediaBlock();
-    case "media_wrapped": {
-      const split = createSplitContentBlock();
-      const media = createMediaBlock();
-      return {
-        ...split,
-        supportingSide: "right",
-        supporting: {
-          ...split.supporting,
-          blocks: [{ ...media, widthPreset: "medium", layoutAlign: "center" }],
-        },
-      };
-    }
     case "embed_gallery":
       return labelEmbed("gallery", "Gallery");
     case "embed_timeline":
@@ -343,9 +322,11 @@ export function createColumnNestedBlockFromPreset(id: StoryAddBlockPresetId): St
   return createStoryBlockFromPreset(id) as StoryColumnNestedBlock;
 }
 
-/** Presets allowed in a split block’s supporting rail (not primary text flow). */
+/** Presets allowed in a split block’s supporting rail. */
 export const STORY_SPLIT_SUPPORT_ADD_PRESET_IDS: readonly StoryAddBlockPresetId[] = [
+  "text_verse",
   "media_default",
+  "data_table",
   "embed_gallery",
   "embed_timeline",
   "embed_map",
@@ -354,11 +335,6 @@ export const STORY_SPLIT_SUPPORT_ADD_PRESET_IDS: readonly StoryAddBlockPresetId[
   "embed_event",
   "embed_tree",
   "embed_document",
-  "data_table",
-  "layout_columns",
-  "layout_container",
-  "layout_callout",
-  "layout_hero",
 ] as const;
 
 export function createSplitSupportBlockFromPreset(id: StoryAddBlockPresetId): StorySplitSupportBlock | null {
@@ -366,9 +342,8 @@ export function createSplitSupportBlockFromPreset(id: StoryAddBlockPresetId): St
   switch (b.type) {
     case "media":
     case "embed":
-    case "columns":
-    case "container":
     case "table":
+    case "richText":
       return b;
     default:
       return null;

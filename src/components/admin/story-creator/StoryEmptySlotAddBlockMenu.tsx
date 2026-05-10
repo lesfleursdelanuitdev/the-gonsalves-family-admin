@@ -1,6 +1,6 @@
 "use client";
 
-import { Columns2, ChevronDown, ImageIcon, Layers, LayoutTemplate, Minus, Type } from "lucide-react";
+import { Columns2, ChevronDown, ImageIcon, Layers, LayoutTemplate, Minus, PanelRight, Table2, Type } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -76,6 +76,10 @@ export function StoryEmptySlotAddBlockMenu({
             <Type className="size-3.5 opacity-80" aria-hidden />
             Text
           </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("data_table")}>
+            <Table2 className="size-3.5 opacity-80" aria-hidden />
+            Table
+          </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("media_default")}>
             <ImageIcon className="size-3.5 opacity-80" aria-hidden />
             Media
@@ -87,6 +91,10 @@ export function StoryEmptySlotAddBlockMenu({
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("layout_container")}>
             <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />
             Container
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("layout_split")}>
+            <PanelRight className="size-3.5 opacity-80" aria-hidden />
+            Split content
           </DropdownMenuItem>
           {allowNestedColumns ? (
             <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("layout_columns")}>

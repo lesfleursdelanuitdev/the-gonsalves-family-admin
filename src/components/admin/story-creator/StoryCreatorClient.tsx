@@ -4,6 +4,7 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -67,6 +68,7 @@ import type { JSONContent } from "@tiptap/core";
 import type {
   StoryBlock,
   StoryBlockDateAnnotation,
+  StoryBlockPlaceAnnotation,
   StoryBlockDesign,
   StoryBlockRowLayout,
   StoryColumnNestedBlock,
@@ -91,10 +93,12 @@ import { MediaBlockContentRenderer } from "@/components/admin/story-creator/stor
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { StoryCreatorInspector, type StoryInspectorTab } from "@/components/admin/story-creator/StoryCreatorInspector";
+import { useStoryEditorStore } from "@/features/story-creator/state/storyEditorStore";
 import {
   StoryAddBlockBottomSheet,
   StoryBlockSettingsBottomSheet,
   StoryEditorBottomDock,
+  StoryEditorDockPullTab,
   StoryMobileFullScreenPanel,
   type StoryMobileShellTab,
 } from "@/components/admin/story-creator/story-creator-mobile";
@@ -125,6 +129,7 @@ import {
   appendSupportingBlockToSplit,
   duplicateBlockRelativeToBlockId,
   findStoryBlockAnywhere,
+  isBlockInSplitSupportingSlot,
   insertBlockAtIndex,
   insertBlockRelativeToBlockId,
   insertColumnNestedAt,
@@ -133,16 +138,25 @@ import {
   patchColumnSlotLayout,
   patchColumnsInSection,
   patchContainerInSection,
-  patchBlockDateAnnotationInSection,
+  patchBlockAnnotationsInSection,
   patchEmbedInSection,
   patchMediaInSection,
+  patchSplitContentLayoutInSection,
   patchDividerBlockInSection,
   patchRichTextInSection,
   patchRichTextMetaInSection,
+  patchTableInSection,
+  setTableCellInSection,
+  setTableColumnWidthsInSection,
+  addTableRowInSection,
+  removeTableRowInSection,
+  addTableColumnInSection,
+  removeTableColumnInSection,
   removeBlockById,
   type StoryDividerMetaPatch,
   type StoryRichTextMetaPatch,
 } from "@/lib/admin/story-creator/story-doc-mutators";
+import { StoryTableBlockEditor, type TableBlockOps } from "@/components/admin/story-creator/story-block-table-editor";
 import {
   groupColumnNestedBlocksForLayout,
   groupStoryBlocksForLayout,
@@ -193,6 +207,59 @@ function isStoryRichTextBlockToolbarSelected(storySelection: StorySelection | nu
   return b.type === "splitContent" && b.text.id === richTextBlockId;
 }
 
+function wordsInText(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).filter(Boolean).length;
+}
+
+function wordsInTipTapContent(doc: unknown): number {
+  if (!doc || typeof doc !== "object") return 0;
+  let text = "";
+  const stack: unknown[] = [doc];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node || typeof node !== "object") continue;
+    const rec = node as Record<string, unknown>;
+    if (typeof rec.text === "string") text += ` ${rec.text}`;
+    const content = rec.content;
+    if (Array.isArray(content)) {
+      for (let i = content.length - 1; i >= 0; i -= 1) stack.push(content[i]);
+    }
+  }
+  return wordsInText(text);
+}
+
+function wordsInStoryBlocks(blocks: readonly StoryBlock[]): number {
+  let words = 0;
+  for (const block of blocks) {
+    if (block.type === "richText") {
+      words += wordsInTipTapContent(block.doc);
+      continue;
+    }
+    if (block.type === "columns") {
+      words += wordsInStoryBlocks(block.columns[0].blocks as StoryBlock[]);
+      words += wordsInStoryBlocks(block.columns[1].blocks as StoryBlock[]);
+      continue;
+    }
+    if (block.type === "container") {
+      words += wordsInStoryBlocks(block.children ?? []);
+      continue;
+    }
+    if (block.type === "splitContent") {
+      words += wordsInTipTapContent(block.text.doc);
+      words += wordsInStoryBlocks(block.supporting.blocks as StoryBlock[]);
+      continue;
+    }
+    if (block.type === "table") {
+      for (const row of block.cells ?? []) {
+        for (const cell of row ?? []) words += wordsInTipTapContent(cell);
+      }
+    }
+  }
+  return words;
+}
+
 function StoryCanvasRichTextEditor({
   editorKey,
   rich,
@@ -224,6 +291,153 @@ function StoryCanvasRichTextEditor({
       headingLevel={preset === "heading" ? rich.headingLevel : undefined}
       syncGlobalToolbarSelection={syncGlobalToolbarSelection}
     />
+  );
+}
+
+const VERSE_WIDTH_SNAPS = [25, 33, 50, 66, 75, 100];
+
+function snapVerseWidth(pct: number): number {
+  for (const s of VERSE_WIDTH_SNAPS) {
+    if (Math.abs(pct - s) <= 3) return s;
+  }
+  return Math.min(100, Math.max(15, Math.round(pct)));
+}
+
+function StoryCanvasVerseResizableEditor({
+  editorKey,
+  rich,
+  onJson,
+  isLg,
+  surface = "canvas",
+  syncGlobalToolbarSelection = false,
+  onResizeWidth,
+}: {
+  editorKey: string;
+  rich: StoryRichTextBlock;
+  onJson: (json: JSONContent) => void;
+  isLg: boolean;
+  surface?: "canvas" | "card";
+  syncGlobalToolbarSelection?: boolean;
+  onResizeWidth?: (pct: number) => void;
+}) {
+  const preset = getStoryRichTextPreset(rich);
+  const showHandles = preset === "verse" && Boolean(onResizeWidth);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{
+    startX: number;
+    startWidthPx: number;
+    parentWidthPx: number;
+    scopeEl: HTMLElement;
+    side: "left" | "right";
+  } | null>(null);
+  const lastWidthPctRef = useRef(100);
+
+  function onSidePointerDown(e: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") {
+    if (!showHandles || !onResizeWidth) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const scopeEl = e.currentTarget.closest<HTMLElement>("[data-story-block-scope]");
+    const parentEl = scopeEl?.parentElement;
+    if (!scopeEl || !parentEl) return;
+    const scopeRect = scopeEl.getBoundingClientRect();
+    const parentRect = parentEl.getBoundingClientRect();
+    const cs = window.getComputedStyle(parentEl);
+    const parentContentWidth = parentRect.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    dragRef.current = { startX: e.clientX, startWidthPx: scopeRect.width, parentWidthPx: parentContentWidth, scopeEl, side };
+    lastWidthPctRef.current = Math.round((scopeRect.width / parentContentWidth) * 100);
+    setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  return (
+    <div className={cn("group/verseresize relative min-w-0", showHandles && "px-1")}>
+      {showHandles ? (
+        <div
+          className={cn(
+            "absolute inset-y-0 -left-2 z-20 flex w-4 cursor-col-resize touch-none select-none items-center justify-center opacity-0 transition-opacity duration-150 group-hover/verseresize:opacity-100",
+            isDragging && "opacity-100",
+          )}
+          onPointerDown={(e) => onSidePointerDown(e, "left")}
+          onPointerMove={(e) => {
+            const state = dragRef.current;
+            if (!state) return;
+            const delta = state.side === "right" ? e.clientX - state.startX : state.startX - e.clientX;
+            const pct = Math.min(100, Math.max(15, Math.round(((state.startWidthPx + delta) / state.parentWidthPx) * 100)));
+            lastWidthPctRef.current = pct;
+            state.scopeEl.style.width = `${pct}%`;
+            state.scopeEl.style.maxWidth = "100%";
+          }}
+          onPointerUp={() => {
+            const state = dragRef.current;
+            if (!state || !onResizeWidth) return;
+            state.scopeEl.style.width = "";
+            state.scopeEl.style.maxWidth = "";
+            dragRef.current = null;
+            setIsDragging(false);
+            onResizeWidth(snapVerseWidth(lastWidthPctRef.current));
+          }}
+          onPointerCancel={() => {
+            const state = dragRef.current;
+            if (!state || !onResizeWidth) return;
+            state.scopeEl.style.width = "";
+            state.scopeEl.style.maxWidth = "";
+            dragRef.current = null;
+            setIsDragging(false);
+            onResizeWidth(snapVerseWidth(lastWidthPctRef.current));
+          }}
+        >
+          <div className="h-10 w-1 rounded-full bg-primary/60 shadow" />
+        </div>
+      ) : null}
+      {showHandles ? (
+        <div
+          className={cn(
+            "absolute inset-y-0 -right-2 z-20 flex w-4 cursor-col-resize touch-none select-none items-center justify-center opacity-0 transition-opacity duration-150 group-hover/verseresize:opacity-100",
+            isDragging && "opacity-100",
+          )}
+          onPointerDown={(e) => onSidePointerDown(e, "right")}
+          onPointerMove={(e) => {
+            const state = dragRef.current;
+            if (!state) return;
+            const delta = state.side === "right" ? e.clientX - state.startX : state.startX - e.clientX;
+            const pct = Math.min(100, Math.max(15, Math.round(((state.startWidthPx + delta) / state.parentWidthPx) * 100)));
+            lastWidthPctRef.current = pct;
+            state.scopeEl.style.width = `${pct}%`;
+            state.scopeEl.style.maxWidth = "100%";
+          }}
+          onPointerUp={() => {
+            const state = dragRef.current;
+            if (!state || !onResizeWidth) return;
+            state.scopeEl.style.width = "";
+            state.scopeEl.style.maxWidth = "";
+            dragRef.current = null;
+            setIsDragging(false);
+            onResizeWidth(snapVerseWidth(lastWidthPctRef.current));
+          }}
+          onPointerCancel={() => {
+            const state = dragRef.current;
+            if (!state || !onResizeWidth) return;
+            state.scopeEl.style.width = "";
+            state.scopeEl.style.maxWidth = "";
+            dragRef.current = null;
+            setIsDragging(false);
+            onResizeWidth(snapVerseWidth(lastWidthPctRef.current));
+          }}
+        >
+          <div className="h-10 w-1 rounded-full bg-primary/60 shadow" />
+        </div>
+      ) : null}
+      <div className="max-w-full overflow-x-auto">
+        <StoryCanvasRichTextEditor
+          editorKey={editorKey}
+          rich={rich}
+          onJson={onJson}
+          isLg={isLg}
+          surface={surface}
+          syncGlobalToolbarSelection={syncGlobalToolbarSelection}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -264,66 +478,116 @@ function mapDocSection(doc: StoryDocument, sectionId: string, fn: (sec: StorySec
   return mapSectionInDocument(doc, sectionId, fn);
 }
 
-function StoryTableBlockCanvas({ block, onConfigure }: { block: StoryTableBlock; onConfigure: () => void }) {
-  const rows = block.cells ?? [];
-  const hasHeader = block.hasHeaderRow ?? false;
-  return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Table</span>
-        <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 rounded-lg px-2 text-xs font-medium" onClick={onConfigure}>
-          Configure
-        </Button>
-      </div>
-      <table className="w-full border-collapse text-sm">
-        <tbody>
-          {rows.map((row, ri) => (
-            <tr key={ri} className={cn(hasHeader && ri === 0 && "bg-neutral-100 font-medium text-neutral-900")}>
-              {row.map((cell, ci) => (
-                <td key={ci} className="border border-neutral-200/90 px-2 py-1.5 text-neutral-800">
-                  {cell?.trim() ? cell : "\u00a0"}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+
+const SPLIT_SNAP_POINTS = [20, 25, 33, 40, 50] as const;
+
+function snapSplitWidth(pct: number): number {
+  for (const s of SPLIT_SNAP_POINTS) {
+    if (Math.abs(pct - s) <= 3) return s;
+  }
+  return Math.min(50, Math.max(20, pct));
 }
 
 function StorySplitContentEditorLayout({
   block,
   textEditor,
   supportingAside,
+  onResizeSupportingWidth,
 }: {
   block: StorySplitContentBlock;
   textEditor: ReactNode;
   supportingAside: ReactNode;
+  onResizeSupportingWidth?: (pct: number) => void;
 }) {
+  const containerId = useId().replace(/:/g, "");
+  const widthPct = block.supportingWidthPct ?? 33;
+  const gapRem = block.supportingGapRem ?? 1.5;
+  const side = block.supportingSide ?? "right";
+  const floatPos = block.supportingFloatPosition ?? "top";
+  const alignSelf = floatPos === "center" ? "center" : floatPos === "bottom" ? "end" : "start";
+  const mdGridCols = side === "left" ? `${widthPct}% 1fr` : `1fr ${widthPct}%`;
+  const [isDragging, setIsDragging] = useState(false);
+  const dragState = useRef<{ startX: number; startWidthPx: number; containerWidthPx: number; containerEl: HTMLElement } | null>(null);
+  const lastPctRef = useRef(widthPct);
+
+  function onHandlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!onResizeSupportingWidth) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const containerEl = e.currentTarget.closest<HTMLElement>("[data-split-container]");
+    if (!containerEl) return;
+    const containerRect = containerEl.getBoundingClientRect();
+    const cs = window.getComputedStyle(containerEl);
+    const containerW = containerRect.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const railEl = containerEl.querySelector<HTMLElement>("[data-split-rail]");
+    const railWidth = railEl ? railEl.getBoundingClientRect().width : (containerW * widthPct) / 100;
+    dragState.current = { startX: e.clientX, startWidthPx: railWidth, containerWidthPx: containerW, containerEl };
+    lastPctRef.current = widthPct;
+    setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onHandlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const state = dragState.current;
+    if (!state) return;
+    const delta = side === "left" ? e.clientX - state.startX : state.startX - e.clientX;
+    const pct = Math.min(50, Math.max(20, Math.round(((state.startWidthPx + delta) / state.containerWidthPx) * 100)));
+    lastPctRef.current = pct;
+    const cols = side === "left" ? `${pct}% 1fr` : `1fr ${pct}%`;
+    state.containerEl.style.gridTemplateColumns = cols;
+  }
+
+  function onHandlePointerUp(_e: React.PointerEvent<HTMLDivElement>) {
+    const state = dragState.current;
+    if (!state) return;
+    state.containerEl.style.gridTemplateColumns = "";
+    dragState.current = null;
+    setIsDragging(false);
+    onResizeSupportingWidth?.(snapSplitWidth(lastPctRef.current));
+  }
+
+  const handleEvents = {
+    onPointerDown: onHandlePointerDown,
+    onPointerMove: onHandlePointerMove,
+    onPointerUp: onHandlePointerUp,
+    onPointerCancel: onHandlePointerUp,
+  };
+
+  const handleBar = onResizeSupportingWidth ? (
+    <div
+      className={cn(
+        "group/splithandle absolute inset-y-0 z-20 flex w-4 cursor-col-resize touch-none select-none items-center justify-center opacity-0 transition-opacity duration-150 hover:opacity-100",
+        isDragging && "opacity-100",
+        side === "left" ? "-right-2" : "-left-2",
+      )}
+      {...handleEvents}
+    >
+      <div className="h-10 w-1 rounded-full bg-primary/60 shadow" />
+    </div>
+  ) : null;
+
   const rail = (
-    <div className="w-full shrink-0 rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-3 md:w-[min(38%,320px)]">
+    <div
+      data-split-rail
+      className="relative rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-3"
+      style={{ alignSelf }}
+    >
+      {handleBar}
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Supporting content</p>
-      <p className="mb-3 text-xs leading-relaxed text-neutral-600">
-        Media, embeds, tables, and layout blocks go here. Wrap-around layout will follow in a later pass.
-      </p>
       {supportingAside}
     </div>
   );
-  const textCol = <div className="min-w-0 flex-1">{textEditor}</div>;
-  if (block.supportingSide === "left") {
-    return (
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
-        {rail}
-        {textCol}
-      </div>
-    );
-  }
+  const textCol = <div className="min-w-0" style={{ alignSelf: "stretch" }}>{textEditor}</div>;
+
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
-      {textCol}
-      {rail}
-    </div>
+    <>
+      {/* scoped grid layout: two columns at md+, stacked on mobile */}
+      <style dangerouslySetInnerHTML={{ __html: `@media (min-width: 768px){[data-split-container="${containerId}"]{display:grid;grid-template-columns:${mdGridCols};column-gap:${gapRem}rem;}}` }} />
+      <div data-split-container={containerId} className="flex flex-col gap-4">
+        {side === "left" ? rail : textCol}
+        {side === "left" ? textCol : rail}
+      </div>
+    </>
   );
 }
 
@@ -390,10 +654,12 @@ type StoryNestedColumnsGridProps = {
   setInspectorOpen: (open: boolean | ((o: boolean) => boolean)) => void;
   setBlockSettingsSheetOpen: (open: boolean) => void;
   updateRichBlock: (sectionId: string, blockId: string, json: JSONContent) => void;
+  patchRichBlockRowLayout: (sectionId: string, blockId: string, patch: Partial<StoryBlockRowLayout>) => void;
   openBlockPlacement: (args: StoryBlockPlacementModalArgs) => void;
   moveBlock: (sectionId: string, blockId: string, direction: -1 | 1) => void;
   appendIntoContainer: (sectionId: string, containerId: string, block: StoryBlock) => void;
   appendSplitSupportingPreset: (sectionId: string, splitBlockId: string, presetId: StoryAddBlockPresetId) => void;
+  tableOps?: (sectionId: string, blockId: string) => TableBlockOps;
 };
 
 type StorySplitSupportBlockSectionChromeProps = {
@@ -416,10 +682,12 @@ type StorySplitSupportBlockSectionChromeProps = {
   setInspectorOpen: (open: boolean | ((o: boolean) => boolean)) => void;
   setBlockSettingsSheetOpen: (open: boolean) => void;
   updateRichBlock: (sectionId: string, blockId: string, json: JSONContent) => void;
+  patchRichBlockRowLayout: (sectionId: string, blockId: string, patch: Partial<StoryBlockRowLayout>) => void;
   openBlockPlacement: (args: StoryBlockPlacementModalArgs) => void;
   moveBlock: (sectionId: string, blockId: string, direction: -1 | 1) => void;
   appendIntoContainer: (sectionId: string, containerId: string, block: StoryBlock) => void;
   appendSplitSupportingPreset: (sectionId: string, splitBlockId: string, presetId: StoryAddBlockPresetId) => void;
+  tableOps?: (sectionId: string, blockId: string) => TableBlockOps;
   renderNestedContainer: (nest: StoryContainerBlock) => ReactNode;
 };
 
@@ -441,14 +709,15 @@ function StorySplitSupportBlockSectionChrome({
   setInspectorOpen,
   setBlockSettingsSheetOpen,
   updateRichBlock,
+  patchRichBlockRowLayout,
   openBlockPlacement,
   moveBlock,
   appendIntoContainer,
   appendSplitSupportingPreset,
+  tableOps,
   renderNestedContainer,
 }: StorySplitSupportBlockSectionChromeProps) {
   const asBlock = sb as StoryBlock;
-  const placementVariant: StoryBlockPlacementVariant = sb.type === "container" ? "container" : supportPlacementVariant;
   const nestedSelected = isStoryChromeBlockSelected(storySelection, sb.id);
   const splitAllowlist = STORY_SPLIT_SUPPORT_ADD_PRESET_IDS;
   const openInspector = () => {
@@ -464,7 +733,6 @@ function StorySplitSupportBlockSectionChrome({
       selected={nestedSelected}
       isLg={isLg}
       chromeDepth={chromeDepth}
-      visualQuietContainer={sb.type === "container"}
       onSelect={() => {
         setSelectedBlockId(sb.id);
         setInspectorTab("block");
@@ -473,7 +741,7 @@ function StorySplitSupportBlockSectionChrome({
         openBlockPlacement({
           flow: "add",
           targetBlockId: sb.id,
-          variant: placementVariant,
+          variant: supportPlacementVariant,
           allowNestedColumns,
           initialAddPosition: "above",
           presetAllowlist: splitAllowlist,
@@ -483,28 +751,17 @@ function StorySplitSupportBlockSectionChrome({
         openBlockPlacement({
           flow: "add",
           targetBlockId: sb.id,
-          variant: placementVariant,
+          variant: supportPlacementVariant,
           allowNestedColumns,
           initialAddPosition: "below",
           presetAllowlist: splitAllowlist,
         })
       }
-      onAddInsideContainer={
-        sb.type === "container"
-          ? () =>
-              openBlockPlacement({
-                flow: "add",
-                targetBlockId: sb.children?.[0]?.id ?? sb.id,
-                variant: "container",
-                allowNestedColumns,
-              })
-          : undefined
-      }
       onDuplicate={() =>
         openBlockPlacement({
           flow: "duplicate",
           targetBlockId: sb.id,
-          variant: placementVariant,
+          variant: supportPlacementVariant,
           allowNestedColumns,
         })
       }
@@ -513,14 +770,33 @@ function StorySplitSupportBlockSectionChrome({
       onMove={(dir) => moveBlock(sectionId, sb.id, dir)}
       contentClassName={undefined}
     >
-      {sb.type === "media" ? (
+      {sb.type === "richText" ? (
+        <StoryCanvasVerseResizableEditor
+          editorKey={`${sectionId}-${sb.id}`}
+          rich={sb}
+          onJson={(json) => updateRichBlock(sectionId, sb.id, json)}
+          isLg={isLg}
+          surface="card"
+          syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, sb.id)}
+          onResizeWidth={(pct) =>
+            patchRichBlockRowLayout(sectionId, sb.id, {
+              widthMode: pct >= 100 ? "full" : "custom",
+              widthValue: pct >= 100 ? undefined : pct,
+              widthUnit: "%",
+              displayMode: "block",
+              float: undefined,
+            })
+          }
+        />
+      ) : sb.type === "media" ? (
         <MediaEmbedCanvasCard
           compact
           block={sb}
           onConfigure={() => {
             setSelectedBlockId(sb.id);
             setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
+            if (isLg) setInspectorOpen(true);
+            else setBlockSettingsSheetOpen(true);
           }}
         />
       ) : sb.type === "embed" ? (
@@ -530,40 +806,16 @@ function StorySplitSupportBlockSectionChrome({
           onConfigure={() => {
             setSelectedBlockId(sb.id);
             setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
+            if (isLg) setInspectorOpen(true);
+            else setBlockSettingsSheetOpen(true);
           }}
         />
       ) : sb.type === "table" ? (
-        <StoryTableBlockCanvas
-          block={sb}
-          onConfigure={() => {
-            setSelectedBlockId(sb.id);
-            setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
-          }}
-        />
-      ) : sb.type === "columns" ? (
-        <StoryNestedColumnsGrid
-          sectionId={sectionId}
-          columnsBlock={sb}
-          depth={columnsNestedDepth}
-          isSm={isSm}
-          isLg={isLg}
-          storySelection={storySelection}
-          insertColumnNested={insertColumnNested}
-          removeBlock={removeBlock}
-          setSelectedBlockId={setSelectedBlockId}
-          setInspectorTab={setInspectorTab}
-          setInspectorOpen={setInspectorOpen}
-          setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
-          updateRichBlock={updateRichBlock}
-          openBlockPlacement={openBlockPlacement}
-          moveBlock={moveBlock}
-          appendIntoContainer={appendIntoContainer}
-          appendSplitSupportingPreset={appendSplitSupportingPreset}
-        />
-      ) : sb.type === "container" ? (
-        renderNestedContainer(sb)
+        tableOps ? (
+          <StoryTableBlockEditor block={sb} ops={tableOps(sectionId, sb.id)} />
+        ) : (
+          <div className="rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-4 text-sm text-neutral-400">Table</div>
+        )
       ) : null}
     </StoryEditorBlockFrame>
   );
@@ -583,10 +835,12 @@ function StoryNestedColumnsGrid({
   setInspectorOpen,
   setBlockSettingsSheetOpen,
   updateRichBlock,
+  patchRichBlockRowLayout,
   openBlockPlacement,
   moveBlock,
   appendIntoContainer,
   appendSplitSupportingPreset,
+  tableOps,
 }: StoryNestedColumnsGridProps) {
   const allowNestedColumns = depth < MAX_STORY_COLUMNS_NEST_DEPTH;
   const layoutMode = isSm ? "two-column" : "stacked";
@@ -617,13 +871,22 @@ function StoryNestedColumnsGrid({
     function renderColContainerChildBody(child: StoryBlock) {
       if (child.type === "richText") {
         return (
-          <StoryCanvasRichTextEditor
+          <StoryCanvasVerseResizableEditor
             editorKey={`${sectionId}-${nest.id}-${child.id}`}
             rich={child}
             onJson={(json) => updateRichBlock(sectionId, child.id, json)}
             isLg={isLg}
             surface="card"
             syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.id)}
+            onResizeWidth={(pct) =>
+              patchRichBlockRowLayout(sectionId, child.id, {
+                widthMode: pct >= 100 ? "full" : "custom",
+                widthValue: pct >= 100 ? undefined : pct,
+                widthUnit: "%",
+                displayMode: "block",
+                float: undefined,
+              })
+            }
           />
         );
       }
@@ -635,7 +898,8 @@ function StoryNestedColumnsGrid({
             onConfigure={() => {
               setSelectedBlockId(child.id);
               setInspectorTab("block");
-              if (!isLg) setBlockSettingsSheetOpen(true);
+              if (isLg) setInspectorOpen(true);
+              else setBlockSettingsSheetOpen(true);
             }}
           />
         );
@@ -648,7 +912,8 @@ function StoryNestedColumnsGrid({
             onConfigure={() => {
               setSelectedBlockId(child.id);
               setInspectorTab("block");
-              if (!isLg) setBlockSettingsSheetOpen(true);
+              if (isLg) setInspectorOpen(true);
+              else setBlockSettingsSheetOpen(true);
             }}
           />
         );
@@ -657,15 +922,10 @@ function StoryNestedColumnsGrid({
         return <StoryDividerEditorChrome block={child} />;
       }
       if (child.type === "table") {
-        return (
-          <StoryTableBlockCanvas
-            block={child}
-            onConfigure={() => {
-              setSelectedBlockId(child.id);
-              setInspectorTab("block");
-              if (!isLg) setBlockSettingsSheetOpen(true);
-            }}
-          />
+        return tableOps ? (
+          <StoryTableBlockEditor block={child} ops={tableOps(sectionId, child.id)} />
+        ) : (
+          <div className="rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-4 text-sm text-neutral-400">Table</div>
         );
       }
       if (child.type === "splitContent") {
@@ -674,13 +934,22 @@ function StoryNestedColumnsGrid({
             block={child}
             textEditor={
               <div className="max-w-full">
-                <StoryCanvasRichTextEditor
+                <StoryCanvasVerseResizableEditor
                   editorKey={`${sectionId}-${nest.id}-${child.text.id}`}
                   rich={child.text}
                   onJson={(json) => updateRichBlock(sectionId, child.text.id, json)}
                   isLg={isLg}
                   surface="card"
                   syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.text.id)}
+                  onResizeWidth={(pct) =>
+                    patchRichBlockRowLayout(sectionId, child.text.id, {
+                      widthMode: pct >= 100 ? "full" : "custom",
+                      widthValue: pct >= 100 ? undefined : pct,
+                      widthUnit: "%",
+                      displayMode: "block",
+                      float: undefined,
+                    })
+                  }
                 />
               </div>
             }
@@ -709,10 +978,12 @@ function StoryNestedColumnsGrid({
                       setInspectorOpen={setInspectorOpen}
                       setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
                       updateRichBlock={updateRichBlock}
+                      patchRichBlockRowLayout={patchRichBlockRowLayout}
                       openBlockPlacement={openBlockPlacement}
                       moveBlock={moveBlock}
                       appendIntoContainer={appendIntoContainer}
                       appendSplitSupportingPreset={appendSplitSupportingPreset}
+                      tableOps={tableOps}
                       renderNestedContainer={(cn) => renderContainerInColumn(cn)}
                     />
                   ))
@@ -757,10 +1028,12 @@ function StoryNestedColumnsGrid({
             setInspectorOpen={setInspectorOpen}
             setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
             updateRichBlock={updateRichBlock}
+            patchRichBlockRowLayout={patchRichBlockRowLayout}
             openBlockPlacement={openBlockPlacement}
             moveBlock={moveBlock}
             appendIntoContainer={appendIntoContainer}
             appendSplitSupportingPreset={appendSplitSupportingPreset}
+            tableOps={tableOps}
           />
         );
       }
@@ -945,13 +1218,22 @@ function StoryNestedColumnsGrid({
         onMove={(dir) => moveBlock(sectionId, nested.id, dir)}
       >
         {nested.type === "richText" ? (
-          <StoryCanvasRichTextEditor
+          <StoryCanvasVerseResizableEditor
             editorKey={`${sectionId}-${columnsBlock.id}-${nested.id}`}
             rich={nested}
             onJson={(json) => updateRichBlock(sectionId, nested.id, json)}
             isLg={isLg}
             surface="card"
             syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, nested.id)}
+            onResizeWidth={(pct) =>
+              patchRichBlockRowLayout(sectionId, nested.id, {
+                widthMode: pct >= 100 ? "full" : "custom",
+                widthValue: pct >= 100 ? undefined : pct,
+                widthUnit: "%",
+                displayMode: "block",
+                float: undefined,
+              })
+            }
           />
         ) : nested.type === "media" ? (
           <MediaEmbedCanvasCard
@@ -960,7 +1242,8 @@ function StoryNestedColumnsGrid({
             onConfigure={() => {
               setSelectedBlockId(nested.id);
               setInspectorTab("block");
-              if (!isLg) setBlockSettingsSheetOpen(true);
+              if (isLg) setInspectorOpen(true);
+              else setBlockSettingsSheetOpen(true);
             }}
           />
         ) : nested.type === "columns" ? (
@@ -978,10 +1261,12 @@ function StoryNestedColumnsGrid({
             setInspectorOpen={setInspectorOpen}
             setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
             updateRichBlock={updateRichBlock}
+            patchRichBlockRowLayout={patchRichBlockRowLayout}
             openBlockPlacement={openBlockPlacement}
             moveBlock={moveBlock}
             appendIntoContainer={appendIntoContainer}
             appendSplitSupportingPreset={appendSplitSupportingPreset}
+            tableOps={tableOps}
           />
         ) : nested.type === "embed" ? (
           <EmbedCanvasCard
@@ -990,30 +1275,37 @@ function StoryNestedColumnsGrid({
             onConfigure={() => {
               setSelectedBlockId(nested.id);
               setInspectorTab("block");
-              if (!isLg) setBlockSettingsSheetOpen(true);
+              if (isLg) setInspectorOpen(true);
+              else setBlockSettingsSheetOpen(true);
             }}
           />
         ) : nested.type === "table" ? (
-          <StoryTableBlockCanvas
-            block={nested}
-            onConfigure={() => {
-              setSelectedBlockId(nested.id);
-              setInspectorTab("block");
-              if (!isLg) setBlockSettingsSheetOpen(true);
-            }}
-          />
+          tableOps ? (
+            <StoryTableBlockEditor block={nested} ops={tableOps(sectionId, nested.id)} />
+          ) : (
+            <div className="rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-4 text-sm text-neutral-400">Table</div>
+          )
         ) : nested.type === "splitContent" ? (
           <StorySplitContentEditorLayout
             block={nested}
             textEditor={
               <div className="max-w-full">
-                <StoryCanvasRichTextEditor
+                <StoryCanvasVerseResizableEditor
                   editorKey={`${sectionId}-${columnsBlock.id}-${nested.text.id}`}
                   rich={nested.text}
                   onJson={(json) => updateRichBlock(sectionId, nested.text.id, json)}
                   isLg={isLg}
                   surface="card"
                   syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, nested.text.id)}
+                  onResizeWidth={(pct) =>
+                    patchRichBlockRowLayout(sectionId, nested.text.id, {
+                      widthMode: pct >= 100 ? "full" : "custom",
+                      widthValue: pct >= 100 ? undefined : pct,
+                      widthUnit: "%",
+                      displayMode: "block",
+                      float: undefined,
+                    })
+                  }
                 />
               </div>
             }
@@ -1042,10 +1334,12 @@ function StoryNestedColumnsGrid({
                       setInspectorOpen={setInspectorOpen}
                       setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
                       updateRichBlock={updateRichBlock}
+                      patchRichBlockRowLayout={patchRichBlockRowLayout}
                       openBlockPlacement={openBlockPlacement}
                       moveBlock={moveBlock}
                       appendIntoContainer={appendIntoContainer}
                       appendSplitSupportingPreset={appendSplitSupportingPreset}
+                      tableOps={tableOps}
                       renderNestedContainer={(cn) => renderContainerInColumn(cn)}
                     />
                   ))
@@ -1144,6 +1438,8 @@ type StoryEditorSectionBlockCardProps = {
   sectionId: string;
   block: StoryBlock;
   patchMediaBlock?: (sectionId: string, blockId: string, patch: Partial<StoryMediaBlock>) => void;
+  patchSplitContentBlock?: (sectionId: string, blockId: string, patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
+  tableOps?: (sectionId: string, blockId: string) => TableBlockOps;
 } & Pick<
   StoryNestedColumnsGridProps,
   | "storySelection"
@@ -1156,6 +1452,7 @@ type StoryEditorSectionBlockCardProps = {
   | "setInspectorOpen"
   | "setBlockSettingsSheetOpen"
   | "updateRichBlock"
+  | "patchRichBlockRowLayout"
   | "openBlockPlacement"
   | "moveBlock"
   | "appendIntoContainer"
@@ -1166,6 +1463,8 @@ function StoryEditorSectionBlockCard({
   sectionId,
   block,
   patchMediaBlock,
+  patchSplitContentBlock,
+  tableOps,
   storySelection,
   isLg,
   isSm,
@@ -1176,6 +1475,7 @@ function StoryEditorSectionBlockCard({
   setInspectorOpen,
   setBlockSettingsSheetOpen,
   updateRichBlock,
+  patchRichBlockRowLayout,
   openBlockPlacement,
   moveBlock,
   appendIntoContainer,
@@ -1252,15 +1552,22 @@ function StoryEditorSectionBlockCard({
       contentClassName={cn(block.type === "richText" && "pb-4 pt-5")}
     >
       {block.type === "richText" ? (
-        <div className="max-w-full overflow-x-auto">
-          <StoryCanvasRichTextEditor
-            editorKey={`${sectionId}-${block.id}`}
-            rich={block}
-            onJson={(json) => updateRichBlock(sectionId, block.id, json)}
-            isLg={isLg}
-            syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, block.id)}
-          />
-        </div>
+        <StoryCanvasVerseResizableEditor
+          editorKey={`${sectionId}-${block.id}`}
+          rich={block}
+          onJson={(json) => updateRichBlock(sectionId, block.id, json)}
+          isLg={isLg}
+          syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, block.id)}
+          onResizeWidth={(pct) =>
+            patchRichBlockRowLayout(sectionId, block.id, {
+              widthMode: pct >= 100 ? "full" : "custom",
+              widthValue: pct >= 100 ? undefined : pct,
+              widthUnit: "%",
+              displayMode: "block",
+              float: undefined,
+            })
+          }
+        />
       ) : block.type === "columns" ? (
         <StoryNestedColumnsGrid
           sectionId={sectionId}
@@ -1276,33 +1583,42 @@ function StoryEditorSectionBlockCard({
           setInspectorOpen={setInspectorOpen}
           setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
           updateRichBlock={updateRichBlock}
+          patchRichBlockRowLayout={patchRichBlockRowLayout}
           openBlockPlacement={openBlockPlacement}
           moveBlock={moveBlock}
           appendIntoContainer={appendIntoContainer}
           appendSplitSupportingPreset={appendSplitSupportingPreset}
+          tableOps={tableOps}
         />
       ) : block.type === "divider" ? (
         <StoryDividerEditorChrome block={block} />
       ) : block.type === "table" ? (
-        <StoryTableBlockCanvas
-          block={block}
-          onConfigure={() => {
-            setSelectedBlockId(block.id);
-            setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
-          }}
-        />
+        tableOps ? (
+          <StoryTableBlockEditor block={block} ops={tableOps(sectionId, block.id)} />
+        ) : (
+          <div className="rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-4 text-sm text-neutral-400">Table</div>
+        )
       ) : block.type === "splitContent" ? (
         <StorySplitContentEditorLayout
           block={block}
+          onResizeSupportingWidth={patchSplitContentBlock ? (pct) => patchSplitContentBlock(sectionId, block.id, { supportingWidthPct: pct }) : undefined}
           textEditor={
-            <div className="max-w-full overflow-x-auto pb-4 pt-5">
-              <StoryCanvasRichTextEditor
+            <div className="pb-4 pt-5">
+              <StoryCanvasVerseResizableEditor
                 editorKey={`${sectionId}-${block.text.id}`}
                 rich={block.text}
                 onJson={(json) => updateRichBlock(sectionId, block.text.id, json)}
                 isLg={isLg}
                 syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, block.text.id)}
+                onResizeWidth={(pct) =>
+                  patchRichBlockRowLayout(sectionId, block.text.id, {
+                    widthMode: pct >= 100 ? "full" : "custom",
+                    widthValue: pct >= 100 ? undefined : pct,
+                    widthUnit: "%",
+                    displayMode: "block",
+                    float: undefined,
+                  })
+                }
               />
             </div>
           }
@@ -1331,10 +1647,12 @@ function StoryEditorSectionBlockCard({
                     setInspectorOpen={setInspectorOpen}
                     setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
                     updateRichBlock={updateRichBlock}
+                    patchRichBlockRowLayout={patchRichBlockRowLayout}
                     openBlockPlacement={openBlockPlacement}
                     moveBlock={moveBlock}
                     appendIntoContainer={appendIntoContainer}
                     appendSplitSupportingPreset={appendSplitSupportingPreset}
+                    tableOps={tableOps}
                     renderNestedContainer={(nest) => (
                       <StorySectionContainerInner
                         nest={nest}
@@ -1343,6 +1661,7 @@ function StoryEditorSectionBlockCard({
                         isSm={isSm}
                         storySelection={storySelection}
                         updateRichBlock={updateRichBlock}
+                        patchRichBlockRowLayout={patchRichBlockRowLayout}
                         insertColumnNested={insertColumnNested}
                         removeBlock={removeBlock}
                         setSelectedBlockId={setSelectedBlockId}
@@ -1353,6 +1672,8 @@ function StoryEditorSectionBlockCard({
                         moveBlock={moveBlock}
                         appendIntoContainer={appendIntoContainer}
                         appendSplitSupportingPreset={appendSplitSupportingPreset}
+                        patchSplitContentBlock={patchSplitContentBlock}
+                        tableOps={tableOps}
                         chromeDepth={2}
                       />
                     )}
@@ -1387,7 +1708,8 @@ function StoryEditorSectionBlockCard({
           onConfigure={() => {
             setSelectedBlockId(block.id);
             setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
+            if (isLg) setInspectorOpen(true);
+            else setBlockSettingsSheetOpen(true);
           }}
           onResizeWidth={
             patchMediaBlock
@@ -1415,7 +1737,8 @@ function StoryEditorSectionBlockCard({
           onConfigure={() => {
             setSelectedBlockId(block.id);
             setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
+            if (isLg) setInspectorOpen(true);
+            else setBlockSettingsSheetOpen(true);
           }}
         />
       ) : block.type === "container" ? (
@@ -1426,6 +1749,7 @@ function StoryEditorSectionBlockCard({
           isSm={isSm}
           storySelection={storySelection}
           updateRichBlock={updateRichBlock}
+                        patchRichBlockRowLayout={patchRichBlockRowLayout}
           insertColumnNested={insertColumnNested}
           removeBlock={removeBlock}
           setSelectedBlockId={setSelectedBlockId}
@@ -1436,6 +1760,8 @@ function StoryEditorSectionBlockCard({
           moveBlock={moveBlock}
           appendIntoContainer={appendIntoContainer}
           appendSplitSupportingPreset={appendSplitSupportingPreset}
+          patchSplitContentBlock={patchSplitContentBlock}
+          tableOps={tableOps}
         />
       ) : null}
     </StoryEditorBlockFrame>
@@ -1456,22 +1782,31 @@ function StoryCreatorBrandMark() {
 
 export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const router = useRouter();
-  const [doc, setDoc] = useState<StoryDocument | null>(null);
-  const [mode, setMode] = useState<"edit" | "preview">("edit");
-  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const doc = useStoryEditorStore((s) => s.document);
+  const mode = useStoryEditorStore((s) => s.mode);
+  const activeSectionId = useStoryEditorStore((s) => s.selectedSectionId);
+  const selectedBlockId = useStoryEditorStore((s) => s.selectedBlockId);
+  const inspectorTab = useStoryEditorStore((s) => s.inspectorTab);
+  const isLeftPanelOpen = useStoryEditorStore((s) => s.leftPanelOpen);
+  const inspectorOpen = useStoryEditorStore((s) => s.rightPanelOpen);
+  const storyEditorDirty = useStoryEditorStore((s) => s.dirty);
+  const initializeDocument = useStoryEditorStore((s) => s.initializeDocument);
+  const setSelectedBlockId = useStoryEditorStore((s) => s.selectBlock);
+  const setActiveSectionId = useStoryEditorStore((s) => s.selectSection);
+  const setInspectorTab = useStoryEditorStore((s) => s.setInspectorTab);
+  const setPanelOpen = useStoryEditorStore((s) => s.setPanelOpen);
+  const setMode = useStoryEditorStore((s) => s.setMode);
+  const markSaved = useStoryEditorStore((s) => s.markSaved);
+  const updateDocumentRecipe = useStoryEditorStore((s) => s.updateDocumentRecipe);
   const [mobileShellTab, setMobileShellTab] = useState<StoryMobileShellTab>("add-block");
   const [addBlockSheetOpen, setAddBlockSheetOpen] = useState(false);
   const [blockSettingsSheetOpen, setBlockSettingsSheetOpen] = useState(false);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [inspectorTab, setInspectorTab] = useState<StoryInspectorTab>("block");
-  const [isLeftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [dockCollapsed, setDockCollapsed] = useState(false);
   const [leftPanelWidthPx, setLeftPanelWidthPx] = useState(STORY_LEFT_PANEL_DEFAULT);
   const [isResizingLeftPanel, setIsResizingLeftPanel] = useState(false);
   const [rightPanelWidthPx, setRightPanelWidthPx] = useState(STORY_RIGHT_PANEL_DEFAULT);
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false);
   const [outlineRename, setOutlineRename] = useState<OutlineRenameTarget | null>(null);
-  const [persistedSnapshot, setPersistedSnapshot] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<StorySaveStatus>("idle");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1479,6 +1814,20 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const storyTitleInputRef = useRef<HTMLInputElement>(null);
   const isLg = useMediaQueryMinLg();
   const isSm = useMediaQuery("(min-width: 640px)");
+  const setLeftPanelOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === "function" ? next(isLeftPanelOpen) : next;
+      setPanelOpen("left", resolved);
+    },
+    [isLeftPanelOpen, setPanelOpen],
+  );
+  const setInspectorOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === "function" ? next(inspectorOpen) : next;
+      setPanelOpen("right", resolved);
+    },
+    [inspectorOpen, setPanelOpen],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1489,8 +1838,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         const existing = await loadStoryDocument(storyId);
         if (cancelled) return;
         if (!existing) {
-          setDoc(null);
-          setPersistedSnapshot(null);
+          useStoryEditorStore.setState({ document: null, selectedSectionId: null, selectedBlockId: null, dirty: false });
           setLoadError("Story not found.");
           return;
         }
@@ -1508,8 +1856,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
               "Chapters use a flexible section tree; columns, media/embed, and legacy tables were upgraded to native table blocks where applicable.",
           });
         }
-        setDoc(loadedDoc);
-        setPersistedSnapshot(JSON.stringify(loadedDoc));
+        initializeDocument(loadedDoc);
         const roots = Array.isArray(loadedDoc.sections) ? loadedDoc.sections : [];
         const firstSec = firstSectionInOrder(roots);
         setActiveSectionId(firstSec?.id ?? null);
@@ -1517,8 +1864,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       } catch (err) {
         console.error("Story load / migration failed", err);
         if (cancelled) return;
-        setDoc(null);
-        setPersistedSnapshot(null);
+        useStoryEditorStore.setState({ document: null, selectedSectionId: null, selectedBlockId: null, dirty: false });
         const msg =
           err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Could not load story.";
         setLoadError(msg);
@@ -1528,7 +1874,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [storyId, router]);
+  }, [storyId, router, initializeDocument, setActiveSectionId, setSelectedBlockId]);
 
   useEffect(() => {
     if (isLg) {
@@ -1686,6 +2032,10 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   }, [activePair, selectedBlockId]);
 
   const selectedBlock = storySelection?.block ?? null;
+  const selectedBlockInSplitPanel =
+    activePair != null && selectedBlockId != null
+      ? isBlockInSplitSupportingSlot(activePair.section, selectedBlockId)
+      : false;
 
   /** After doc edits, migrations, or deletes, keep outline + canvas pointing at a real section and block. */
   useEffect(() => {
@@ -1718,17 +2068,21 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     return columnsBlockDepthInSection(activePair.section, columnsLayoutBlock.id) ?? 1;
   }, [activePair?.section, columnsLayoutBlock]);
 
-  const storyEditorDirty = useMemo(() => {
-    if (!doc || persistedSnapshot == null) return false;
-    return JSON.stringify(doc) !== persistedSnapshot;
-  }, [doc, persistedSnapshot]);
+  const fullscreenStoryStats = useMemo(() => {
+    if (!doc) return { wordCount: 0, sectionCount: 0 };
+    const flatSections = flattenSectionsDepthFirst(doc.sections ?? []);
+    let wordCount = 0;
+    for (const sec of flatSections) {
+      wordCount += wordsInStoryBlocks(sec.blocks ?? []);
+    }
+    return { wordCount, sectionCount: flatSections.length };
+  }, [doc]);
 
   const flushSave = useCallback(async (next: StoryDocument) => {
     setSaveStatus("saving");
     try {
       const saved = await saveStoryDocument(next);
-      setDoc(saved);
-      setPersistedSnapshot(JSON.stringify(saved));
+      markSaved(saved);
       setSaveStatus("idle");
       return saved;
     } catch (e) {
@@ -1738,7 +2092,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       toast.error("Save failed", { description: msg });
       throw e;
     }
-  }, []);
+  }, [markSaved]);
 
   docRef.current = doc;
 
@@ -1748,13 +2102,9 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   });
   storySelectionRepairRef.current = { doc, activeSectionId };
 
-  const updateDoc = useCallback((fn: (d: StoryDocument) => StoryDocument) => {
-    setDoc((cur) => {
-      if (!cur) return cur;
-      const next = fn(cloneDoc(cur));
-      return next;
-    });
-  }, []);
+  const updateDoc = useCallback((fn: (d: StoryDocument) => StoryDocument, snapshotReason?: string) => {
+    updateDocumentRecipe((cur: StoryDocument) => fn(cloneDoc(cur)), snapshotReason);
+  }, [updateDocumentRecipe]);
 
   const handleSaveDraft = useCallback(() => {
     if (!doc) return;
@@ -1851,6 +2201,43 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     [updateDoc],
   );
 
+  const patchSplitContentBlock = useCallback(
+    (sectionId: string, blockId: string, patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (sec) => patchSplitContentLayoutInSection(sec, blockId, patch)));
+    },
+    [updateDoc],
+  );
+
+  const patchTable = useCallback(
+    (patch: Parameters<typeof patchTableInSection>[2]) => {
+      if (!activePair || !selectedBlockId) return;
+      const sid = activePair.section.id;
+      const bid = selectedBlockId;
+      updateDoc((d) => mapDocSection(d, sid, (sec) => patchTableInSection(sec, bid, patch)));
+    },
+    [activePair, selectedBlockId, updateDoc],
+  );
+
+  const tableOps = useCallback(
+    (sectionId: string, blockId: string): TableBlockOps => ({
+      onPatchLayout: (patch) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => patchTableInSection(sec, blockId, patch))),
+      onSetCell: (row, col, content) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => setTableCellInSection(sec, blockId, row, col, content))),
+      onAddRow: (afterIndex) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => addTableRowInSection(sec, blockId, afterIndex))),
+      onRemoveRow: (rowIndex) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => removeTableRowInSection(sec, blockId, rowIndex))),
+      onAddColumn: (afterIndex) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => addTableColumnInSection(sec, blockId, afterIndex))),
+      onRemoveColumn: (colIndex) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => removeTableColumnInSection(sec, blockId, colIndex))),
+      onSetColumnWidths: (widths) =>
+        updateDoc((d) => mapDocSection(d, sectionId, (sec) => setTableColumnWidthsInSection(sec, blockId, widths))),
+    }),
+    [updateDoc],
+  );
+
   const patchContainer = useCallback(
     (patch: Partial<StoryContainerBlockProps>) => {
       if (!activePair || !selectedBlockId) return;
@@ -1871,6 +2258,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     [activePair, selectedBlockId, updateDoc],
   );
 
+  const patchRichBlockRowLayout = useCallback(
+    (sectionId: string, blockId: string, patch: Partial<StoryBlockRowLayout>) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (sec) => patchBlockRowLayoutInSection(sec, blockId, patch)));
+    },
+    [updateDoc],
+  );
+
   const patchBlockDesign = useCallback(
     (patch: Partial<StoryBlockDesign> | null) => {
       if (!activePair || !selectedBlockId) return;
@@ -1882,11 +2276,11 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   );
 
   const patchBlockDateAnnotation = useCallback(
-    (dateAnnotation: StoryBlockDateAnnotation | undefined) => {
+    (patch: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => {
       if (!activePair || !selectedBlockId) return;
       const sid = activePair.section.id;
       const bid = selectedBlockId;
-      updateDoc((d) => mapDocSection(d, sid, (sec) => patchBlockDateAnnotationInSection(sec, bid, dateAnnotation)));
+      updateDoc((d) => mapDocSection(d, sid, (sec) => patchBlockAnnotationsInSection(sec, bid, patch)));
     },
     [activePair, selectedBlockId, updateDoc],
   );
@@ -2673,11 +3067,14 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 | "setInspectorOpen"
                 | "setBlockSettingsSheetOpen"
                 | "updateRichBlock"
+                | "patchRichBlockRowLayout"
                 | "openBlockPlacement"
                 | "moveBlock"
                 | "appendIntoContainer"
                 | "appendSplitSupportingPreset"
                 | "patchMediaBlock"
+                | "patchSplitContentBlock"
+                | "tableOps"
               > = {
                 storySelection,
                 isLg,
@@ -2689,11 +3086,14 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                 setInspectorOpen,
                 setBlockSettingsSheetOpen,
                 updateRichBlock,
+                patchRichBlockRowLayout,
                 openBlockPlacement,
                 moveBlock,
                 appendIntoContainer,
                 appendSplitSupportingPreset,
                 patchMediaBlock,
+                patchSplitContentBlock,
+                tableOps,
               };
               if (group.kind === "float-wrap") {
                 return (
@@ -2772,9 +3172,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onPatchBlockDateAnnotation={patchBlockDateAnnotation}
         onPatchRichTextMeta={patchRichTextMeta}
         onPatchDividerMeta={patchDividerMeta}
+        onPatchSplitContent={activePair && selectedBlockId ? (patch) => patchSplitContentBlock(activePair.section.id, selectedBlockId, patch) : undefined}
+        onPatchTable={selectedBlock?.type === "table" ? patchTable : undefined}
+        selectedBlockInSplitPanel={selectedBlockInSplitPanel}
         onTitleChange={setTitle}
         onExcerptChange={setExcerpt}
         onStoryMetaChange={patchStoryMeta}
+        onClose={isLg ? () => setInspectorOpen(false) : undefined}
         onDeleteBlock={deleteSelectedBlock}
         className={cn(
           !isLg && "w-full min-h-0 flex-1 border-l-0 border-t",
@@ -3188,6 +3592,9 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   onPatchBlockDateAnnotation={patchBlockDateAnnotation}
                   onPatchRichTextMeta={patchRichTextMeta}
                   onPatchDividerMeta={patchDividerMeta}
+                  onPatchSplitContent={activePair && selectedBlockId ? (patch) => patchSplitContentBlock(activePair.section.id, selectedBlockId, patch) : undefined}
+                  onPatchTable={selectedBlock?.type === "table" ? patchTable : undefined}
+                  selectedBlockInSplitPanel={selectedBlockInSplitPanel}
                   onTitleChange={setTitle}
                   onExcerptChange={setExcerpt}
                   onStoryMetaChange={patchStoryMeta}
@@ -3206,16 +3613,32 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
             onPick={(id) => insertBlockFromDockPicker(id)}
           />
           <p className="mt-4 text-center text-xs leading-relaxed text-base-content/45">
-            Tables: pick Data → Table in the full-screen adder. New blocks insert after the selection when possible.
+            New blocks insert after the selection when possible.
           </p>
         </StoryAddBlockBottomSheet>
       ) : null}
       {mode === "edit" && !isFullscreen ? (
-        <StoryEditorBottomDock
-          active={isLg ? null : mobileShellTab}
-          emphasizeAddBlockFab={isLg}
-          onNavigate={handleDockNavigate}
-        />
+        dockCollapsed ? (
+          <StoryEditorDockPullTab onOpen={() => setDockCollapsed(false)} />
+        ) : (
+          <StoryEditorBottomDock
+            active={isLg ? null : mobileShellTab}
+            emphasizeAddBlockFab={isLg}
+            onNavigate={handleDockNavigate}
+            onCollapse={() => setDockCollapsed(true)}
+          />
+        )
+      ) : null}
+      {isFullscreen && mode === "edit" ? (
+        <footer className="relative z-20 flex h-9 shrink-0 items-center justify-between border-t border-base-content/15 bg-base-200/92 px-3 text-[11px] font-medium tracking-wide text-base-content/70 backdrop-blur-sm sm:px-4">
+          <div className="flex items-center gap-3">
+            <span className="uppercase text-base-content/55">Status</span>
+            <span>{fullscreenStoryStats.wordCount.toLocaleString()} words</span>
+            <span className="text-base-content/35">|</span>
+            <span>{fullscreenStoryStats.sectionCount.toLocaleString()} sections</span>
+          </div>
+          <span className="hidden uppercase text-base-content/45 sm:inline">Fullscreen writing</span>
+        </footer>
       ) : null}
       <StoryBlockPlacementDialog
         open={blockPlacementModal !== null}
@@ -3270,6 +3693,7 @@ type StorySectionContainerInnerProps = {
   isSm: boolean;
   storySelection: StorySelection | null;
   updateRichBlock: (sectionId: string, blockId: string, json: JSONContent) => void;
+  patchRichBlockRowLayout: (sectionId: string, blockId: string, patch: Partial<StoryBlockRowLayout>) => void;
   insertColumnNested: (
     sectionId: string,
     columnsBlockId: string,
@@ -3286,6 +3710,8 @@ type StorySectionContainerInnerProps = {
   moveBlock: (sectionId: string, blockId: string, direction: -1 | 1) => void;
   appendIntoContainer: (sectionId: string, containerId: string, block: StoryBlock) => void;
   appendSplitSupportingPreset: (sectionId: string, splitBlockId: string, presetId: StoryAddBlockPresetId) => void;
+  patchSplitContentBlock?: (sectionId: string, blockId: string, patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
+  tableOps?: (sectionId: string, blockId: string) => TableBlockOps;
   /** Floating toolbar depth for blocks inside this container. */
   chromeDepth?: number;
 };
@@ -3298,6 +3724,7 @@ function StorySectionContainerInner({
   isSm,
   storySelection,
   updateRichBlock,
+  patchRichBlockRowLayout,
   insertColumnNested,
   removeBlock,
   setSelectedBlockId,
@@ -3308,6 +3735,8 @@ function StorySectionContainerInner({
   moveBlock,
   appendIntoContainer,
   appendSplitSupportingPreset,
+  patchSplitContentBlock,
+  tableOps,
   chromeDepth = 1,
 }: StorySectionContainerInnerProps) {
   const nestSelected = isStoryChromeBlockSelected(storySelection, nest.id);
@@ -3321,13 +3750,22 @@ function StorySectionContainerInner({
   function renderContainerChildBody(child: StoryBlock) {
     if (child.type === "richText") {
       return (
-        <StoryCanvasRichTextEditor
+        <StoryCanvasVerseResizableEditor
           editorKey={`${sectionId}-${nest.id}-${child.id}`}
           rich={child}
           onJson={(json) => updateRichBlock(sectionId, child.id, json)}
           isLg={isLg}
           surface="card"
           syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.id)}
+          onResizeWidth={(pct) =>
+            patchRichBlockRowLayout(sectionId, child.id, {
+              widthMode: pct >= 100 ? "full" : "custom",
+              widthValue: pct >= 100 ? undefined : pct,
+              widthUnit: "%",
+              displayMode: "block",
+              float: undefined,
+            })
+          }
         />
       );
     }
@@ -3338,7 +3776,8 @@ function StorySectionContainerInner({
           onConfigure={() => {
             setSelectedBlockId(child.id);
             setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
+            if (isLg) setInspectorOpen(true);
+            else setBlockSettingsSheetOpen(true);
           }}
         />
       );
@@ -3350,7 +3789,8 @@ function StorySectionContainerInner({
           onConfigure={() => {
             setSelectedBlockId(child.id);
             setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
+            if (isLg) setInspectorOpen(true);
+            else setBlockSettingsSheetOpen(true);
           }}
         />
       );
@@ -3359,30 +3799,35 @@ function StorySectionContainerInner({
       return <StoryDividerEditorChrome block={child} />;
     }
     if (child.type === "table") {
-      return (
-        <StoryTableBlockCanvas
-          block={child}
-          onConfigure={() => {
-            setSelectedBlockId(child.id);
-            setInspectorTab("block");
-            if (!isLg) setBlockSettingsSheetOpen(true);
-          }}
-        />
+      return tableOps ? (
+        <StoryTableBlockEditor block={child} ops={tableOps(sectionId, child.id)} />
+      ) : (
+        <div className="rounded-xl border border-neutral-200/95 bg-neutral-50/90 p-4 text-sm text-neutral-400">Table</div>
       );
     }
     if (child.type === "splitContent") {
       return (
         <StorySplitContentEditorLayout
           block={child}
+          onResizeSupportingWidth={patchSplitContentBlock ? (pct) => patchSplitContentBlock(sectionId, child.id, { supportingWidthPct: pct }) : undefined}
           textEditor={
             <div className="max-w-full">
-              <StoryCanvasRichTextEditor
+              <StoryCanvasVerseResizableEditor
                 editorKey={`${sectionId}-${nest.id}-${child.text.id}`}
                 rich={child.text}
                 onJson={(json) => updateRichBlock(sectionId, child.text.id, json)}
                 isLg={isLg}
                 surface="card"
                 syncGlobalToolbarSelection={isStoryRichTextBlockToolbarSelected(storySelection, child.text.id)}
+                onResizeWidth={(pct) =>
+                  patchRichBlockRowLayout(sectionId, child.text.id, {
+                    widthMode: pct >= 100 ? "full" : "custom",
+                    widthValue: pct >= 100 ? undefined : pct,
+                    widthUnit: "%",
+                    displayMode: "block",
+                    float: undefined,
+                  })
+                }
               />
             </div>
           }
@@ -3411,10 +3856,12 @@ function StorySectionContainerInner({
                     setInspectorOpen={setInspectorOpen}
                     setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
                     updateRichBlock={updateRichBlock}
+                    patchRichBlockRowLayout={patchRichBlockRowLayout}
                     openBlockPlacement={openBlockPlacement}
                     moveBlock={moveBlock}
                     appendIntoContainer={appendIntoContainer}
                     appendSplitSupportingPreset={appendSplitSupportingPreset}
+                    tableOps={tableOps}
                     renderNestedContainer={(cn) => (
                       <StorySectionContainerInner
                         nest={cn}
@@ -3423,6 +3870,7 @@ function StorySectionContainerInner({
                         isSm={isSm}
                         storySelection={storySelection}
                         updateRichBlock={updateRichBlock}
+                        patchRichBlockRowLayout={patchRichBlockRowLayout}
                         insertColumnNested={insertColumnNested}
                         removeBlock={removeBlock}
                         setSelectedBlockId={setSelectedBlockId}
@@ -3433,6 +3881,8 @@ function StorySectionContainerInner({
                         moveBlock={moveBlock}
                         appendIntoContainer={appendIntoContainer}
                         appendSplitSupportingPreset={appendSplitSupportingPreset}
+                        patchSplitContentBlock={patchSplitContentBlock}
+                        tableOps={tableOps}
                         chromeDepth={chromeDepth + 1}
                       />
                     )}
@@ -3479,10 +3929,12 @@ function StorySectionContainerInner({
           setInspectorOpen={setInspectorOpen}
           setBlockSettingsSheetOpen={setBlockSettingsSheetOpen}
           updateRichBlock={updateRichBlock}
+          patchRichBlockRowLayout={patchRichBlockRowLayout}
           openBlockPlacement={openBlockPlacement}
           moveBlock={moveBlock}
           appendIntoContainer={appendIntoContainer}
           appendSplitSupportingPreset={appendSplitSupportingPreset}
+          tableOps={tableOps}
         />
       );
     }
@@ -3495,6 +3947,7 @@ function StorySectionContainerInner({
           isSm={isSm}
           storySelection={storySelection}
           updateRichBlock={updateRichBlock}
+          patchRichBlockRowLayout={patchRichBlockRowLayout}
           insertColumnNested={insertColumnNested}
           removeBlock={removeBlock}
           setSelectedBlockId={setSelectedBlockId}
@@ -3505,6 +3958,8 @@ function StorySectionContainerInner({
           moveBlock={moveBlock}
           appendIntoContainer={appendIntoContainer}
           appendSplitSupportingPreset={appendSplitSupportingPreset}
+          patchSplitContentBlock={patchSplitContentBlock}
+          tableOps={tableOps}
           chromeDepth={chromeDepth + 1}
         />
       );

@@ -134,7 +134,7 @@ export function StoryGlobalToolbarSelectionSync({
       ctx.clearGlobalActiveEditor();
       return;
     }
-    if (selectedBlockKind === "richText" || selectedBlockKind === "splitContent") {
+    if (selectedBlockKind === "richText" || selectedBlockKind === "splitContent" || selectedBlockKind === "table") {
       return;
     }
     ctx.clearGlobalActiveEditor();
