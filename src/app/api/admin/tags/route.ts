@@ -2,16 +2,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { parseListParams } from "@/lib/admin/admin-list-params";
+import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
 
 /** Tags the current user may apply: global + their own. */
 export const GET = withAdminAuth(async (request, user) => {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   const { limit, offset } = parseListParams(request.nextUrl.searchParams);
+  const { canReadAllTreeData: isAdminTreeOwner } = await getAdminTreeReadScope(user);
 
-  const baseWhere = {
-    OR: [{ isGlobal: true }, { userId: user.id }],
-    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-  };
+  const baseWhere = isAdminTreeOwner
+    ? {
+        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+      }
+    : {
+        OR: [{ isGlobal: true }, { userId: user.id }],
+        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+      };
 
   const [tags, total] = await Promise.all([
     prisma.tag.findMany({

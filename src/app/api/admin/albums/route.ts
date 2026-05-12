@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
 import { findPublicAlbumNameConflict } from "@/lib/admin/admin-album-public-name";
 import { enrichAlbumsWithCoverPreview, enrichAlbumWithCoverPreview } from "@/lib/admin/album-cover-preview";
 
@@ -10,11 +11,16 @@ import { enrichAlbumsWithCoverPreview, enrichAlbumWithCoverPreview } from "@/lib
 export const GET = withAdminAuth(async (request, user) => {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   const { limit, offset } = parseListParams(request.nextUrl.searchParams);
+  const { canReadAllTreeData: isAdminTreeOwner } = await getAdminTreeReadScope(user);
 
-  const baseWhere = {
-    userId: user.id,
-    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-  };
+  const baseWhere = isAdminTreeOwner
+    ? {
+        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+      }
+    : {
+        userId: user.id,
+        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+      };
 
   const [albums, total] = await Promise.all([
     prisma.album.findMany({

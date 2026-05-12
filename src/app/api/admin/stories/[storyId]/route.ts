@@ -3,6 +3,7 @@ import { Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
+import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
 import { dbRecordToStoryDocument, STORY_DB_READ_INCLUDE } from "@/lib/admin/story-creator/story-db-mapping";
 import { replaceStoryFromDocumentInTx } from "@/lib/admin/story-creator/persist-story-from-document";
 import { validateStoryDocumentStrictBlocks } from "@/lib/admin/story-creator/story-document-strict-validate";
@@ -17,14 +18,12 @@ async function assertOwnedStory(storyId: string, userId: string, treeId: string)
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
   const { storyId } = await ctx.params;
-  const treeId = await getAdminTreeId();
-  const owned = await assertOwnedStory(storyId, user.id, treeId);
-  if (!owned) {
-    return NextResponse.json({ error: "Story not found" }, { status: 404 });
-  }
+  const { treeId, canReadAllTreeData } = await getAdminTreeReadScope(user);
 
   const story = await prisma.story.findFirst({
-    where: { id: storyId, treeId, authorId: user.id, deletedAt: null },
+    where: canReadAllTreeData
+      ? { id: storyId, treeId, deletedAt: null }
+      : { id: storyId, treeId, authorId: user.id, deletedAt: null },
     include: STORY_DB_READ_INCLUDE,
   });
   if (!story) {

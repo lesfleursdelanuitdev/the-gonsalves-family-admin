@@ -5,6 +5,7 @@ import { slugifyStoryTitle } from "@/lib/admin/story-creator/story-slug";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
+import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
 
 async function allocateUniqueStorySlug(treeId: string, title: string): Promise<string> {
   const base = slugifyStoryTitle(title);
@@ -22,9 +23,11 @@ async function allocateUniqueStorySlug(treeId: string, title: string): Promise<s
 }
 
 export const GET = withAdminAuth(async (_req, user) => {
-  const treeId = await getAdminTreeId();
+  const { treeId, canReadAllTreeData } = await getAdminTreeReadScope(user);
   const stories = await prisma.story.findMany({
-    where: { treeId, authorId: user.id, deletedAt: null },
+    where: canReadAllTreeData
+      ? { treeId, deletedAt: null }
+      : { treeId, authorId: user.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
     select: { id: true, title: true, kind: true, status: true, slug: true, updatedAt: true },
   });
