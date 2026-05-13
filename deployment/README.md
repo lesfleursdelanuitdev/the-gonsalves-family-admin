@@ -29,12 +29,19 @@ On the server, in the app root, create or update **`.env`** / **`.env.production
 | Session / auth secrets | Whatever `requireAuth` and login use in this app |
 | `NEXT_PUBLIC_*` | Any public config the client needs |
 | `NEXT_PUBLIC_RESEARCH_STATISTICS_URL` | Base URL of the **public** site’s statistics page (no trailing slash), e.g. `https://temp.gonsalvesfamily.com/statistics-test`. Required for the Data Viewer **Statistics** button (client bundle); must be present when **`npm run build`** runs (`deploy.sh` sources `.env` / `.env.production` / `.env.local` first). In **`next dev`**, a localhost default applies if unset. |
-| `ADMIN_SESSION_COOKIE_DOMAIN` | Optional but recommended when using both subdomains. Set to `.gonsalvesfamily.com` so login at `admin.gonsalvesfamily.com` is recognized by `storycreator.gonsalvesfamily.com` (and vice versa). Leave unset in localhost/dev. |
+| `AUTH_COOKIE_NAME` | Shared auth cookie name used by admin + public adapters. Must match in all apps (example: `gonsalves_session`). |
+| `AUTH_COOKIE_DOMAIN` | Optional but recommended in production. Set `.gonsalvesfamily.com` so login is shared across `admin`/`storycreator`/public hosts. Leave unset in localhost/dev. |
+| `AUTH_COOKIE_SECURE` | Optional override (`true`/`false`) for cookie `Secure`. Defaults by `NODE_ENV`. |
 | `ADMIN_MEDIA_FILES_ROOT` | **Production:** absolute path under **`/mnt/`** to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Default in code if unset: `/mnt/storage/uploads`. Example: `/mnt/storage/uploads` → files in `…/gedcom-admin/`. Must be **writable** by the user running PM2 (see §9). |
 | `LIB_API_URL` | Base URL for **ligneous-gedcom-lib-api** (server-side `fetch` from Next). Required for **Admin → Export** (`/api/admin/export`). If unset, the app defaults to `http://localhost:8092` (fine for local dev). **Production on this host:** run the lib API on loopback **8092** and set `LIB_API_URL=http://127.0.0.1:8092` (also the default in `deployment/ecosystem.config.cjs`). **Remote API:** set to your HTTPS origin, e.g. `https://gedcom-api.example.com`. Install/always-on: [`../../ligneous-gedcom-lib-api/deploy/README.md`](../../ligneous-gedcom-lib-api/deploy/README.md). |
 | `PYTHON_API_URL` | Base URL for **ligneous-python-api** (server-side proxy `/api/research/*`). **Production on this host:** `http://127.0.0.1:5001` with Gunicorn bound to loopback (default in `deployment/ecosystem.config.cjs`). Public TLS hostname (e.g. `analytics.gonsalvesfamily.com`) is for browsers hitting nginx; Next should prefer loopback when colocated. Install: [`../../ligneous-python-api/deploy/README.md`](../../ligneous-python-api/deploy/README.md). |
 
 Run `npm run build` only after required env vars are present; some Next builds read them.
+
+Hard cutover note:
+
+- Existing sessions from the previous cookie contract are not reused after deploying this change.
+- Plan for users to sign in again once both apps are live with matching `AUTH_COOKIE_*` values.
 
 ---
 

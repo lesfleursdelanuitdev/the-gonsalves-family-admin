@@ -1,2 +1,4 @@
-/** HttpOnly admin session cookie — must match `lib/infra/auth` and auth route handlers. */
-export const ADMIN_SESSION_COOKIE = "admin_session";
+import { authCookieName } from "@ligneous/auth";
+
+/** Shared auth cookie name used by admin + public apps. */
+export const ADMIN_SESSION_COOKIE = authCookieName();

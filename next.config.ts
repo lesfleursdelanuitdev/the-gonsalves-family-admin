@@ -30,6 +30,7 @@ const projectRoot = path.resolve(__dirname);
 
 const nextConfig: NextConfig = {
   transpilePackages: [
+    "@ligneous/auth",
     "@ligneous/prisma",
     "@ligneous/album-view",
     "@ligneous/album-generated-queries",

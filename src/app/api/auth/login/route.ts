@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
+import { verifyPassword } from "@ligneous/auth";
 import { prisma } from "@/lib/database/prisma";
 import { applySessionCookieToResponse, createSession, SESSION_TTL_MS } from "@/lib/infra/auth";
 import { applyCorsToResponse, loginCorsHeaders } from "@/lib/infra/login-cors";
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       return jsonWithCors(req, { error: "Invalid credentials" }, { status: 401 });
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
       return jsonWithCors(req, { error: "Invalid credentials" }, { status: 401 });
     }

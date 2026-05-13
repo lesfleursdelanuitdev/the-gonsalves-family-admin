@@ -1,199 +1,60 @@
-/**
- * Server-side auth utilities: session creation, validation, cookie helpers.
- */
-import { randomBytes, createHash } from "crypto";
+import {
+  DEFAULT_SESSION_TTL_MS,
+  authCookieName,
+  createSession as createSharedSession,
+  getCurrentUserFromToken as getSharedCurrentUserFromToken,
+  refreshSession as refreshSharedSession,
+  requireAuthFromToken as requireSharedAuthFromToken,
+  revokeSession as revokeSharedSession,
+  sessionCookieOptions,
+  validateSession as validateSharedSession,
+  type CreateSessionOptions,
+  type SessionUser,
+} from "@ligneous/auth";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
-import { ADMIN_SESSION_COOKIE } from "@/lib/infra/admin-session-cookie";
 import { prisma } from "@/lib/database/prisma";
+import { ADMIN_SESSION_COOKIE } from "@/lib/infra/admin-session-cookie";
 
 export { ADMIN_SESSION_COOKIE };
-
-export const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-const sessionCookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-  maxAge: SESSION_TTL_MS / 1000,
-  ...(process.env.ADMIN_SESSION_COOKIE_DOMAIN?.trim()
-    ? { domain: process.env.ADMIN_SESSION_COOKIE_DOMAIN.trim() }
-    : {}),
-};
-
-function sha256(input: string): string {
-  return createHash("sha256").update(input).digest("hex");
-}
-
-function generateToken(): string {
-  return randomBytes(32).toString("hex");
-}
-
-export interface SessionUser {
-  id: string;
-  username: string;
-  email: string;
-  name: string | null;
-  isWebsiteOwner: boolean;
-}
-
-export type CreateSessionOptions = {
-  /** Access token lifetime (default 24h). Use longer TTL when "remember me" is checked. */
-  accessTtlMs?: number;
-};
+export const SESSION_TTL_MS = DEFAULT_SESSION_TTL_MS;
+export type { CreateSessionOptions, SessionUser };
 
 export async function createSession(userId: string, req?: Request, options?: CreateSessionOptions) {
-  const accessTtlMs = options?.accessTtlMs ?? SESSION_TTL_MS;
-  const refreshTtlMs = Math.max(REFRESH_TTL_MS, accessTtlMs);
-  const token = generateToken();
-  const refreshToken = generateToken();
-  const now = new Date();
-
-  await prisma.session.create({
-    data: {
-      userId,
-      tokenHash: sha256(token),
-      expiresAt: new Date(now.getTime() + accessTtlMs),
-      refreshTokenHash: sha256(refreshToken),
-      refreshExpiresAt: new Date(now.getTime() + refreshTtlMs),
-      ipAddress: req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-      userAgent: req?.headers.get("user-agent") ?? null,
-    },
-  });
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { lastLoginAt: now },
-  });
-
-  return { token, refreshToken };
+  return createSharedSession(prisma, userId, req, options);
 }
 
-/**
- * Attach session cookie to a Route Handler response. Prefer this over `cookies().set`
- * in `app/api/**` so Next.js reliably emits `Set-Cookie` (avoids missing session after login).
- */
-export function applySessionCookieToResponse(
-  response: NextResponse,
-  token: string,
-  cookieMaxAgeSeconds?: number
-) {
-  const maxAge = cookieMaxAgeSeconds ?? Math.floor(SESSION_TTL_MS / 1000);
-  response.cookies.set(ADMIN_SESSION_COOKIE, token, {
-    ...sessionCookieOptions,
-    maxAge,
-  });
+export function applySessionCookieToResponse(response: NextResponse, token: string, cookieMaxAgeSeconds?: number) {
+  response.cookies.set(authCookieName(), token, sessionCookieOptions(cookieMaxAgeSeconds));
 }
 
-/** Clear session cookie on a Route Handler response. */
 export function clearSessionCookieOnResponse(response: NextResponse) {
-  response.cookies.set(ADMIN_SESSION_COOKIE, "", {
-    ...sessionCookieOptions,
-    maxAge: 0,
-  });
+  response.cookies.set(authCookieName(), "", sessionCookieOptions(0));
 }
 
 export async function getSessionToken(): Promise<string | null> {
   const jar = await cookies();
-  return jar.get(ADMIN_SESSION_COOKIE)?.value ?? null;
+  return jar.get(authCookieName())?.value ?? null;
 }
 
 export async function validateSession(token: string): Promise<SessionUser | null> {
-  const hash = sha256(token);
-  const session = await prisma.session.findFirst({
-    where: {
-      tokenHash: hash,
-      isRevoked: false,
-      expiresAt: { gt: new Date() },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          name: true,
-          isWebsiteOwner: true,
-          isActive: true,
-        },
-      },
-    },
-  });
-
-  if (!session || !session.user.isActive) return null;
-
-  await prisma.session.update({
-    where: { id: session.id },
-    data: { lastUsedAt: new Date() },
-  });
-
-  return {
-    id: session.user.id,
-    username: session.user.username,
-    email: session.user.email,
-    name: session.user.name,
-    isWebsiteOwner: session.user.isWebsiteOwner,
-  };
+  return validateSharedSession(prisma, token);
 }
 
 export async function revokeSession(token: string) {
-  const hash = sha256(token);
-  await prisma.session.updateMany({
-    where: { tokenHash: hash },
-    data: { isRevoked: true },
-  });
+  await revokeSharedSession(prisma, token);
 }
 
 export async function refreshSession(refreshToken: string): Promise<{ token: string; refreshToken: string } | null> {
-  const hash = sha256(refreshToken);
-  const session = await prisma.session.findFirst({
-    where: {
-      refreshTokenHash: hash,
-      isRevoked: false,
-      refreshExpiresAt: { gt: new Date() },
-    },
-  });
-
-  if (!session) return null;
-
-  await prisma.session.update({
-    where: { id: session.id },
-    data: { isRevoked: true },
-  });
-
-  const newToken = generateToken();
-  const newRefreshToken = generateToken();
-  const now = new Date();
-
-  await prisma.session.create({
-    data: {
-      userId: session.userId,
-      tokenHash: sha256(newToken),
-      expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
-      refreshTokenHash: sha256(newRefreshToken),
-      refreshExpiresAt: new Date(now.getTime() + REFRESH_TTL_MS),
-      ipAddress: session.ipAddress,
-      userAgent: session.userAgent,
-    },
-  });
-
-  return { token: newToken, refreshToken: newRefreshToken };
+  return refreshSharedSession(prisma, refreshToken);
 }
 
-/** Get the current user from cookie, or null. Server-only helper. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const token = await getSessionToken();
-  if (!token) return null;
-  return validateSession(token);
+  return getSharedCurrentUserFromToken(prisma, token);
 }
 
-/** Get current user or throw (for protected endpoints). */
 export async function requireAuth(): Promise<SessionUser> {
-  const user = await getCurrentUser();
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-  return user;
+  const token = await getSessionToken();
+  return requireSharedAuthFromToken(prisma, token);
 }

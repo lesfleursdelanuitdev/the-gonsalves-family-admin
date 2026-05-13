@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
+import { hashPassword, verifyPassword } from "@ligneous/auth";
 import { prisma } from "@/lib/database/prisma";
 import { requireAuth } from "@/lib/infra/auth";
 
@@ -36,11 +36,11 @@ export async function PATCH(req: Request) {
       if (!user) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
       }
-      const valid = await bcrypt.compare(String(body.currentPassword), user.passwordHash);
+      const valid = await verifyPassword(String(body.currentPassword), user.passwordHash);
       if (!valid) {
         return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
       }
-      updates.passwordHash = await bcrypt.hash(newPassword, 12);
+      updates.passwordHash = await hashPassword(newPassword, 12);
     }
 
     if (Object.keys(updates).length === 0) {

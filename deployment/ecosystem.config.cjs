@@ -33,6 +33,10 @@ module.exports = {
         LIB_API_URL: process.env.LIB_API_URL ?? "http://127.0.0.1:8092",
         // ligneous-python-api (/api/research proxy). Same host: loopback. No trailing slash.
         PYTHON_API_URL: process.env.PYTHON_API_URL ?? "http://127.0.0.1:5001",
+        // Shared session cookie contract (must match public app).
+        AUTH_COOKIE_NAME: process.env.AUTH_COOKIE_NAME ?? "gonsalves_session",
+        AUTH_COOKIE_DOMAIN: process.env.AUTH_COOKIE_DOMAIN ?? ".gonsalvesfamily.com",
+        AUTH_COOKIE_SECURE: process.env.AUTH_COOKIE_SECURE ?? "true",
       },
     },
   ],
