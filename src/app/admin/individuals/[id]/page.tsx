@@ -35,6 +35,7 @@ import {
   type ParentChildRelForChildIndicator,
 } from "@/lib/gedcom/pedigree-display";
 import { NonBirthChildIndicator } from "@/components/admin/NonBirthChildIndicator";
+import { fetchJson } from "@/lib/infra/api";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   individual: "Self",
@@ -77,6 +78,16 @@ type IndiChild = {
   birthPlaceDisplay?: string | null;
   birthYear?: number | null;
   individualNameForms?: Parameters<typeof formatDisplayNameFromNameForms>[0];
+};
+
+type RichRelationshipRow = {
+  id: string;
+  relationshipType: { key: string; label: string };
+  participants: Array<{
+    individualId: string;
+    individual: { id: string; xref: string; fullName: string | null };
+    role: { key: string; label: string };
+  }>;
 };
 
 function PersonLink({ person, nonBirthChild }: { person: IndiChild; nonBirthChild?: boolean }) {
@@ -233,12 +244,28 @@ export default function AdminIndividualViewPage() {
   const husbandFams = (ind?.husbandInFamilies as Record<string, unknown>[]) ?? [];
   const wifeFams = (ind?.wifeInFamilies as Record<string, unknown>[]) ?? [];
   const associationsAsSubject = (ind?.associationsAsSubject as Record<string, unknown>[]) ?? [];
+  const [richRelationships, setRichRelationships] = useState<RichRelationshipRow[]>([]);
 
   const profileMediaSelection = (ind?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
   const headerProfilePhotoUrl = useMemo(
     () => photoUrlFromProfileRow(profileMediaSelection),
     [profileMediaSelection],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) return;
+    void fetchJson<{ relationships: RichRelationshipRow[] }>(`/api/admin/individuals/${encodeURIComponent(id)}/relationships`)
+      .then((res) => {
+        if (!cancelled) setRichRelationships(res.relationships ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRichRelationships([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
   const [headerProfileImgFailed, setHeaderProfileImgFailed] = useState(false);
   useEffect(() => {
     setHeaderProfileImgFailed(false);
@@ -575,42 +602,71 @@ export default function AdminIndividualViewPage() {
           ) : null}
         </CardHeader>
         <CardContent>
-          {associationsAsSubject.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No associates recorded.</p>
-          ) : (
-            <ul className="space-y-3">
-              {associationsAsSubject.map((row) => {
-                const assoc = row.associateIndividual as Record<string, unknown> | undefined;
-                const aid = typeof assoc?.id === "string" ? assoc.id : "";
-                const name =
-                  formatDisplayNameFromNameForms(
-                    (assoc?.individualNameForms as Parameters<typeof formatDisplayNameFromNameForms>[0]) ?? [],
-                    (assoc?.fullName as string) ?? null,
-                  ) ||
-                  (assoc?.xref as string) ||
-                  aid;
-                const rela = typeof row.rela === "string" ? row.rela.trim() : "";
-                return (
-                  <li
-                    key={typeof row.id === "string" ? row.id : `${aid}-${rela}`}
-                    className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15"
-                  >
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="text-muted-foreground">{rela || "—"}</span>
-                      <span className="text-muted-foreground">→</span>
-                      {aid ? (
-                        <Link href={`/admin/individuals/${aid}`} className="link link-primary font-medium">
-                          {name}
-                        </Link>
-                      ) : (
-                        <span>{name}</span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <div className="space-y-4">
+            {richRelationships.length > 0 ? (
+              <ul className="space-y-2">
+                {richRelationships.map((rel) => {
+                  const me = rel.participants.find((p) => p.individualId === id);
+                  const other = rel.participants.find((p) => p.individualId !== id);
+                  const otherName = other ? (other.individual.fullName?.trim() || other.individual.xref) : "Unknown";
+                  return (
+                    <li key={rel.id} className="rounded-box border border-primary/20 bg-primary/5 p-3 text-sm">
+                      <span className="font-medium">{rel.relationshipType.label}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span>
+                        {me?.role.label ?? "Participant"} →{" "}
+                        {other ? (
+                          <Link href={`/admin/individuals/${other.individual.id}`} className="link link-primary">
+                            {otherName}
+                          </Link>
+                        ) : (
+                          otherName
+                        )}{" "}
+                        ({other?.role.label ?? "Participant"})
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+
+            {associationsAsSubject.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No raw ASSO/RELA rows recorded.</p>
+            ) : (
+              <ul className="space-y-3">
+                {associationsAsSubject.map((row) => {
+                  const assoc = row.associateIndividual as Record<string, unknown> | undefined;
+                  const aid = typeof assoc?.id === "string" ? assoc.id : "";
+                  const name =
+                    formatDisplayNameFromNameForms(
+                      (assoc?.individualNameForms as Parameters<typeof formatDisplayNameFromNameForms>[0]) ?? [],
+                      (assoc?.fullName as string) ?? null,
+                    ) ||
+                    (assoc?.xref as string) ||
+                    aid;
+                  const rela = typeof row.rela === "string" ? row.rela.trim() : "";
+                  return (
+                    <li
+                      key={typeof row.id === "string" ? row.id : `${aid}-${rela}`}
+                      className="rounded-box border border-base-content/[0.08] bg-base-content/[0.035] p-3 text-sm shadow-sm shadow-black/15"
+                    >
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="text-muted-foreground">{rela || "—"}</span>
+                        <span className="text-muted-foreground">→</span>
+                        {aid ? (
+                          <Link href={`/admin/individuals/${aid}`} className="link link-primary font-medium">
+                            {name}
+                          </Link>
+                        ) : (
+                          <span>{name}</span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </CardContent>
       </Card>
 

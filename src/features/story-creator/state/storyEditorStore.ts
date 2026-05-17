@@ -1,7 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
 import { findSectionById } from "@/lib/admin/story-creator/story-section-tree";
-import type { StoryDocument } from "@/lib/admin/story-creator/story-types";
 import {
   addBlockInDocument,
   addSectionInDocument,
@@ -15,17 +14,16 @@ import {
   replaceBlockInSection,
   updateBlockInSection,
 } from "@/features/story-creator/state/storyEditorActions";
-import { makeSnapshot, pushHistorySnapshot } from "@/features/story-creator/state/storyEditorHistory";
+import {
+  cloneStoryDocumentForSnapshot,
+  makeSnapshot,
+  pushHistorySnapshot,
+} from "@/features/story-creator/state/storyEditorHistory";
 import type { StoryEditorStore } from "@/features/story-creator/state/storyEditorTypes";
 import type { StorySection } from "@/lib/admin/story-creator/story-types";
 import { mapSectionInDocument } from "@/lib/admin/story-creator/story-section-tree";
 
 const HISTORY_LIMIT = 100;
-
-function cloneDoc(doc: StoryDocument): StoryDocument {
-  if (typeof structuredClone === "function") return structuredClone(doc);
-  return JSON.parse(JSON.stringify(doc)) as StoryDocument;
-}
 
 export function createStoryEditorStore() {
   let pendingSnapshotTimer: ReturnType<typeof setTimeout> | null = null;
@@ -48,6 +46,7 @@ export function createStoryEditorStore() {
     immer<StoryEditorStore>((set, get) => ({
     document: null,
     selectedBlockId: null,
+    selectedFlowNode: null,
     selectedSectionId: null,
     activeRichTextBlockId: null,
     activeEditorId: null,
@@ -67,6 +66,7 @@ export function createStoryEditorStore() {
         state.document = normalized;
         state.selectedSectionId = chooseDefaultSectionId(normalized);
         state.selectedBlockId = null;
+        state.selectedFlowNode = null;
         state.activeRichTextBlockId = null;
         state.activeEditorId = null;
         state.validationErrors = [];
@@ -90,11 +90,24 @@ export function createStoryEditorStore() {
         state.dirty = true;
       }),
 
-    selectBlock: (blockId) => set((state) => void (state.selectedBlockId = blockId)),
+    selectBlock: (blockId) =>
+      set((state) => {
+        state.selectedBlockId = blockId;
+        state.selectedFlowNode = null;
+      }),
+
+    selectFlowNode: (selection) =>
+      set((state) => {
+        state.selectedFlowNode = selection;
+        state.selectedBlockId = selection?.richTextBlockId ?? state.selectedBlockId;
+        state.inspectorTab = "block";
+        if (selection) state.rightPanelOpen = true;
+      }),
 
     selectSection: (sectionId) =>
       set((state) => {
         state.selectedSectionId = sectionId;
+        state.selectedFlowNode = null;
         const doc = state.document;
         if (!doc || !sectionId) return;
         if (!findSectionById(doc.sections ?? [], sectionId)) {
@@ -142,7 +155,10 @@ export function createStoryEditorStore() {
         );
         const out = deleteBlockInDocument(state.document, blockId);
         state.document = out.document;
-        if (state.selectedBlockId === blockId) state.selectedBlockId = out.nextSelectedId;
+        if (state.selectedBlockId === blockId) {
+          state.selectedBlockId = out.nextSelectedId;
+          state.selectedFlowNode = null;
+        }
         state.dirty = true;
       }),
 
@@ -203,6 +219,7 @@ export function createStoryEditorStore() {
         state.document = addSectionInDocument(state.document, section, position);
         state.selectedSectionId = section.id;
         state.selectedBlockId = null;
+        state.selectedFlowNode = null;
         state.dirty = true;
       }),
 
@@ -278,7 +295,7 @@ export function createStoryEditorStore() {
         if (!previous) return;
         state.history.future = [current, ...state.history.future];
         state.history.past = past;
-        state.document = cloneDoc(previous.document);
+        state.document = cloneStoryDocumentForSnapshot(previous.document);
         state.selectedBlockId = previous.selectedBlockId;
         state.selectedSectionId = previous.selectedSectionId;
         state.dirty = true;
@@ -295,7 +312,7 @@ export function createStoryEditorStore() {
         if (state.history.past.length > state.history.limit) {
           state.history.past = state.history.past.slice(state.history.past.length - state.history.limit);
         }
-        state.document = cloneDoc(next.document);
+        state.document = cloneStoryDocumentForSnapshot(next.document);
         state.selectedBlockId = next.selectedBlockId;
         state.selectedSectionId = next.selectedSectionId;
         state.dirty = true;

@@ -4,10 +4,12 @@ import { postLibApiExport } from "@/lib/admin/lib-api-export";
 import { postLibApiValidateGedcomFile } from "@/lib/admin/lib-api-validate";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const runtime = "nodejs";
 
 export const POST = withAdminAuth(async (req: NextRequest) => {
+  await requireCan({ entity: "gedcom", action: "validate_external", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const ct = req.headers.get("content-type") ?? "";
   if (ct.includes("multipart/form-data")) {
     const form = await req.formData();

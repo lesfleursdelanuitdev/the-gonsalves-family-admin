@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import {
   findMessageVisibleToAdminUser,
   getAdminTreeCommunityUserIds,
@@ -8,6 +9,7 @@ import {
 import { emitAdminMessagesChanged } from "@/lib/realtime/admin-messages-events";
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "message", action: "read", scope: "user", ownerUserId: user.id });
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
@@ -36,6 +38,7 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "message", action: "update", scope: "user", ownerUserId: user.id });
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
@@ -85,6 +88,7 @@ export const PATCH = withAdminAuth(async (request, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "message", action: "delete", scope: "user", ownerUserId: user.id });
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });

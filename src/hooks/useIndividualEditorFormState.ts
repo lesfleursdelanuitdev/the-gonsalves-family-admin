@@ -28,7 +28,7 @@ import { FAMILY_PARTNER_1_LABEL, FAMILY_PARTNER_2_LABEL } from "@/lib/gedcom/fam
 import { individualSearchDisplayName } from "@/lib/gedcom/individual-search-display";
 import { fetchJson } from "@/lib/infra/api";
 import { INDIVIDUAL_DETAIL_EVENTS_PAGE_SIZE } from "@/constants/admin";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 import { useAdminIndividualEvents, type AdminIndividualListItem } from "@/hooks/useAdminIndividuals";
 
 const STABLE_EMPTY_TIMELINE_EVENTS: IndividualDetailEvent[] = [];

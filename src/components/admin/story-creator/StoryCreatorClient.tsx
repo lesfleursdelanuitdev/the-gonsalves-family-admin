@@ -64,6 +64,7 @@ import {
 } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import { StoryTipTapStoryDocProvider } from "@/components/admin/story-creator/story-tiptap-story-doc-context";
 import { StoryCreatorPreview } from "@/components/admin/story-creator/story-creator-preview";
+import { StoryVerseBlock } from "@/components/admin/story-creator/StoryVerseBlock";
 import type { JSONContent } from "@tiptap/core";
 import type {
   StoryBlock,
@@ -119,7 +120,12 @@ import { ApiError } from "@/lib/infra/api";
 import { mergeMediaEmbedRowLayoutPatch } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
 import { columnsBlockDepthInSection, MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import {
+  advancedColumnLayoutEnabled,
+  DEFAULT_COLUMN_STACK_GAP_REM,
+  orderedColumnSlots,
   resolveColumnGapRem,
+  resolveColumnsLayoutMode,
+  storyColumnSharedStackStyle,
   storyColumnStackStyle,
   storyColumnsGridStyle,
 } from "@/lib/admin/story-creator/story-columns-layout";
@@ -173,6 +179,8 @@ import {
   type StoryAddBlockPresetId,
 } from "@/lib/admin/story-creator/story-block-presets";
 import { resolveStorySelection, type StorySelection } from "@/lib/admin/story-creator/story-selection";
+import { updateStoryFlowNodeInDoc } from "@/lib/admin/story-creator/story-flow-nodes";
+import type { StoryFlowNodeSelection } from "@/features/story-creator/state/storyEditorTypes";
 import {
   StoryBlockPlacementDialog,
   type StoryBlockPlacementVariant,
@@ -188,6 +196,7 @@ import {
   firstSectionInOrder,
   flattenSectionsDepthFirst,
   insertSectionAfterSibling,
+  insertSectionBeforeSibling,
   mapSectionInDocument,
   moveSectionInDocument,
   normalizeStorySection,
@@ -282,6 +291,7 @@ function StoryCanvasRichTextEditor({
       editorKey={editorKey}
       content={rich.doc}
       onChange={onJson}
+      richTextBlockId={rich.id}
       toolbarDensity={isLg ? "default" : "touch"}
       surface={surface}
       richTextPreset={preset}
@@ -428,14 +438,18 @@ function StoryCanvasVerseResizableEditor({
         </div>
       ) : null}
       <div className="max-w-full overflow-x-auto">
-        <StoryCanvasRichTextEditor
-          editorKey={editorKey}
-          rich={rich}
-          onJson={onJson}
-          isLg={isLg}
-          surface={surface}
-          syncGlobalToolbarSelection={syncGlobalToolbarSelection}
-        />
+        {preset === "verse" ? (
+          <StoryVerseBlock block={rich} variant="editor" />
+        ) : (
+          <StoryCanvasRichTextEditor
+            editorKey={editorKey}
+            rich={rich}
+            onJson={onJson}
+            isLg={isLg}
+            surface={surface}
+            syncGlobalToolbarSelection={syncGlobalToolbarSelection}
+          />
+        )}
       </div>
     </div>
   );
@@ -605,6 +619,8 @@ function storyKindUiLabel(kind: StoryDocument["kind"]): string {
       return "Article";
     case "post":
       return "Post";
+    case "folklore":
+      return "Folklore";
     default:
       return "Story";
   }
@@ -843,8 +859,11 @@ function StoryNestedColumnsGrid({
   tableOps,
 }: StoryNestedColumnsGridProps) {
   const allowNestedColumns = depth < MAX_STORY_COLUMNS_NEST_DEPTH;
-  const layoutMode = isSm ? "two-column" : "stacked";
+  const narrowLayout = !isSm;
+  const layoutMode = resolveColumnsLayoutMode(columnsBlock, narrowLayout);
   const gapRem = resolveColumnGapRem(columnsBlock);
+  const useAdvancedColumnLayout = advancedColumnLayoutEnabled(columnsBlock);
+  const sharedStackGapRem = columnsBlock.columns[0]?.stackGapRem ?? DEFAULT_COLUMN_STACK_GAP_REM;
   const gridStyle: CSSProperties =
     depth >= 2
       ? {
@@ -1375,8 +1394,7 @@ function StoryNestedColumnsGrid({
 
   return (
     <div className="grid min-w-0 pt-0.5" style={gridStyle}>
-      {([0, 1] as const).map((colIdx) => {
-        const slot = columnsBlock.columns[colIdx];
+      {orderedColumnSlots(columnsBlock, narrowLayout).map(({ slot, columnIndex: colIdx }) => {
         const columnActive =
           storySelection?.mode === "column" &&
           storySelection.columnsBlock.id === columnsBlock.id &&
@@ -1392,7 +1410,10 @@ function StoryNestedColumnsGrid({
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex min-h-0 flex-1 flex-col overflow-visible" style={storyColumnStackStyle(slot)}>
+            <div
+              className="flex min-h-0 flex-1 flex-col overflow-visible"
+              style={useAdvancedColumnLayout ? storyColumnStackStyle(slot) : storyColumnSharedStackStyle(sharedStackGapRem)}
+            >
               {slot.blocks.length === 0 ? (
                 <>
                   <StoryColumnInsertAffordance
@@ -1786,12 +1807,14 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   const mode = useStoryEditorStore((s) => s.mode);
   const activeSectionId = useStoryEditorStore((s) => s.selectedSectionId);
   const selectedBlockId = useStoryEditorStore((s) => s.selectedBlockId);
+  const selectedFlowNode = useStoryEditorStore((s) => s.selectedFlowNode);
   const inspectorTab = useStoryEditorStore((s) => s.inspectorTab);
   const isLeftPanelOpen = useStoryEditorStore((s) => s.leftPanelOpen);
   const inspectorOpen = useStoryEditorStore((s) => s.rightPanelOpen);
   const storyEditorDirty = useStoryEditorStore((s) => s.dirty);
   const initializeDocument = useStoryEditorStore((s) => s.initializeDocument);
   const setSelectedBlockId = useStoryEditorStore((s) => s.selectBlock);
+  const setSelectedFlowNode = useStoryEditorStore((s) => s.selectFlowNode);
   const setActiveSectionId = useStoryEditorStore((s) => s.selectSection);
   const setInspectorTab = useStoryEditorStore((s) => s.setInspectorTab);
   const setPanelOpen = useStoryEditorStore((s) => s.setPanelOpen);
@@ -2057,7 +2080,10 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       const fb = path.section.blocks[0]?.id ?? null;
       if (fb !== selectedBlockId) setSelectedBlockId(fb);
     }
-  }, [doc, activeSectionId, selectedBlockId]);
+    if (selectedFlowNode && selectedBlockId !== selectedFlowNode.richTextBlockId) {
+      setSelectedFlowNode(null);
+    }
+  }, [doc, activeSectionId, selectedBlockId, selectedFlowNode, setSelectedFlowNode]);
 
   const columnsLayoutBlock = useMemo((): StoryColumnsBlock | null => {
     if (!storySelection) return null;
@@ -2322,13 +2348,25 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   );
 
   const patchColumns = useCallback(
-    (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem">>) => {
+    (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem" | "mobileBehavior" | "advancedColumnLayoutEnabled">>) => {
       if (!activePair || !columnsLayoutBlock) return;
       const sid = activePair.section.id;
       const id = columnsLayoutBlock.id;
       updateDoc((d) => mapDocSection(d, sid, (sec) => patchColumnsInSection(sec, id, patch)));
     },
     [activePair, columnsLayoutBlock, updateDoc],
+  );
+
+  const editColumnContent = useCallback(
+    (columnIndex: 0 | 1) => {
+      if (!columnsLayoutBlock) return;
+      const firstNested = columnsLayoutBlock.columns[columnIndex]?.blocks?.[0];
+      setSelectedBlockId(firstNested?.id ?? columnsLayoutBlock.id);
+      setInspectorTab("block");
+      if (isLg) setInspectorOpen(true);
+      else setBlockSettingsSheetOpen(true);
+    },
+    [columnsLayoutBlock, isLg, setBlockSettingsSheetOpen, setInspectorOpen, setInspectorTab, setSelectedBlockId],
   );
 
   const patchColumnSlot = useCallback(
@@ -2375,6 +2413,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
     [updateDoc],
   );
 
+  const patchSectionOutline = useCallback(
+    (sectionId: string, patch: Partial<StorySection>) => {
+      updateDoc((d) => mapDocSection(d, sectionId, (s) => ({ ...s, ...patch })));
+    },
+    [updateDoc],
+  );
+
   const addSectionAfter = useCallback(
     (afterSectionId: string | null) => {
       const secId = newStoryId();
@@ -2387,6 +2432,26 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         blocks: initialBlocks,
       });
       updateDoc((d) => insertSectionAfterSibling(d, afterSectionId, node));
+      setActiveSectionId(secId);
+      setSelectedBlockId(containerId);
+      setOutlineRename({ kind: "section", id: secId });
+      setInspectorTab("block");
+    },
+    [updateDoc],
+  );
+
+  const addSectionBefore = useCallback(
+    (beforeSectionId: string | null) => {
+      const secId = newStoryId();
+      const initialBlocks = createDefaultSectionBlocks();
+      const containerId = initialBlocks[0]!.id;
+      const node = normalizeStorySection({
+        id: secId,
+        title: "New section",
+        collapsed: false,
+        blocks: initialBlocks,
+      });
+      updateDoc((d) => insertSectionBeforeSibling(d, beforeSectionId, node));
       setActiveSectionId(secId);
       setSelectedBlockId(containerId);
       setOutlineRename({ kind: "section", id: secId });
@@ -2581,13 +2646,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
   );
 
   const insertBlockFromDockPicker = useCallback(
-    (presetId: StoryAddBlockPresetId, opts?: { fromFullscreenAddModal?: boolean }) => {
+    (presetId: StoryAddBlockPresetId, opts?: { fromFullscreenAddModal?: boolean; appendToEnd?: boolean }) => {
       if (!activePair) {
         toast.error("Pick a section in the outline first.");
         return;
       }
       const blocks = activePair.section.blocks;
-      const idx = selectedBlockId ? blocks.findIndex((b) => b.id === selectedBlockId) : -1;
+      const idx = !opts?.appendToEnd && selectedBlockId ? blocks.findIndex((b) => b.id === selectedBlockId) : -1;
       const insertIndex = idx >= 0 ? idx + 1 : blocks.length;
       const headingLocked = Boolean(opts?.fromFullscreenAddModal && presetId === "text_heading");
       insertBlockWithPreset(activePair.section.id, insertIndex, presetId, { headingPresetLocked: headingLocked });
@@ -2602,6 +2667,27 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
       updateDoc((d) => mapDocSection(d, sectionId, (sec) => patchRichTextInSection(sec, blockId, json)));
     },
     [updateDoc],
+  );
+
+  const patchFlowNode = useCallback(
+    (selection: StoryFlowNodeSelection, patch: Record<string, unknown>) => {
+      if (!activePair) return;
+      updateDoc((d) =>
+        mapDocSection(d, activePair.section.id, (sec) =>
+          patchRichTextInSection(
+            sec,
+            selection.richTextBlockId,
+            updateStoryFlowNodeInDoc(
+              (resolveStorySelection(sec, selection.richTextBlockId)?.block as StoryRichTextBlock | undefined)?.doc ?? {},
+              selection.nodeType,
+              selection.nodeId,
+              patch,
+            ),
+          ),
+        ),
+      );
+    },
+    [activePair, updateDoc],
   );
 
   const insertColumnNested = useCallback(
@@ -2715,12 +2801,14 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onRenameTargetChange={setOutlineRename}
         onRenameSection={renameSectionTitle}
         onAddSectionAfter={addSectionAfter}
+        onAddSectionBefore={addSectionBefore}
         onAddChildSection={addChildSection}
         onDeleteSection={deleteSection}
         onToggleCollapsed={toggleSectionCollapsed}
         onMoveSection={moveSection}
         onToggleSectionChapter={toggleSectionChapter}
         onToggleSectionPage={toggleSectionPage}
+        onPatchSectionOutline={patchSectionOutline}
         isCompact={!isLg}
         mobileOverlay={mobileOverlay}
         onCloseMobileOverlay={mobileOverlay ? () => setMobileShellTab("add-block") : undefined}
@@ -3163,11 +3251,13 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         selectedSection={activePair?.section ?? null}
         selectedBlock={selectedBlock}
         selectedBlockId={selectedBlockId}
+        selectedFlowNode={selectedFlowNode}
         storyEditorDirty={storyEditorDirty}
         columnsLayoutBlock={columnsLayoutBlock}
         columnsNestingDepth={columnsNestingDepth}
         onPatchColumns={patchColumns}
         onPatchColumnSlot={patchColumnSlot}
+        onEditColumnContent={editColumnContent}
         onPatchEmbed={patchEmbed}
         onPatchMedia={patchMedia}
         onPatchContainer={patchContainer}
@@ -3178,6 +3268,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         onPatchRichTextMeta={patchRichTextMeta}
         onPatchDividerMeta={patchDividerMeta}
         onPatchSplitContent={activePair && selectedBlockId ? (patch) => patchSplitContentBlock(activePair.section.id, selectedBlockId, patch) : undefined}
+        onPatchFlowNode={patchFlowNode}
         onPatchTable={selectedBlock?.type === "table" ? patchTable : undefined}
         selectedBlockInSplitPanel={selectedBlockInSplitPanel}
         onTitleChange={setTitle}
@@ -3591,6 +3682,7 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
                   columnsNestingDepth={columnsNestingDepth}
                   onPatchColumns={patchColumns}
                   onPatchColumnSlot={patchColumnSlot}
+                  onEditColumnContent={editColumnContent}
                   onPatchEmbed={patchEmbed}
                   onPatchMedia={patchMedia}
                   onPatchContainer={patchContainer}
@@ -3618,10 +3710,10 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
         <StoryAddBlockBottomSheet open={addBlockSheetOpen} onOpenChange={setAddBlockSheetOpen} title="Add block">
           <StoryAddBlockPresetTypeGrid
             groups={STORY_ADD_BLOCK_DOCK_PRESET_GROUPS}
-            onPick={(id) => insertBlockFromDockPicker(id)}
+            onPick={(id) => insertBlockFromDockPicker(id, { appendToEnd: true })}
           />
           <p className="mt-4 text-center text-xs leading-relaxed text-base-content/45">
-            New blocks insert after the selection when possible.
+            New blocks are added to the end of the section.
           </p>
         </StoryAddBlockBottomSheet>
       ) : null}
@@ -4110,10 +4202,20 @@ function EmbedCanvasCard({
   block,
   compact,
   onConfigure,
+  onPatchBlock,
 }: {
   block: StoryEmbedBlock;
   compact?: boolean;
   onConfigure?: () => void;
+  onPatchBlock?: (patch: Partial<StoryEmbedBlock>) => void;
 }) {
-  return <EmbedBlockContentRenderer block={block} variant="editor" compact={compact} onConfigure={onConfigure} />;
+  return (
+    <EmbedBlockContentRenderer
+      block={block}
+      variant="editor"
+      compact={compact}
+      onConfigure={onConfigure}
+      onPatchBlock={onPatchBlock}
+    />
+  );
 }

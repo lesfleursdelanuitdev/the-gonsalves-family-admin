@@ -45,55 +45,81 @@
 
 .story-preview-cover {
   position: relative;
-  border-radius: 0.75rem;
-  overflow: visible;
-  min-height: 0;
+  border-radius: 0;
+  overflow: hidden;
+  min-height: min(88vw, 20rem);
   background: color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 92%, transparent);
   border: 1px solid color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 12%, transparent);
 }
 
 .story-preview-cover--loading {
-  overflow: hidden;
-  min-height: 10rem;
+  min-height: min(88vw, 20rem);
 }
 
 .story-preview-cover-inner {
   position: relative;
   border-radius: inherit;
   overflow: hidden;
+  min-height: inherit;
 }
 
 .story-preview-cover-img {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 12rem;
+  height: 100%;
+  transform: scale(1.05);
   object-fit: cover;
+  object-position: center;
+}
+
+.story-preview-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 20%, color-mix(in oklab, var(--story-preview-accent) 34%, transparent), transparent 38%),
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--fallback-b2, oklch(var(--b2))) 95%, transparent),
+      color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 94%, transparent)
+    );
 }
 
 .story-preview-cover-overlay {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to top,
-    color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 88%, transparent) 0%,
-    transparent 55%
-  );
+  background:
+    color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 42%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.story-preview-cover-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, color-mix(in oklab, black 22%, transparent), transparent 52%);
+}
+
+.story-preview-cover-center {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: inherit;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem 2.5rem;
 }
 
 .story-preview-profile {
-  position: absolute;
-  left: 1rem;
-  bottom: 0;
-  transform: translateY(45%);
-  z-index: 2;
-  width: 5rem;
-  height: 5rem;
+  width: 6rem;
+  height: 6rem;
   border-radius: 9999px;
   overflow: hidden;
-  border: 3px solid color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 94%, transparent);
+  border: 4px solid color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 94%, transparent);
   box-shadow: 0 0.35rem 1rem color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 22%, transparent);
   background: color-mix(in oklab, var(--fallback-b1, oklch(var(--b1))) 85%, transparent);
+  outline: 2px solid color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 12%, transparent);
 }
 
 .story-preview-profile-img {
@@ -110,6 +136,15 @@
   animation: story-preview-pulse 1.2s ease-in-out infinite;
 }
 
+.story-preview-profile-placeholder {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 18%, transparent) 0 18%, transparent 19%),
+    radial-gradient(circle at 50% 115%, color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 14%, transparent) 0 46%, transparent 47%),
+    color-mix(in oklab, var(--fallback-b2, oklch(var(--b2))) 82%, transparent);
+}
+
 @keyframes story-preview-pulse {
   0%,
   100% {
@@ -122,43 +157,40 @@
 
 .story-preview-header-body {
   padding: 1.25rem 0 0.25rem;
+  text-align: center;
 }
 
 .story-preview-header-body--with-profile {
-  padding-top: 2.75rem;
+  padding-top: 1.75rem;
 }
 
 @media (min-width: 768px) {
-  .story-preview-cover-img {
-    height: 14rem;
+  .story-preview-cover {
+    min-height: 22.5rem;
   }
 
   .story-preview-profile {
-    width: 6rem;
-    height: 6rem;
-    left: 1.25rem;
-    transform: translateY(42%);
+    width: 7rem;
+    height: 7rem;
   }
 
   .story-preview-header-body--with-profile {
-    padding-top: 3.25rem;
+    padding-top: 2rem;
   }
 }
 
 .story-preview-mobile .story-preview-profile {
-  width: 4.25rem;
-  height: 4.25rem;
-  left: 0.75rem;
-  transform: translateY(40%);
+  width: 5.5rem;
+  height: 5.5rem;
   border-width: 2px;
 }
 
 .story-preview-mobile .story-preview-header-body--with-profile {
-  padding-top: 2.35rem;
+  padding-top: 1.5rem;
 }
 
-.story-preview-mobile .story-preview-cover-img {
-  height: 10rem;
+.story-preview-mobile .story-preview-cover {
+  min-height: 18rem;
 }
 
 .story-preview-title {
@@ -244,6 +276,10 @@
 .story-preview .story-field--empty {
   font-weight: 500;
   color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 38%, transparent);
+}
+
+.story-preview .story-tiptap li::marker {
+  color: color-mix(in oklab, var(--fallback-bc, oklch(var(--bc))) 78%, transparent);
 }
 
 /* --- Tables --- */

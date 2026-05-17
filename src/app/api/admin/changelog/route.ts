@@ -3,8 +3,10 @@ import { Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "changelog", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
 

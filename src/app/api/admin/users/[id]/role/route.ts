@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 type RoleValue = "owner" | "maintainer" | "contributor" | "none";
 
 export const POST = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "user", action: "update", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id: userId } = await ctx.params;
   const body = await req.json();
   const { role } = body as { role: RoleValue };

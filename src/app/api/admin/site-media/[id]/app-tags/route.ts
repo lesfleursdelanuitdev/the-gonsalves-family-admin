@@ -4,8 +4,10 @@ import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const POST = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "media", action: "update", scope: "site" });
   const { id: siteMediaId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({ where: { gedcomFileId: fileUuid }, select: { id: true } });

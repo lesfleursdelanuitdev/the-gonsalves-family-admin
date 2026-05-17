@@ -6,13 +6,19 @@ import { useEditor, EditorContent, ReactNodeViewRenderer } from "@tiptap/react";
 import { cn } from "@/lib/utils";
 import { createStoryTipTapExtensions } from "@/components/admin/story-creator/story-tiptap-extensions";
 import { bindStoryEditorSemanticPreset, unbindStoryEditorSemanticPreset } from "@/components/admin/story-creator/story-tiptap-semantic-preset";
-import { isEmptyListStarterDoc, normalizeStoryDocContent, storyDocJsonEquals } from "@/components/admin/story-creator/story-tiptap-doc";
+import {
+  isEmptyListStarterDoc,
+  normalizeStoryDocContent,
+  storyDocJsonEquals,
+  unwrapSingleCellTablesToParagraphContent,
+} from "@/components/admin/story-creator/story-tiptap-doc";
 import { StoryField } from "@/lib/admin/story-creator/story-tiptap-story-field-extension";
 import { StoryFieldChipNodeView } from "@/components/admin/story-creator/StoryFieldChipNodeView";
 import { StoryTipTapToolbar } from "@/components/admin/story-creator/StoryTipTapToolbar";
 import { useStoryTiptapActiveEditorOptional } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import { useStoryTipTapCanvasTone } from "@/components/admin/story-creator/story-tiptap-canvas-tone";
 import type { StoryRichTextTextPreset } from "@/lib/admin/story-creator/story-types";
+import "./story-flow-nodes.css";
 
 function proseMirrorToneClass(
   tone: "admin" | "paper",
@@ -99,6 +105,49 @@ function defaultPlaceholderForPreset(preset: StoryRichTextTextPreset): string {
   }
 }
 
+function directTableRows(table: HTMLTableElement): HTMLTableRowElement[] {
+  const rows: HTMLTableRowElement[] = [];
+  Array.from(table.children).forEach((child) => {
+    const tag = child.tagName.toLowerCase();
+    if (tag === "tr") {
+      rows.push(child as HTMLTableRowElement);
+      return;
+    }
+    if (tag === "thead" || tag === "tbody" || tag === "tfoot") {
+      rows.push(...Array.from(child.children).filter((row): row is HTMLTableRowElement => row.tagName.toLowerCase() === "tr"));
+    }
+  });
+  return rows;
+}
+
+function unwrapSingleCellTablesInPastedHtml(html: string): string {
+  if (typeof DOMParser === "undefined") return html;
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  let changed = false;
+
+  parsed.body.querySelectorAll("table").forEach((table) => {
+    const rows = directTableRows(table);
+    if (rows.length !== 1) return;
+    const cells = Array.from(rows[0].children).filter((cell) => {
+      const tag = cell.tagName.toLowerCase();
+      return tag === "td" || tag === "th";
+    });
+    if (cells.length !== 1) return;
+
+    const fragment = parsed.createDocumentFragment();
+    while (cells[0].firstChild) fragment.appendChild(cells[0].firstChild);
+    table.replaceWith(fragment);
+    changed = true;
+  });
+
+  return changed ? parsed.body.innerHTML : html;
+}
+
+function normalizeEditorDocForPreset(content: unknown, preset: StoryRichTextTextPreset): JSONContent {
+  const normalized = normalizeStoryDocContent(content);
+  return preset === "paragraph" ? unwrapSingleCellTablesToParagraphContent(normalized) : normalized;
+}
+
 function StoryTipTapEditorInner({
   content,
   onChange,
@@ -114,6 +163,8 @@ function StoryTipTapEditorInner({
   headingLevel,
   remountKey,
   syncGlobalToolbarSelection = false,
+  enableGlobalToolbar = true,
+  richTextBlockId,
 }: {
   content: unknown;
   onChange: (json: JSONContent) => void;
@@ -138,16 +189,22 @@ function StoryTipTapEditorInner({
    * formatting bar to this instance (focus + notify) whenever story chrome selects this rich-text block.
    */
   syncGlobalToolbarSelection?: boolean;
+  /** Inspector editors can opt out so their own inline toolbar stays visible. */
+  enableGlobalToolbar?: boolean;
+  richTextBlockId?: string;
 }) {
   const canvasTone = useStoryTipTapCanvasTone();
   const tiptapChrome = useStoryTiptapActiveEditorOptional();
-  const useGlobalToolbar = Boolean(tiptapChrome);
+  const useGlobalToolbar = Boolean(enableGlobalToolbar && tiptapChrome);
   /** Context value identity changes when `activeEditor` updates; keep a ref so we do not re-run mount/unmount effects and accidentally clear the active editor. */
   const tiptapChromeRef = useRef(tiptapChrome);
-  tiptapChromeRef.current = tiptapChrome;
   const listAutoFocusRef = useRef(false);
 
-  const initialDoc = useMemo(() => normalizeStoryDocContent(content), [content]);
+  useEffect(() => {
+    tiptapChromeRef.current = tiptapChrome;
+  }, [tiptapChrome]);
+
+  const initialDoc = useMemo(() => normalizeEditorDocForPreset(content, richTextPreset), [content, richTextPreset]);
 
   const storyFieldWithNodeView = useMemo(
     () =>
@@ -167,8 +224,9 @@ function StoryTipTapEditorInner({
     () =>
       createStoryTipTapExtensions(resolvedPlaceholder, {
         storyFieldExtension: storyFieldWithNodeView,
+        richTextBlockId,
       }),
-    [resolvedPlaceholder, storyFieldWithNodeView],
+    [resolvedPlaceholder, storyFieldWithNodeView, richTextBlockId],
   );
 
   const editor = useEditor(
@@ -181,9 +239,10 @@ function StoryTipTapEditorInner({
         attributes: {
           class: proseMirrorToneClass(canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle, headingLevel),
         },
+        transformPastedHTML: richTextPreset === "paragraph" ? unwrapSingleCellTablesInPastedHtml : undefined,
       },
       onUpdate: ({ editor: ed }) => {
-        onChange(ed.getJSON());
+        onChange(normalizeEditorDocForPreset(ed.getJSON(), richTextPreset));
       },
     },
     [extensions, editable, canvasTone, toolbarDensity, richTextPreset, verseSpacing, quoteStyle, headingLevel],
@@ -212,19 +271,28 @@ function StoryTipTapEditorInner({
   }, [editor, editable, richTextPreset, listVariant, content, remountKey]);
 
   useLayoutEffect(() => {
-    if (!syncGlobalToolbarSelection || !editor || !editable) return;
+    if (!useGlobalToolbar || !syncGlobalToolbarSelection || !editor || !editable) return;
     const chrome = tiptapChromeRef.current;
     if (!chrome) return;
     const id = requestAnimationFrame(() => {
       if (editor.isDestroyed) return;
+      // Don't steal focus if the user has already moved to a text input or textarea.
+      // Without this guard, quickly clicking an inspector input after selecting a block
+      // causes the RAF to fire after the input is focused, swallowing typed characters.
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable && !editor.view.dom.contains(active))
+      ) return;
       chrome.notifyEditorFocused(editor);
       editor.chain().focus().run();
     });
     return () => cancelAnimationFrame(id);
-  }, [syncGlobalToolbarSelection, editor, editable, remountKey]);
+  }, [useGlobalToolbar, syncGlobalToolbarSelection, editor, editable, remountKey]);
 
   useEffect(() => {
-    if (!editor || !editable) return;
+    if (!useGlobalToolbar || !editor || !editable) return;
     const chrome = tiptapChromeRef.current;
     if (!chrome) return;
     chrome.mountEditor(editor);
@@ -256,7 +324,7 @@ function StoryTipTapEditorInner({
       editor.off("selectionUpdate", onSelectionUpdate);
       tiptapChromeRef.current?.unmountEditor(editor);
     };
-  }, [editor, editable]);
+  }, [useGlobalToolbar, editor, editable]);
 
   useEffect(() => {
     if (!editor) return;
@@ -276,12 +344,18 @@ function StoryTipTapEditorInner({
 
   useEffect(() => {
     if (!editor) return;
-    const next = normalizeStoryDocContent(content);
+    const next = normalizeEditorDocForPreset(content, richTextPreset);
     const cur = editor.getJSON();
     if (!storyDocJsonEquals(cur, next)) {
       editor.commands.setContent(next, { emitUpdate: false });
     }
-  }, [editor, content]);
+  }, [editor, content, richTextPreset]);
+
+  useEffect(() => {
+    if (richTextPreset !== "paragraph") return;
+    const next = normalizeEditorDocForPreset(content, richTextPreset);
+    if (!storyDocJsonEquals(content, next)) onChange(next);
+  }, [content, onChange, richTextPreset]);
 
   if (!editor) {
     return (
@@ -360,6 +434,8 @@ export function StoryTipTapEditor({
   verseSpacing,
   headingLevel,
   syncGlobalToolbarSelection,
+  enableGlobalToolbar,
+  richTextBlockId,
 }: {
   editorKey: string;
   content: unknown;
@@ -375,6 +451,8 @@ export function StoryTipTapEditor({
   verseSpacing?: "compact" | "relaxed";
   headingLevel?: number;
   syncGlobalToolbarSelection?: boolean;
+  enableGlobalToolbar?: boolean;
+  richTextBlockId?: string;
 }) {
   return (
     <StoryTipTapEditorInner
@@ -393,6 +471,8 @@ export function StoryTipTapEditor({
       verseSpacing={verseSpacing}
       headingLevel={headingLevel}
       syncGlobalToolbarSelection={syncGlobalToolbarSelection}
+      enableGlobalToolbar={enableGlobalToolbar}
+      richTextBlockId={richTextBlockId}
     />
   );
 }

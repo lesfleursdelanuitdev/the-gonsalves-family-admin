@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
   allocateNewSourceXref,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/admin/changelog";
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "source", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
   const q = searchParams.get("q")?.trim() || undefined;
@@ -84,6 +86,7 @@ function optBodyString(v: unknown): string | null {
 }
 
 export const POST = withAdminAuth(async (req, user, _ctx) => {
+  await requireCan({ entity: "source", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = await req.json();
   const { title, author, abbreviation, publication, text, repositoryXref, callNumber } = body as Record<string, unknown>;

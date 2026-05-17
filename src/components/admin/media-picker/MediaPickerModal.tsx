@@ -492,6 +492,7 @@ export function MediaPickerModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-story-flow-insert-dialog
         className={cn(
           "flex max-h-[90dvh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0",
           "border-base-content/15 bg-[color-mix(in_oklch,var(--color-base-100)_88%,var(--color-warning)_12%)] shadow-xl shadow-black/20",

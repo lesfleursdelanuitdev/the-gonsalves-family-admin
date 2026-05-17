@@ -13,11 +13,13 @@ import {
 import { refreshIndividualKeyFactsDenorm } from "@/lib/admin/admin-individual-key-events";
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { refreshFamilyDivorceDenorm, refreshFamilyMarriageDenorm } from "@/lib/admin/admin-family-marriage";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { ADMIN_EVENT_DETAIL_INCLUDE } from "@/app/api/admin/events/event-admin-detail-include";
 import { ensureMediaDatePlaceFromEventIds } from "@/lib/admin/ensure-media-date-place-from-event";
 import { eventLabelFor } from "@/lib/gedcom/event-catalog-label";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "event", action: "read", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -34,6 +36,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "event", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
@@ -246,6 +249,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "event", action: "delete", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

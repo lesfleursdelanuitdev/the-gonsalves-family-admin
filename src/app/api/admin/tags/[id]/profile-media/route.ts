@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { tagMayMutate } from "@/lib/admin/tag-admin-access";
 import { gedcomMediaWithAppTagsInclude } from "@/lib/admin/gedcom-media-with-tags-include";
 
 export const PUT = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "tag", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const body = (await req.json()) as { mediaId?: unknown };
   const mediaId = typeof body.mediaId === "string" ? body.mediaId.trim() : "";
@@ -58,6 +60,7 @@ export const PUT = withAdminAuth(async (req, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "tag", action: "update", scope: "tree" });
   const { id } = await ctx.params;
 
   const tag = await prisma.tag.findFirst({

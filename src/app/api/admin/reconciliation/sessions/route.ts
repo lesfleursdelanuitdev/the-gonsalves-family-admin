@@ -4,6 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { postLibApiReconcileMergePlan } from "@/lib/admin/lib-api-export";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 function individualCount(doc: unknown): number | null {
   if (!doc || typeof doc !== "object") return null;
@@ -25,6 +26,7 @@ export const GET = withAdminAuth(async (_req) => {
 });
 
 export const POST = withAdminAuth(async (req) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
   const left = body.left;

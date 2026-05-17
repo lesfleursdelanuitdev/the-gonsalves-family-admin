@@ -3,6 +3,7 @@ import type { OpenQuestionStatus, Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import {
   archiveOpenQuestion,
   linkOpenQuestionToEntity,
@@ -19,6 +20,7 @@ function parseStatus(v: unknown): OpenQuestionStatus | undefined {
 }
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "openQuestion", action: "read", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const openQuestion = await prisma.openQuestion.findFirst({
@@ -32,6 +34,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "openQuestion", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
@@ -175,6 +178,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "openQuestion", action: "delete", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const existing = await prisma.openQuestion.findFirst({ where: { id, fileUuid } });

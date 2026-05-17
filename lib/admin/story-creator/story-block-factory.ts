@@ -15,6 +15,7 @@ import type {
   StorySplitSupportBlock,
   StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
+import { defaultStoryEmbedData, defaultStoryEmbedPresentation, defaultStoryEmbedTitle } from "@/lib/admin/story-creator/story-embed-semantics";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
 
 export function createRichTextBlock(): StoryRichTextBlock {
@@ -49,21 +50,17 @@ export function createMediaEmbedBlock(): StoryMediaBlock {
 }
 
 export function createEmbedBlock(kind: StoryGeneralEmbedKind = "document"): StoryEmbedBlock {
+  const title = defaultStoryEmbedTitle(kind);
   return {
     id: newStoryId(),
     type: "embed",
     embedKind: kind,
-    label: "Embed",
+    title,
+    label: title,
     caption: "",
-    titlePlacement: "above",
-    captionPlacement: "below",
-    layoutAlign: "center",
-    widthPreset: "medium",
-    heightPreset: "default",
-    fullWidth: false,
-    textWrap: false,
-    linkMode: "none",
-  };
+    presentation: defaultStoryEmbedPresentation(kind),
+    data: defaultStoryEmbedData(kind),
+  } as StoryEmbedBlock;
 }
 
 export function createColumnsBlock(): StoryColumnsBlock {
@@ -210,13 +207,24 @@ export function cloneColumnNestedBlock(nb: StoryColumnNestedBlock): StoryColumnN
         quoteAttribution: nb.quoteAttribution,
         quoteStyle: nb.quoteStyle,
         verseSpacing: nb.verseSpacing,
+        verseTitle: nb.verseTitle,
+        verseContent: nb.verseContent,
+        verseTitleAlign: nb.verseTitleAlign,
+        verseContentAlign: nb.verseContentAlign,
+        verseLineLayout: nb.verseLineLayout,
         headingPresetLocked: nb.headingPresetLocked,
         listPresetLocked: nb.listPresetLocked,
       };
     case "media":
       return { ...nb, id: newStoryId() };
     case "embed":
-      return { ...nb, id: newStoryId() };
+      return {
+        ...nb,
+        id: newStoryId(),
+        subject: nb.subject ? { ...nb.subject } : undefined,
+        presentation: nb.presentation ? { ...nb.presentation } : undefined,
+        data: nb.data ? structuredClone(nb.data) : undefined,
+      } as StoryColumnNestedBlock;
     case "columns":
       return {
         ...nb,
@@ -285,13 +293,24 @@ export function cloneStoryBlock(block: StoryBlock): StoryBlock {
         quoteAttribution: block.quoteAttribution,
         quoteStyle: block.quoteStyle,
         verseSpacing: block.verseSpacing,
+        verseTitle: block.verseTitle,
+        verseContent: block.verseContent,
+        verseTitleAlign: block.verseTitleAlign,
+        verseContentAlign: block.verseContentAlign,
+        verseLineLayout: block.verseLineLayout,
         headingPresetLocked: block.headingPresetLocked,
         listPresetLocked: block.listPresetLocked,
       };
     case "media":
       return { ...block, id: newStoryId() };
     case "embed":
-      return { ...block, id: newStoryId() };
+      return {
+        ...block,
+        id: newStoryId(),
+        subject: block.subject ? { ...block.subject } : undefined,
+        presentation: block.presentation ? { ...block.presentation } : undefined,
+        data: block.data ? structuredClone(block.data) : undefined,
+      } as StoryBlock;
     case "divider": {
       const pr = block.preset ?? block.variant ?? "line";
       return {

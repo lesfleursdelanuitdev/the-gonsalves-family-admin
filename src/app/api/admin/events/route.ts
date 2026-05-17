@@ -13,6 +13,7 @@ import {
   type AdminEventsStructuredFilters,
 } from "@/lib/admin/admin-events-filter";
 import { adminEventsRawConditions, adminEventsRawWhereSql } from "@/lib/admin/admin-events-raw-sql";
+import { requireCan } from "@/lib/authz/routeGuards";
 import {
   findOrCreateGedcomDate,
   findOrCreateGedcomPlace,
@@ -139,6 +140,7 @@ async function listEventsFilteredRaw(
 }
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "event", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
   const q = searchParams.get("q")?.trim() || null;
@@ -179,6 +181,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (req, user, _ctx) => {
+  await requireCan({ entity: "event", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
   const eventType = typeof body.eventType === "string" ? body.eventType.trim() : "";

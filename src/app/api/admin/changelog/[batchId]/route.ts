@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "changelog", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { batchId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

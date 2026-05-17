@@ -163,9 +163,9 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
   const [sitePublishExportable, setSitePublishExportable] = useState(() =>
     mode === "edit" && initial?.exportable !== undefined ? Boolean(initial.exportable) : false,
   );
-  const [userPublishVisibility, setUserPublishVisibility] = useState<"private" | "shared" | "public">(() => {
+  const [userPublishVisibility, setUserPublishVisibility] = useState<"private" | "followers" | "shared" | "public">(() => {
     const v = initial?.visibility;
-    if (mode === "edit" && (v === "private" || v === "shared" || v === "public")) return v;
+    if (mode === "edit" && (v === "private" || v === "followers" || v === "shared" || v === "public")) return v;
     return "private";
   });
   const [userPublishReusePolicy, setUserPublishReusePolicy] = useState<
@@ -436,7 +436,7 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
       (typeof initial?.xref === "string" && initial.xref.trim()) ||
       mediaId
     );
-  }, [mode, mediaId, file.title, file.fileRef, initial?.xref]);
+  }, [mode, mediaId, file.title, file.fileRef, initial]);
 
   return (
     <div className="space-y-6 pb-24">
@@ -1288,11 +1288,12 @@ export function MediaEditorForm(props: MediaEditorFormProps) {
                       className={selectClassName}
                       value={userPublishVisibility}
                       onChange={(e) =>
-                        setUserPublishVisibility(e.target.value as "private" | "shared" | "public")
+                        setUserPublishVisibility(e.target.value as "private" | "followers" | "shared" | "public")
                       }
                     >
-                      <option value="private">Private (only you)</option>
-                      <option value="shared">Shared (tree collaborators)</option>
+                      <option value="private">Private (followers only)</option>
+                      <option value="followers">Followers only</option>
+                      <option value="shared">Followers only (legacy)</option>
                       <option value="public">Public</option>
                     </select>
                   </div>

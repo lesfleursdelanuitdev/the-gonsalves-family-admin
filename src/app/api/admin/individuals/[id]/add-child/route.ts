@@ -7,6 +7,7 @@ import {
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 function parseBody(raw: Record<string, unknown>): AddChildWizardBody | null {
   const path = raw.path;
@@ -79,6 +80,7 @@ function parseBody(raw: Record<string, unknown>): AddChildWizardBody | null {
 }
 
 export const POST = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "individual", action: "update", scope: "tree" });
   const { id: subjectIndividualId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

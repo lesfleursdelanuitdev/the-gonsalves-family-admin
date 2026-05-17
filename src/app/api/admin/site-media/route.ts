@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { parseListParams } from "@/lib/admin/admin-list-params";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { inferAdminMediaCategory, type AdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
 import { reserveNextTreeMediaXref } from "@/lib/admin/gedcom-media-xref";
@@ -23,6 +24,7 @@ function parseMediaForm(v: unknown): "image" | "document" | "audio" | "video" | 
 }
 
 export const GET = withAdminAuth(async (request, _user, _ctx) => {
+  await requireCan({ entity: "media", action: "read", scope: "site" });
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({
     where: { gedcomFileId: fileUuid },
@@ -104,6 +106,7 @@ export const GET = withAdminAuth(async (request, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (request, user, _ctx) => {
+  await requireCan({ entity: "media", action: "create", scope: "site" });
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({
     where: { gedcomFileId: fileUuid },

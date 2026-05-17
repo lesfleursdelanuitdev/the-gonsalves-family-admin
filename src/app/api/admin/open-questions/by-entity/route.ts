@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getOpenQuestionsForEntity, isOpenQuestionEntityType } from "@/lib/admin/open-questions";
 
 export const GET = withAdminAuth(async (req) => {
+  await requireCan({ entity: "openQuestion", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
   const entityType = searchParams.get("entityType")?.trim() ?? "";

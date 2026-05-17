@@ -20,6 +20,8 @@ import type {
   StoryTableBlock,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
+import { patchStoryEmbedBlock } from "@/lib/admin/story-creator/story-embed-semantics";
+import { verseContentToTipTapDoc } from "@/lib/admin/story-creator/story-verse";
 import {
   applyHeadingLevelToRichTextDoc,
   clampStoryRichTextHeadingLevel,
@@ -145,7 +147,7 @@ function patchColumnSlotDeep(
         sb[ix] = fn(sb[ix] as StoryColumnNestedBlock) as StorySplitSupportBlock;
         return { ...nb, supporting: { ...nb.supporting, blocks: sb } };
       }
-      let splitChanged = false;
+      const splitChanged = false;
       const sbNext = nb.supporting.blocks.map((sb) => {
         return sb;
       });
@@ -173,7 +175,7 @@ export function patchEmbedInSection(
   return {
     ...sec,
     blocks: mapStoryBlocksDeep(sec.blocks, (b) =>
-      b.type === "embed" && b.id === embedId ? { ...b, ...patch } : b,
+      b.type === "embed" && b.id === embedId ? patchStoryEmbedBlock(b, patch) : b,
     ),
   };
 }
@@ -237,7 +239,19 @@ export function patchRichTextInSection(
 export type StoryRichTextMetaPatch = Partial<
   Pick<
     StoryRichTextBlock,
-    "preset" | "textPreset" | "headingLevel" | "listVariant" | "quoteAttribution" | "quoteStyle" | "verseSpacing"
+    | "preset"
+    | "textPreset"
+    | "doc"
+    | "headingLevel"
+    | "listVariant"
+    | "quoteAttribution"
+    | "quoteStyle"
+    | "verseSpacing"
+    | "verseTitle"
+    | "verseContent"
+    | "verseTitleAlign"
+    | "verseContentAlign"
+    | "verseLineLayout"
   >
 >;
 
@@ -308,6 +322,21 @@ function applyStoryRichTextMetaPatchToBlock(b: StoryRichTextBlock, merged: Story
       return { ...next, listVariant: listVariantNext, doc };
     }
     return next;
+  }
+
+  if (preset === "verse") {
+    const nextVerse: StoryRichTextBlock = {
+      ...next,
+      preset: "verse",
+      verseSpacing: next.verseSpacing ?? "relaxed",
+      verseTitleAlign: next.verseTitleAlign ?? "center",
+      verseContentAlign: next.verseContentAlign ?? "center",
+      verseLineLayout: next.verseLineLayout ?? "normal",
+    };
+    if (merged.verseContent !== undefined && merged.doc === undefined) {
+      return { ...nextVerse, doc: verseContentToTipTapDoc(merged.verseContent ?? "") };
+    }
+    return nextVerse;
   }
 
   return next;
@@ -475,7 +504,7 @@ export function patchContainerInSection(
 function patchNestedColumnsBlock(
   block: StoryColumnsBlock,
   columnsBlockId: string,
-  patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem">>,
+  patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem" | "mobileBehavior" | "advancedColumnLayoutEnabled">>,
 ): StoryColumnsBlock {
   if (block.id === columnsBlockId) return { ...block, ...patch };
   return {
@@ -500,7 +529,7 @@ function patchNestedColumnsBlock(
 export function patchColumnsInSection(
   sec: StorySection,
   columnsBlockId: string,
-  patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem">>,
+  patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem" | "mobileBehavior" | "advancedColumnLayoutEnabled">>,
 ): StorySection {
   return {
     ...sec,

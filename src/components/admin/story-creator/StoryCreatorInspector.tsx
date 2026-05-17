@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { JSONContent } from "@tiptap/core";
+import type { StoryFlowNodeSelection } from "@/features/story-creator/state/storyEditorTypes";
 import type {
   StoryBlock,
   StoryBlockDateAnnotation,
@@ -12,6 +14,7 @@ import type {
   StoryBlockWidthUnit,
   StoryColumnNestedBlock,
   StoryColumnSlot,
+  StoryColumnsMobileBehavior,
   StoryColumnsBlock,
   StoryContainerBlock,
   StoryContainerBlockProps,
@@ -22,16 +25,27 @@ import type {
   StoryBlockTextPlacement,
   StoryDocumentMetaPatch,
   StoryEmbedBlock,
-  StoryEmbedHeightPreset,
   StoryEmbedLayoutAlign,
   StoryEmbedLinkMode,
+  StoryEventEmbedData,
+  StoryFamilyGroupEmbedData,
+  StoryGalleryEmbedData,
   StoryGeneralEmbedKind,
   StoryImageMediaRef,
+  StoryMapEmbedData,
   StoryMediaBlock,
+  StoryPersonSpotlightEmbedData,
+  StoryPersonSpotlightField,
   StoryRichTextBlock,
+  StoryTreeEmbedData,
+  StoryTreeCardVariant,
+  StoryTreeCardLayout,
+  StoryTreeCompactCardSize,
+  StoryRecipeEmbedData,
   StoryDividerBlock,
   StoryDividerVariant,
   StoryRichTextTextPreset,
+  StoryVerseLineLayout,
   StoryContainerPreset,
   StoryContainerWidth,
   StorySplitContentBlock,
@@ -57,14 +71,15 @@ import { STORY_TEXT_PLACEMENT_OPTIONS } from "@/lib/admin/story-creator/story-bl
 import type { StoryDividerMetaPatch, StoryRichTextMetaPatch } from "@/lib/admin/story-creator/story-doc-mutators";
 import {
   normalizeColumnWidthPercents,
+  advancedColumnLayoutEnabled,
   resolveColumnGapRem,
   resolveColumnStackGapRem,
   resolveColumnStackJustify,
+  resolveColumnsMobileBehavior,
   resolveColumnWidthPercents,
   STORY_COLUMN_STACK_GAP_PRESETS,
   STORY_COLUMN_STACK_JUSTIFY_PRESETS,
   STORY_COLUMNS_GAP_PRESETS,
-  STORY_COLUMNS_WIDTH_PRESETS,
 } from "@/lib/admin/story-creator/story-columns-layout";
 import { MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import { resolveContainerVisualProps } from "@/lib/admin/story-creator/story-container-preset-styles";
@@ -83,6 +98,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -91,7 +107,11 @@ import { Label } from "@/components/ui/label";
 import { IndividualSearchPicker } from "@/components/admin/IndividualSearchPicker";
 import { FamilySearchPicker } from "@/components/admin/FamilySearchPicker";
 import { EventPicker } from "@/components/admin/EventPicker";
+import { EventPickerModal } from "@/components/admin/EventPickerModal";
+import { TagsPicker } from "@/components/admin/TagsPicker";
+import { AlbumsPicker } from "@/components/admin/AlbumsPicker";
 import { formatNoteEventPickerLabel } from "@/lib/forms/note-event-picker-label";
+import { displayTagName } from "@/lib/admin/display-tag-name";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { familyUnionPrimaryLine } from "@/lib/gedcom/family-search-display";
 import { CollapsibleFormSection } from "@/components/admin/individual-editor/CollapsibleFormSection";
@@ -113,19 +133,14 @@ import { toast } from "sonner";
 import { StoryBlockInspector } from "@/components/admin/story-creator/inspector/StoryBlockInspector";
 import { StorySettingsInspector } from "@/components/admin/story-creator/inspector/StorySettingsInspector";
 import { StoryDebugInspector } from "@/components/admin/story-creator/inspector/StoryDebugInspector";
+import { StoryCaptionRichTextEditor } from "@/components/admin/story-creator/StoryCaptionRichText";
+import { StoryTipTapEditor } from "@/components/admin/story-creator/StoryTipTapEditor";
+import { verseTextFromTipTapDoc } from "@/lib/admin/story-creator/story-verse";
 
 export type StoryInspectorTab = "block" | "story" | "debug";
 
 /** `sidebar`: desktop right rail. `sheet-block` / `sheet-story`: mobile full-width panels without tab chrome. */
 export type StoryInspectorLayout = "sidebar" | "sheet-block" | "sheet-story";
-
-const HEIGHT_OPTIONS: { value: StoryEmbedHeightPreset; label: string; hint: string }[] = [
-  { value: "auto", label: "Auto", hint: "Full aspect, no cap" },
-  { value: "compact", label: "Compact", hint: "Short" },
-  { value: "default", label: "Default", hint: "Medium" },
-  { value: "tall", label: "Tall", hint: "Large" },
-  { value: "hero", label: "Hero", hint: "Up to ~75vh" },
-];
 
 const LINK_OPTIONS: { value: StoryEmbedLinkMode; label: string }[] = [
   { value: "none", label: "None" },
@@ -133,10 +148,206 @@ const LINK_OPTIONS: { value: StoryEmbedLinkMode; label: string }[] = [
   { value: "new_tab", label: "New tab" },
 ];
 
-const OTHER_EMBED_KINDS: StoryGeneralEmbedKind[] = ["document", "timeline", "map", "tree", "graph"];
+const OTHER_EMBED_KINDS: StoryGeneralEmbedKind[] = [
+  "document",
+  "timeline",
+  "map",
+  "tree",
+  "graph",
+  "gallery",
+  "personSpotlight",
+  "familyGroup",
+  "event",
+  "recipe",
+];
 
+const TREE_CHART_TYPES: NonNullable<StoryTreeEmbedData["chartType"]>[] = ["pedigree", "verticalPedigree", "descendancy", "fan"];
+const PERSON_SPOTLIGHT_FIELDS: StoryPersonSpotlightField[] = [
+  "profileImage",
+  "name",
+  "birthDate",
+  "deathDate",
+  "age",
+  "lifespan",
+  "birthPlace",
+  "deathPlace",
+  "parents",
+  "spouses",
+  "children",
+  "custom",
+];
+const GALLERY_SOURCE_TYPES: StoryGalleryEmbedData["sourceType"][] = ["album", "personMedia", "familyMedia", "eventMedia", "tag", "custom"];
+const MAP_MODES: NonNullable<StoryMapEmbedData["mapMode"]>[] = ["events", "lifeRoute", "familyMigration", "custom"];
+
+const EMBED_KIND_LABELS: Record<StoryGeneralEmbedKind, string> = {
+  document: "Document",
+  timeline: "Timeline",
+  map: "Map",
+  tree: "Family tree",
+  graph: "Graph",
+  gallery: "Photo gallery",
+  personSpotlight: "Person spotlight",
+  familyGroup: "Family group",
+  event: "Event",
+  recipe: "Recipe",
+};
+
+const TREE_CHART_TYPE_LABELS: Record<NonNullable<StoryTreeEmbedData["chartType"]>, string> = {
+  pedigree: "Pedigree",
+  verticalPedigree: "Vertical pedigree",
+  descendancy: "Descendants",
+  fan: "Fan chart",
+};
+
+const TREE_CARD_VARIANTS: StoryTreeCardVariant[] = ["full", "compact-name", "compact-avatar"];
+const TREE_CARD_VARIANT_LABELS: Record<StoryTreeCardVariant, string> = {
+  full: "Full",
+  "compact-name": "Name only",
+  "compact-avatar": "Name + avatar",
+};
+
+const TREE_CARD_LAYOUTS: StoryTreeCardLayout[] = [
+  "avatarTopActionsBottom",
+  "avatarLeftActionsRight",
+  "avatarLeftActionsBottom",
+  "avatarTopActionsRight",
+  "avatarTopMobileMenu",
+  "avatarLeftMobileMenu",
+];
+const TREE_CARD_LAYOUT_LABELS: Record<StoryTreeCardLayout, string> = {
+  avatarTopActionsBottom: "Avatar top · Actions bottom",
+  avatarLeftActionsRight: "Avatar left · Actions right",
+  avatarLeftActionsBottom: "Avatar left · Actions bottom",
+  avatarTopActionsRight: "Avatar top · Actions right",
+  avatarTopMobileMenu: "Avatar top · Menu",
+  avatarLeftMobileMenu: "Avatar left · Menu",
+};
+
+const TREE_COMPACT_SIZES: StoryTreeCompactCardSize[] = ["large", "medium", "small", "extra-small"];
+const TREE_COMPACT_SIZE_LABELS: Record<StoryTreeCompactCardSize, string> = {
+  large: "Large",
+  medium: "Medium",
+  small: "Small",
+  "extra-small": "Extra small",
+};
+
+const PERSON_SPOTLIGHT_FIELD_LABELS: Record<StoryPersonSpotlightField, string> = {
+  profileImage: "Profile photo",
+  name: "Full name",
+  birthDate: "Birth date",
+  deathDate: "Death date",
+  age: "Age",
+  lifespan: "Lifespan",
+  birthPlace: "Birth place",
+  deathPlace: "Death place",
+  parents: "Parents",
+  spouses: "Spouses",
+  children: "Children",
+  custom: "Custom fields",
+};
+
+const GALLERY_SOURCE_TYPE_LABELS: Record<StoryGalleryEmbedData["sourceType"], string> = {
+  album: "Album",
+  personMedia: "Person's photos",
+  familyMedia: "Family photos",
+  eventMedia: "Event photos",
+  tag: "Tagged photos",
+  custom: "Custom selection",
+};
+
+const MAP_MODE_LABELS: Record<NonNullable<StoryMapEmbedData["mapMode"]>, string> = {
+  events: "Events",
+  lifeRoute: "Life route",
+  familyMigration: "Family migration",
+  custom: "Custom",
+};
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/50">{children}</p>;
+}
+
+type CustomField = NonNullable<StoryPersonSpotlightEmbedData["customFields"]>[number];
+
+function CustomFieldsEditor({
+  customFields,
+  onChange,
+}: {
+  customFields: CustomField[];
+  onChange: (fields: CustomField[]) => void;
+}) {
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftValue, setDraftValue] = useState("");
+
+  const canAdd = draftLabel.trim().length > 0;
+
+  const handleAdd = () => {
+    if (!canAdd) return;
+    onChange([...customFields, { label: draftLabel.trim(), value: draftValue.trim() || undefined }]);
+    setDraftLabel("");
+    setDraftValue("");
+  };
+
+  return (
+    <div className="mt-4 rounded-lg border border-base-content/12 bg-base-100 p-3">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">Custom fields</p>
+
+      {customFields.length > 0 ? (
+        <div className="mb-3 space-y-1.5">
+          {customFields.map((cf, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/40 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-medium text-base-content">{cf.label}</span>
+                {cf.value ? (
+                  <span className="ml-2 text-xs text-base-content/55">{cf.value}</span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="shrink-0 rounded p-0.5 text-base-content/40 hover:bg-error/10 hover:text-error"
+                onClick={() => onChange(customFields.filter((_, j) => j !== i))}
+                aria-label={`Remove ${cf.label}`}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mb-3 text-xs text-base-content/45">No custom fields yet.</p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="mb-1 text-xs text-base-content/50">Label</p>
+          <input
+            className="input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100"
+            placeholder="e.g. Occupation"
+            value={draftLabel}
+            onChange={(e) => setDraftLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-base-content/50">Value</p>
+          <input
+            className="input input-bordered input-sm w-full rounded-lg border-base-content/12 bg-base-100"
+            placeholder="e.g. Schoolteacher"
+            value={draftValue}
+            onChange={(e) => setDraftValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={!canAdd}
+        onClick={handleAdd}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-base-content/15 bg-base-200/50 px-2.5 py-1 text-xs font-medium text-base-content/70 hover:bg-base-200 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Plus className="size-3" />
+        Add field
+      </button>
+    </div>
+  );
 }
 
 function basenameFromFileRef(ref: string | null | undefined): string | undefined {
@@ -202,10 +413,21 @@ function nestedBlockSummary(nb: StoryColumnNestedBlock): string {
   return `Embed (${nb.embedKind})`;
 }
 
+function nestedBlockShortSummary(nb: StoryColumnNestedBlock): string {
+  if (nb.type === "richText") return "Text";
+  if (nb.type === "media") return "Media";
+  if (nb.type === "columns") return "Columns";
+  if (nb.type === "container") return "Container";
+  if (nb.type === "table") return "Table";
+  if (nb.type === "splitContent") return "Split";
+  return "Embed";
+}
+
 function columnSlotSummary(slot: StoryColumnsBlock["columns"][0]): string {
   const n = slot.blocks.length;
   if (n === 0) return "Empty";
   if (n === 1) return nestedBlockSummary(slot.blocks[0]!);
+  if (n === 2) return `${nestedBlockShortSummary(slot.blocks[0]!)} + ${nestedBlockShortSummary(slot.blocks[1]!)}`;
   return `${n} blocks`;
 }
 
@@ -218,179 +440,387 @@ export function ColumnsLayoutInspector({
   nestingDepth,
   onPatch,
   onPatchColumnSlot,
+  onEditColumnContent,
+  onPatchBlockDateAnnotation,
+  onDeleteBlock,
   touchComfort,
 }: {
   block: StoryColumnsBlock;
   /** 1 = section-level columns, 2 = columns inside a column. */
   nestingDepth: number;
-  onPatch: (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem">>) => void;
+  onPatch: (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem" | "mobileBehavior" | "advancedColumnLayoutEnabled">>) => void;
   onPatchColumnSlot: (columnIndex: 0 | 1, patch: Partial<Pick<StoryColumnSlot, "stackJustify" | "stackGapRem">>) => void;
+  onEditColumnContent?: (columnIndex: 0 | 1) => void;
+  onPatchBlockDateAnnotation?: (next: { dateAnnotations?: StoryBlockDateAnnotation[]; placeAnnotations?: StoryBlockPlaceAnnotation[] }) => void;
+  onDeleteBlock?: () => void;
   touchComfort?: boolean;
 }) {
   const [w0, w1] = resolveColumnWidthPercents(block);
   const gapRem = resolveColumnGapRem(block);
+  const mobileBehavior = resolveColumnsMobileBehavior(block);
+  const [contextPanel, setContextPanel] = useState<"datesPlaces" | null>(null);
   const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
   const current: [number, number] = [w0, w1];
+  const advancedColumnLayout = advancedColumnLayoutEnabled(block);
+  const sharedStackGap = resolveColumnStackGapRem(block.columns[0]);
+  const chipBtn = (active: boolean) =>
+    cn(
+      "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
+      chip,
+      active
+        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+    );
+  const widthPresets: { label: string; percents: [number, number] }[] = [
+    { label: "Equal", percents: [50, 50] },
+    { label: "Left wide", percents: [60, 40] },
+    { label: "Right wide", percents: [40, 60] },
+    { label: "Left feature", percents: [67, 33] },
+    { label: "Right feature", percents: [33, 67] },
+    { label: "Left narrow", percents: [25, 75] },
+    { label: "Right narrow", percents: [75, 25] },
+  ];
+  const mobileOptions: { label: string; value: StoryColumnsMobileBehavior }[] = [
+    { label: "Stack left first", value: "stackLeftFirst" },
+    { label: "Stack right first", value: "stackRightFirst" },
+    { label: "Keep side by side", value: "keepSideBySide" },
+  ];
+  const applySharedStackGap = (gap: number) => {
+    onPatchColumnSlot(0, { stackGapRem: gap });
+    onPatchColumnSlot(1, { stackGapRem: gap });
+  };
+  const dateCount = (block.dateAnnotations?.length ?? 0) + (block.dateAnnotations?.length ? 0 : block.dateAnnotation ? 1 : 0);
+  const placeCount = block.placeAnnotations?.length ?? 0;
+  const contextRows: Array<{ label: string; count: number; enabled: boolean }> = [
+    { label: "People", count: 0, enabled: false },
+    { label: "Families", count: 0, enabled: false },
+    { label: "Events", count: 0, enabled: false },
+    { label: "Places", count: placeCount, enabled: true },
+    { label: "Dates", count: dateCount, enabled: true },
+    { label: "Notes / Keywords", count: 0, enabled: false },
+  ];
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-base-content/10 bg-base-200/25 px-3 py-2 text-xs leading-relaxed text-base-content/70">
-        <span className="font-semibold text-base-content/85">Nesting depth:</span> {nestingDepth} of{" "}
-        {MAX_STORY_COLUMNS_NEST_DEPTH}
-        {nestingDepth >= MAX_STORY_COLUMNS_NEST_DEPTH ? (
-          <span className="mt-1 block text-[11px] text-base-content/55">
-            Nested columns are limited to 2 levels — you cannot add another columns block inside this layout.
+    <div className="space-y-4">
+      <div className="rounded-xl border border-base-content/10 bg-base-100/50 p-4 shadow-sm ring-1 ring-base-content/[0.03]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Columns</p>
+            <h3 className="mt-1 text-sm font-semibold text-base-content">Display content in side-by-side columns.</h3>
+          </div>
+          <span className="rounded-full border border-base-content/10 bg-base-200/50 px-2.5 py-1 text-[11px] font-semibold text-base-content/60">
+            Depth {nestingDepth} of {MAX_STORY_COLUMNS_NEST_DEPTH}
           </span>
-        ) : null}
+        </div>
       </div>
 
-      <CollapsibleFormSection title="How columns work" defaultOpen={false}>
-        <p className="text-sm leading-relaxed text-base-content/70">
-          Widths are stored as a percentage split and rendered with CSS{" "}
-          <code className="rounded bg-base-200/80 px-1 py-0.5 text-[11px]">fr</code> tracks so the gutter does not skew
-          the ratio. Gap uses <code className="rounded bg-base-200/80 px-1 py-0.5 text-[11px]">rem</code>.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-base-content/70">
-          <strong className="font-medium text-base-content/85">Stack inside each column:</strong> vertical alignment and
-          block spacing control how nested blocks sit when a column is taller than its content (via{" "}
-          <code className="rounded bg-base-200/80 px-1 py-0.5 text-[11px]">justify-content</code> on the column flex
-          stack).
-        </p>
+      <CollapsibleFormSection title="Summary" defaultOpen>
+        <p className="mb-3 text-xs leading-relaxed text-base-content/55">Two side-by-side content areas.</p>
+        <div className="overflow-hidden rounded-lg border border-base-content/10 bg-base-200/30 text-[11px] font-semibold text-base-content/70">
+          <div className="flex h-9">
+            <div className="flex items-center justify-center bg-primary/15 text-primary" style={{ width: `${w0}%` }}>
+              Left {w0}%
+            </div>
+            <div className="flex items-center justify-center bg-base-100/80" style={{ width: `${w1}%` }}>
+              Right {w1}%
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 text-sm">
+          <p>
+            <span className="font-semibold text-base-content">Left:</span>{" "}
+            <span className="text-base-content/70">{columnSlotSummary(block.columns[0])}</span>
+          </p>
+          <p>
+            <span className="font-semibold text-base-content">Right:</span>{" "}
+            <span className="text-base-content/70">{columnSlotSummary(block.columns[1])}</span>
+          </p>
+        </div>
       </CollapsibleFormSection>
 
       <CollapsibleFormSection title="Layout" defaultOpen>
-        <div>
-          <FieldLabel>Width presets</FieldLabel>
-          <div className="flex flex-wrap gap-2">
-            {STORY_COLUMNS_WIDTH_PRESETS.map((preset) => {
-              const active = splitMatchesCurrent(current, preset.percents);
-              return (
-                <Button
-                  key={preset.label}
-                  type="button"
-                  size="sm"
-                  variant={active ? "default" : "outline"}
-                  className={cn("rounded-lg font-medium", chip, active && "shadow-sm")}
-                  onClick={() => onPatch({ columnWidthPercents: normalizeColumnWidthPercents(preset.percents) })}
-                >
-                  {preset.label}
-                </Button>
-              );
-            })}
-          </div>
+        <FieldLabel>Column width balance</FieldLabel>
+        <div className="grid grid-cols-2 gap-2">
+          {widthPresets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              className={chipBtn(splitMatchesCurrent(current, preset.percents))}
+              onClick={() => onPatch({ columnWidthPercents: normalizeColumnWidthPercents(preset.percents) })}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
-
-        <div>
-          <FieldLabel>Custom split</FieldLabel>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={15}
-              max={85}
-              step={1}
-              value={w0}
-              className="range range-primary range-sm min-w-0 flex-1"
-              aria-valuetext={`Column 1: ${w0}%, column 2: ${w1}%`}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                if (!Number.isFinite(next)) return;
-                onPatch({ columnWidthPercents: normalizeColumnWidthPercents([next, 100 - next]) });
-              }}
-            />
-            <span className="shrink-0 tabular-nums text-sm font-semibold text-base-content">
-              {w0}% · {w1}%
-            </span>
+        <div className="mt-4">
+          <FieldLabel>Custom balance</FieldLabel>
+          <div className="mb-2 text-xs font-medium text-base-content/60">
+            Left {w0}% · Right {w1}%
           </div>
+          <input
+            type="range"
+            min={15}
+            max={85}
+            step={1}
+            value={w0}
+            className="range range-primary range-sm w-full"
+            aria-valuetext={`Left ${w0}%, right ${w1}%`}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (!Number.isFinite(next)) return;
+              onPatch({ columnWidthPercents: normalizeColumnWidthPercents([next, 100 - next]) });
+            }}
+          />
         </div>
+      </CollapsibleFormSection>
 
+      <CollapsibleFormSection title="Spacing" defaultOpen>
         <div>
           <FieldLabel>Gap between columns</FieldLabel>
           <div className="flex flex-wrap gap-2">
-            {STORY_COLUMNS_GAP_PRESETS.map((preset) => {
-              const active = Math.abs(gapRem - preset.gapRem) < 0.05;
-              return (
-                <Button
-                  key={preset.label}
-                  type="button"
-                  size="sm"
-                  variant={active ? "default" : "outline"}
-                  className={cn("rounded-lg font-medium", chip)}
-                  onClick={() => onPatch({ columnGapRem: preset.gapRem })}
-                >
-                  {preset.label}
-                  <span className="ml-1.5 text-[10px] font-normal opacity-70">({preset.gapRem}rem)</span>
-                </Button>
-              );
-            })}
+            {STORY_COLUMNS_GAP_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className={chipBtn(Math.abs(gapRem - preset.gapRem) < 0.05)}
+                onClick={() => onPatch({ columnGapRem: preset.gapRem })}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <FieldLabel>Spacing inside columns</FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {STORY_COLUMN_STACK_GAP_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className={chipBtn(Math.abs(sharedStackGap - preset.gapRem) < 0.05)}
+                onClick={() => applySharedStackGap(preset.gapRem)}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </div>
       </CollapsibleFormSection>
 
-      {([0, 1] as const).map((colIdx) => {
-        const slot = block.columns[colIdx];
-        const justify = resolveColumnStackJustify(slot);
-        const stackGap = resolveColumnStackGapRem(slot);
-        return (
-          <CollapsibleFormSection key={slot.id} title={`Column ${colIdx + 1}`} defaultOpen>
-            <div>
-              <FieldLabel>Vertical alignment</FieldLabel>
-              <div className="flex flex-wrap gap-2">
-                {STORY_COLUMN_STACK_JUSTIFY_PRESETS.map((preset) => {
-                  const active = justify === preset.value;
-                  return (
-                    <Button
-                      key={`${colIdx}-${preset.value}`}
-                      type="button"
-                      size="sm"
-                      variant={active ? "default" : "outline"}
-                      title={preset.hint}
-                      className={cn("rounded-lg font-medium", chip, active && "shadow-sm")}
-                      onClick={() => onPatchColumnSlot(colIdx, { stackJustify: preset.value })}
-                    >
-                      {preset.label}
-                    </Button>
-                  );
-                })}
-              </div>
+      <CollapsibleFormSection title="Contents" defaultOpen>
+        <div className="grid gap-3">
+          {([0, 1] as const).map((colIdx) => (
+            <ColumnContentsCard
+              key={block.columns[colIdx].id}
+              slot={block.columns[colIdx]}
+              label={colIdx === 0 ? "Left Column" : "Right Column"}
+              onEdit={() => onEditColumnContent?.(colIdx)}
+            />
+          ))}
+        </div>
+      </CollapsibleFormSection>
+
+      <CollapsibleFormSection title="Mobile Behavior" defaultOpen>
+        <p className="mb-3 text-xs leading-relaxed text-base-content/55">When the screen is narrow:</p>
+        <div className="grid gap-2">
+          {mobileOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={chipBtn(mobileBehavior === option.value)}
+              onClick={() => onPatch({ mobileBehavior: option.value })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </CollapsibleFormSection>
+
+      <CollapsibleFormSection title="Block Context" defaultOpen={false}>
+        <p className="mb-3 text-xs leading-relaxed text-base-content/55">
+          Hidden context for this block. Used by timelines, maps, search, and related-content views. This does not appear
+          directly in the story.
+        </p>
+        <div className="divide-y divide-base-content/10 rounded-lg border border-base-content/10 bg-base-100/50">
+          {contextRows.map(({ label, count, enabled }) => (
+            <div key={label} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+              <span className="min-w-0 flex-1 font-medium text-base-content">{label}</span>
+              <span className="text-xs font-semibold tabular-nums text-base-content/55">{count}</span>
+              {enabled ? (
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-primary hover:underline"
+                  onClick={() => setContextPanel((cur) => (cur === "datesPlaces" ? null : "datesPlaces"))}
+                >
+                  Manage
+                </button>
+              ) : (
+                <span className="rounded-full bg-base-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-base-content/45">
+                  Soon
+                </span>
+              )}
             </div>
-            <div>
-              <FieldLabel>Space between blocks</FieldLabel>
-              <div className="flex flex-wrap gap-2">
-                {STORY_COLUMN_STACK_GAP_PRESETS.map((preset) => {
-                  const active = Math.abs(stackGap - preset.gapRem) < 0.05;
-                  return (
-                    <Button
-                      key={`${colIdx}-gap-${preset.label}`}
-                      type="button"
-                      size="sm"
-                      variant={active ? "default" : "outline"}
-                      className={cn("rounded-lg font-medium", chip)}
-                      onClick={() => onPatchColumnSlot(colIdx, { stackGapRem: preset.gapRem })}
-                    >
-                      {preset.label}
-                      <span className="ml-1.5 text-[10px] font-normal opacity-70">({preset.gapRem}rem)</span>
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="rounded-lg border border-base-content/10 bg-base-200/25 px-3 py-2.5">
-              <FieldLabel>Contents</FieldLabel>
-              <div className="mt-1 flex items-center justify-between gap-2 text-sm font-medium text-base-content">
-                <span className="min-w-0 truncate">{columnSlotSummary(slot)}</span>
-                <ChevronRight className="size-4 shrink-0 text-base-content/35" aria-hidden />
-              </div>
-            </div>
-          </CollapsibleFormSection>
-        );
-      })}
+          ))}
+        </div>
+        {contextPanel === "datesPlaces" && onPatchBlockDateAnnotation ? (
+          <div className="mt-3">
+            <BlockDateAnnotationInspector
+              title="Manage dates and places"
+              defaultOpen
+              dateAnnotations={block.dateAnnotations}
+              legacyDateAnnotation={block.dateAnnotation}
+              placeAnnotations={block.placeAnnotations}
+              onCommit={onPatchBlockDateAnnotation}
+              touchComfort={touchComfort}
+            />
+          </div>
+        ) : null}
+      </CollapsibleFormSection>
 
       <CollapsibleFormSection title="Advanced" defaultOpen={false}>
-        <p className="text-sm leading-relaxed text-base-content/70">
-          On narrow viewports the editor stacks the two columns vertically (column 1 first, then column 2). There are no
-          separate mobile-only column settings in the document yet; alignment and gaps above apply in both layouts.
-        </p>
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-base-content/10 bg-base-100/50 p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary"
+            checked={advancedColumnLayout}
+            onChange={(e) => onPatch({ advancedColumnLayoutEnabled: e.target.checked })}
+          />
+          <span>
+            <span className="font-medium text-base-content">Customize each column separately</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-base-content/55">
+              Enable per-column spacing and vertical alignment overrides.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-lg border border-base-content/10 bg-base-100/40 p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-base-content/35 bg-base-100 accent-primary"
+            checked
+            readOnly
+          />
+          <span>
+            <span className="font-medium text-base-content">Equal height columns</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-base-content/55">
+              Columns already share the same row height in the editor and preview.
+            </span>
+          </span>
+        </label>
+        {advancedColumnLayout ? (
+          <div className="space-y-3">
+            {([0, 1] as const).map((colIdx) => {
+              const slot = block.columns[colIdx];
+              const justify = resolveColumnStackJustify(slot);
+              const stackGap = resolveColumnStackGapRem(slot);
+              return (
+                <div key={slot.id} className="space-y-3 rounded-lg border border-base-content/10 bg-base-100/50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">
+                    {colIdx === 0 ? "Left column" : "Right column"}
+                  </p>
+                  <div>
+                    <FieldLabel>Vertical alignment</FieldLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {STORY_COLUMN_STACK_JUSTIFY_PRESETS.map((preset) => (
+                        <button
+                          key={`${colIdx}-${preset.value}`}
+                          type="button"
+                          title={preset.hint}
+                          className={chipBtn(justify === preset.value)}
+                          onClick={() => onPatchColumnSlot(colIdx, { stackJustify: preset.value })}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLabel>Space between blocks</FieldLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {STORY_COLUMN_STACK_GAP_PRESETS.map((preset) => (
+                        <button
+                          key={`${colIdx}-gap-${preset.label}`}
+                          type="button"
+                          className={chipBtn(Math.abs(stackGap - preset.gapRem) < 0.05)}
+                          onClick={() => onPatchColumnSlot(colIdx, { stackGapRem: preset.gapRem })}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </CollapsibleFormSection>
+
+      {onDeleteBlock ? (
+        <div className="border-t border-base-content/10 pt-4">
+          <CollapsibleFormSection title="Danger Zone" defaultOpen={false}>
+            <p className="mb-3 text-xs leading-relaxed text-base-content/55">Delete columns block. This action cannot be undone.</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                "w-full gap-2 rounded-lg border-error/40 font-medium text-error hover:border-error/55 hover:bg-error/10",
+                touchComfort ? "min-h-[44px] h-11" : "h-10",
+              )}
+              onClick={onDeleteBlock}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Delete
+            </Button>
+          </CollapsibleFormSection>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ColumnContentsCard({
+  slot,
+  label,
+  onEdit,
+}: {
+  slot: StoryColumnSlot;
+  label: string;
+  onEdit?: () => void;
+}) {
+  const only = slot.blocks.length === 1 ? slot.blocks[0] : null;
+  const mediaId = only?.type === "media" ? only.mediaId : undefined;
+  const { data } = useStoryMediaById(mediaId);
+  const thumb =
+    data?.fileRef != null && data.fileRef !== ""
+      ? mediaThumbSrc(data.fileRef, data.form, 96) ?? resolveMediaImageSrc(data.fileRef)
+      : null;
+  return (
+    <div className="rounded-xl border border-base-content/10 bg-base-100/55 p-3 shadow-sm ring-1 ring-base-content/[0.03]">
+      <div className="flex items-start gap-3">
+        {thumb ? (
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-base-content/10 bg-base-200/40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={thumb} alt="" className="size-full object-cover" />
+          </div>
+        ) : (
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-base-content/10 bg-base-200/40">
+            <ImageIcon className="size-5 text-base-content/35" aria-hidden />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-base-content">{label}</p>
+          <p className="mt-1 text-xs leading-relaxed text-base-content/60">Contains: {columnSlotSummary(slot)}</p>
+          <button
+            type="button"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:pointer-events-none disabled:opacity-45"
+            onClick={onEdit}
+            disabled={!onEdit}
+          >
+            {slot.blocks.length === 0 ? "Add content" : "Edit contents"} <ChevronRight className="size-3.5" aria-hidden />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -399,6 +829,7 @@ export const STORY_KIND_OPTIONS: { value: StoryDocumentKind; label: string; hint
   { value: "story", label: "Story", hint: "Narrative, chapter-led family story." },
   { value: "article", label: "Article", hint: "Long-form article layout and tone." },
   { value: "post", label: "Post", hint: "Shorter update or blog-style post." },
+  { value: "folklore", label: "Folklore", hint: "Legends, sayings, oral history, and family lore." },
 ];
 
 export function tagsToCommaInput(tags: string[] | undefined): string {
@@ -1179,8 +1610,9 @@ function StoryInspectorSheetStoryOrDebug({
   touchComfort?: boolean;
   className?: string;
 }) {
-  const [sub, setSub] = useState<"story" | "debug">("story");
-  useEffect(() => setSub("story"), [storyId]);
+  const [subState, setSubState] = useState<{ storyId: string; sub: "story" | "debug" }>(() => ({ storyId, sub: "story" }));
+  const sub = subState.storyId === storyId ? subState.sub : "story";
+  const setSub = (next: "story" | "debug") => setSubState({ storyId, sub: next });
 
   return (
     <div className={cn("flex min-h-0 w-full flex-1 flex-col bg-base-200/45", className)}>
@@ -1400,7 +1832,7 @@ export function StoryBlockDesignInspector({
         </p>
         <textarea
           className={cn(
-            "textarea textarea-bordered textarea-sm mt-1 w-full resize-y rounded-lg border-base-content/12 bg-base-100 font-mono text-xs leading-relaxed text-neutral-900 placeholder:text-neutral-500",
+            "textarea textarea-bordered textarea-sm mt-1 w-full resize-y rounded-lg border-base-content/12 bg-base-100 font-mono text-xs leading-relaxed text-base-content placeholder:text-base-content/45",
             taMin,
           )}
           value={design?.css ?? ""}
@@ -1424,12 +1856,16 @@ export function StoryBlockDesignInspector({
 }
 
 export function BlockDateAnnotationInspector({
+  title = "Date & Place Annotation",
+  defaultOpen = false,
   dateAnnotations,
   legacyDateAnnotation,
   placeAnnotations,
   onCommit,
   touchComfort,
 }: {
+  title?: string;
+  defaultOpen?: boolean;
   dateAnnotations?: StoryBlockDateAnnotation[];
   legacyDateAnnotation?: StoryBlockDateAnnotation;
   placeAnnotations?: StoryBlockPlaceAnnotation[];
@@ -1437,32 +1873,57 @@ export function BlockDateAnnotationInspector({
   touchComfort?: boolean;
 }) {
   const controlH = touchComfort ? "h-11 min-h-[44px]" : "h-10";
-  const [dates, setDates] = useState<Array<{ id: string; date: string; dateDisplay: string; endDate: string }>>([]);
-  const [places, setPlaces] = useState<Array<{ id: string; label: string; placeId: string }>>([]);
+  type DateDraft = { id: string; date: string; dateDisplay: string; endDate: string };
+  type PlaceDraft = { id: string; label: string; placeId: string };
 
-  useEffect(() => {
+  const initialAnnotationState = useMemo((): { sourceKey: string; dates: DateDraft[]; places: PlaceDraft[] } => {
     const incomingDates =
       dateAnnotations && dateAnnotations.length > 0
         ? dateAnnotations
         : legacyDateAnnotation
           ? [legacyDateAnnotation]
           : [];
-    setDates(
-      incomingDates.map((a) => ({
+    return {
+      sourceKey: JSON.stringify({ dates: incomingDates, places: placeAnnotations ?? [] }),
+      dates: incomingDates.map((a) => ({
         id: newStoryId(),
         date: a.date ?? "",
         dateDisplay: a.dateDisplay ?? "",
         endDate: a.endDate ?? "",
       })),
-    );
-    setPlaces(
-      (placeAnnotations ?? []).map((p) => ({
+      places: (placeAnnotations ?? []).map((p) => ({
         id: newStoryId(),
         label: p.label ?? "",
         placeId: p.placeId ?? "",
       })),
-    );
+    };
   }, [dateAnnotations, legacyDateAnnotation, placeAnnotations]);
+  const [annotationState, setAnnotationState] = useState(() => initialAnnotationState);
+  const activeAnnotationState = annotationState.sourceKey === initialAnnotationState.sourceKey ? annotationState : initialAnnotationState;
+  const dates = activeAnnotationState.dates;
+  const places = activeAnnotationState.places;
+
+  const setDates = useCallback(
+    (next: DateDraft[] | ((cur: DateDraft[]) => DateDraft[])) => {
+      setAnnotationState((prev) => {
+        const base = prev.sourceKey === initialAnnotationState.sourceKey ? prev : initialAnnotationState;
+        const datesNext = typeof next === "function" ? next(base.dates) : next;
+        return { ...base, dates: datesNext };
+      });
+    },
+    [initialAnnotationState],
+  );
+
+  const setPlaces = useCallback(
+    (next: PlaceDraft[] | ((cur: PlaceDraft[]) => PlaceDraft[])) => {
+      setAnnotationState((prev) => {
+        const base = prev.sourceKey === initialAnnotationState.sourceKey ? prev : initialAnnotationState;
+        const placesNext = typeof next === "function" ? next(base.places) : next;
+        return { ...base, places: placesNext };
+      });
+    },
+    [initialAnnotationState],
+  );
 
   const flush = useCallback(() => {
     const nextDates = dates
@@ -1490,7 +1951,7 @@ export function BlockDateAnnotationInspector({
     setPlaces((cur) => cur.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
   return (
-    <CollapsibleFormSection title="Date & Place Annotation" defaultOpen={false}>
+    <CollapsibleFormSection title={title} defaultOpen={defaultOpen}>
       <p className="mb-3 text-xs leading-relaxed text-base-content/55">
         Add one or more timeline markers. Use ISO 8601 dates (for example <span className="font-mono">1887-03-14</span>)
         and a human-readable label.
@@ -1646,6 +2107,12 @@ export function RichTextBlockInspector({
   const preset = getStoryRichTextPreset(block);
   const controlH = touchComfort ? "min-h-11 h-11" : "h-10";
   const chip = touchComfort ? "min-h-11 px-3 text-sm" : "h-9 px-2.5 text-xs";
+  const rowLayout = effectiveRowLayoutForRichText(block.rowLayout);
+  const alignmentOptions: StoryBlockRowAlignment[] = ["left", "center", "right"];
+  const lineLayoutOptions: { value: StoryVerseLineLayout; label: string }[] = [
+    { value: "normal", label: "Normal" },
+    { value: "staggered", label: "Staggered" },
+  ];
   const chipBtn = (active: boolean) =>
     cn(
       "rounded-lg border text-center font-semibold uppercase tracking-wide transition-colors",
@@ -1727,19 +2194,108 @@ export function RichTextBlockInspector({
         </>
       ) : null}
       {preset === "verse" ? (
-        <div>
-          <FieldLabel>Line spacing</FieldLabel>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(["compact", "relaxed"] as const).map((s) => (
-              <button key={s} type="button" className={chipBtn((block.verseSpacing ?? "relaxed") === s)} onClick={() => onPatch({ verseSpacing: s })}>
-                {s}
-              </button>
-            ))}
+        <div className="space-y-4 rounded-xl border border-base-content/10 bg-base-100/45 p-3">
+          <div>
+            <FieldLabel>Verse title</FieldLabel>
+            <Input
+              className={cn("input input-bordered input-sm mt-2 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+              placeholder="Optional title"
+              value={block.verseTitle ?? ""}
+              onChange={(e) => onPatch({ verseTitle: e.target.value })}
+            />
+          </div>
+          <div>
+            <FieldLabel>Verse content</FieldLabel>
+            <StoryTipTapEditor
+              editorKey={`verse-inspector-${block.id}`}
+              content={block.doc as JSONContent}
+              onChange={(doc) => onPatch({ doc, verseContent: verseTextFromTipTapDoc(doc) })}
+              richTextBlockId={block.id}
+              placeholder="Enter each verse line on its own line"
+              className="mt-2"
+              toolbarDensity={touchComfort ? "touch" : "default"}
+              surface="card"
+              richTextPreset="verse"
+              enableGlobalToolbar={false}
+            />
+            <p className="mt-2 text-xs leading-relaxed text-base-content/55">
+              Use the toolbar for inline formatting, person links, and removing links. Each paragraph is treated as a verse line.
+            </p>
+          </div>
+          <div>
+            <FieldLabel>Block alignment</FieldLabel>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {alignmentOptions.map((align) => (
+                <button
+                  key={align}
+                  type="button"
+                  className={chipBtn((rowLayout.alignment ?? "center") === align)}
+                  onClick={() => onPatchRowLayout({ alignment: align, displayMode: "block", float: undefined })}
+                >
+                  {align}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Title alignment</FieldLabel>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {alignmentOptions.map((align) => (
+                <button
+                  key={align}
+                  type="button"
+                  className={chipBtn((block.verseTitleAlign ?? "center") === align)}
+                  onClick={() => onPatch({ verseTitleAlign: align })}
+                >
+                  {align}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Content alignment</FieldLabel>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {alignmentOptions.map((align) => (
+                <button
+                  key={align}
+                  type="button"
+                  className={chipBtn((block.verseContentAlign ?? "center") === align)}
+                  onClick={() => onPatch({ verseContentAlign: align })}
+                >
+                  {align}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Line layout</FieldLabel>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {lineLayoutOptions.map((layout) => (
+                <button
+                  key={layout.value}
+                  type="button"
+                  className={chipBtn((block.verseLineLayout ?? "normal") === layout.value)}
+                  onClick={() => onPatch({ verseLineLayout: layout.value })}
+                >
+                  {layout.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Line spacing</FieldLabel>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(["compact", "relaxed"] as const).map((s) => (
+                <button key={s} type="button" className={chipBtn((block.verseSpacing ?? "relaxed") === s)} onClick={() => onPatch({ verseSpacing: s })}>
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}
       <StoryBlockRowLayoutInspector
-        rowLayout={effectiveRowLayoutForRichText(block.rowLayout)}
+        rowLayout={rowLayout}
         onPatch={(patch) => onPatchRowLayout({ ...patch, displayMode: "block", float: undefined })}
         touchComfort={touchComfort}
       />
@@ -2097,11 +2653,13 @@ export function StoryCreatorInspector({
   selectedSection,
   selectedBlock,
   selectedBlockId = null,
+  selectedFlowNode = null,
   storyEditorDirty = false,
   columnsLayoutBlock,
   columnsNestingDepth,
   onPatchColumns,
   onPatchColumnSlot,
+  onEditColumnContent,
   onPatchEmbed,
   onPatchMedia,
   onPatchContainer,
@@ -2113,6 +2671,7 @@ export function StoryCreatorInspector({
   onPatchDividerMeta,
   onPatchSplitContent,
   onPatchTable,
+  onPatchFlowNode,
   selectedBlockInSplitPanel = false,
   onTitleChange,
   onExcerptChange,
@@ -2130,13 +2689,15 @@ export function StoryCreatorInspector({
   selectedBlock: StoryBlock | null;
   /** Block id in the active section (for Debug tab). */
   selectedBlockId?: string | null;
+  selectedFlowNode?: StoryFlowNodeSelection | null;
   /** True when in-memory document differs from last localStorage save. */
   storyEditorDirty?: boolean;
   columnsLayoutBlock?: StoryColumnsBlock | null;
   /** Depth of the columns block shown in the layout inspector (1 or 2). */
   columnsNestingDepth?: number;
-  onPatchColumns?: (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem">>) => void;
+  onPatchColumns?: (patch: Partial<Pick<StoryColumnsBlock, "columnWidthPercents" | "columnGapRem" | "mobileBehavior" | "advancedColumnLayoutEnabled">>) => void;
   onPatchColumnSlot?: (columnIndex: 0 | 1, patch: Partial<Pick<StoryColumnSlot, "stackJustify" | "stackGapRem">>) => void;
+  onEditColumnContent?: (columnIndex: 0 | 1) => void;
   onPatchEmbed: (patch: Partial<StoryEmbedBlock>) => void;
   onPatchMedia: (patch: Partial<StoryMediaBlock>) => void;
   onPatchContainer?: (patch: Partial<StoryContainerBlockProps>) => void;
@@ -2148,6 +2709,7 @@ export function StoryCreatorInspector({
   onPatchDividerMeta?: (patch: StoryDividerMetaPatch) => void;
   onPatchSplitContent?: (patch: { supportingWidthPct?: number; supportingGapRem?: number; supportingSide?: "left" | "right"; supportingFloatPosition?: "top" | "center" | "bottom" }) => void;
   onPatchTable?: (patch: TableLayoutPatch) => void;
+  onPatchFlowNode?: (selection: StoryFlowNodeSelection, patch: Record<string, unknown>) => void;
   /** True when the selected media/embed block lives inside a splitContent supporting panel. */
   selectedBlockInSplitPanel?: boolean;
   onTitleChange: (title: string) => void;
@@ -2171,6 +2733,7 @@ export function StoryCreatorInspector({
             columnsNestingDepth={columnsNestingDepth ?? 1}
             onPatchColumns={onPatchColumns}
             onPatchColumnSlot={onPatchColumnSlot}
+            onEditColumnContent={onEditColumnContent}
             onPatchEmbed={onPatchEmbed}
             onPatchMedia={onPatchMedia}
             onPatchContainer={onPatchContainer}
@@ -2182,6 +2745,8 @@ export function StoryCreatorInspector({
             onPatchDividerMeta={onPatchDividerMeta}
             onPatchSplitContent={onPatchSplitContent}
             onPatchTable={onPatchTable}
+            selectedFlowNode={selectedFlowNode}
+            onPatchFlowNode={onPatchFlowNode}
             selectedBlockInSplitPanel={selectedBlockInSplitPanel}
             onDeleteBlock={onDeleteBlock}
             touchComfort
@@ -2294,6 +2859,7 @@ export function StoryCreatorInspector({
             columnsNestingDepth={columnsNestingDepth ?? 1}
             onPatchColumns={onPatchColumns}
             onPatchColumnSlot={onPatchColumnSlot}
+            onEditColumnContent={onEditColumnContent}
             onPatchEmbed={onPatchEmbed}
             onPatchMedia={onPatchMedia}
             onPatchContainer={onPatchContainer}
@@ -2305,6 +2871,8 @@ export function StoryCreatorInspector({
             onPatchDividerMeta={onPatchDividerMeta}
             onPatchSplitContent={onPatchSplitContent}
             onPatchTable={onPatchTable}
+            selectedFlowNode={selectedFlowNode}
+            onPatchFlowNode={onPatchFlowNode}
             selectedBlockInSplitPanel={selectedBlockInSplitPanel}
             onDeleteBlock={onDeleteBlock}
           />
@@ -2661,15 +3229,43 @@ export function MediaBlockInspector({
         </div>
         <div className="mt-3">
           <FieldLabel>Caption</FieldLabel>
-          <textarea
-            className={cn(
-              "textarea textarea-bordered textarea-sm mt-1 min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed placeholder:text-base-content/40",
-              touchComfort && "min-h-[100px]",
-            )}
+          <StoryCaptionRichTextEditor
+            caption={block.caption}
             placeholder="Optional caption shown with the media…"
-            value={block.caption ?? ""}
-            onChange={(e) => onPatch({ caption: e.target.value })}
+            touchComfort={touchComfort}
+            onChange={(caption) => onPatch({ caption })}
           />
+        </div>
+        <div className="mt-4 space-y-3 rounded-lg border border-base-content/10 bg-base-100/50 p-3">
+          <p className="text-xs font-semibold text-base-content/70">Story display</p>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              checked={!block.hideTitle}
+              onChange={(e) => onPatch({ hideTitle: !e.target.checked })}
+            />
+            <span>
+              <span className="font-medium text-base-content">Display title in story</span>
+              <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+                Keep the title editable here, but omit it from every story rendering when this is off.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              checked={!block.hideCaption}
+              onChange={(e) => onPatch({ hideCaption: !e.target.checked })}
+            />
+            <span>
+              <span className="font-medium text-base-content">Display caption in story</span>
+              <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+                Keep the caption editable here, but omit it from every story rendering when this is off.
+              </span>
+            </span>
+          </label>
         </div>
         <div className="mt-4">
           <StoryTextPlacementGrid
@@ -2766,25 +3362,549 @@ export function MediaBlockInspector({
 export function OtherEmbedInspector({
   block,
   onPatch,
-  hideLayoutSection,
   touchComfort,
 }: {
   block: StoryEmbedBlock;
   onPatch: (p: Partial<StoryEmbedBlock>) => void;
-  /** Suppress Size & alignment when block lives inside a split content supporting panel. */
-  hideLayoutSection?: boolean;
   touchComfort?: boolean;
 }) {
-  const height = block.heightPreset ?? "default";
-  const linkMode = block.linkMode ?? "none";
-  const titlePlacement = block.titlePlacement ?? "above";
-  const captionPlacement = block.captionPlacement ?? "below";
-  const textSectionOpenDefault = Boolean(block.label?.trim() || block.caption?.trim() || block.sublabel?.trim());
+  const title = block.title ?? block.label ?? "";
+  const presentation = block.presentation ?? {};
+  const textSectionOpenDefault = Boolean(title.trim() || block.caption?.trim() || block.sublabel?.trim());
   const controlH = touchComfort ? "min-h-[44px] h-11" : "h-10";
+  const dataRecord = block.data && typeof block.data === "object" ? (block.data as Record<string, unknown>) : {};
+  const patchData = (patch: Record<string, unknown>) => onPatch({ data: { ...dataRecord, ...patch } } as Partial<StoryEmbedBlock>);
+
+  const semanticConfig = (() => {
+    if (block.embedKind === "tree") {
+      const data = (block.data ?? { generations: 5, chartType: "fan" }) as StoryTreeEmbedData;
+      return (
+        <CollapsibleFormSection title="Tree configuration" defaultOpen>
+          <FieldLabel>Root person</FieldLabel>
+          {data.rootPersonLabel || data.rootPersonId || data.rootPersonXref ? (
+            <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+              {data.rootPersonLabel || data.rootPersonXref || data.rootPersonId}
+            </p>
+          ) : null}
+          <IndividualSearchPicker
+            idPrefix={`story-tree-root-${block.id}`}
+            onPick={(ind) => {
+              patchData({
+                rootPersonId: ind.id,
+                rootPersonXref: ind.xref ?? undefined,
+                rootPersonLabel: ind.fullName?.trim() || ind.xref || ind.id,
+              });
+              onPatch({
+                subject: {
+                  type: "individual",
+                  id: ind.id,
+                  xref: ind.xref ?? undefined,
+                  label: ind.fullName?.trim() || ind.xref || ind.id,
+                },
+              });
+            }}
+          />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <FieldLabel>Generations</FieldLabel>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.generations ?? 5}
+                onChange={(e) => patchData({ generations: Math.max(1, Math.min(10, Number(e.target.value) || 1)) })}
+              />
+            </div>
+            <div>
+              <FieldLabel>Chart type</FieldLabel>
+              <select
+                className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.chartType ?? "fan"}
+                onChange={(e) => patchData({ chartType: e.target.value })}
+              >
+                {TREE_CHART_TYPES.map((chartType) => (
+                  <option key={chartType} value={chartType}>
+                    {TREE_CHART_TYPE_LABELS[chartType]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-4">
+            <FieldLabel>Card style</FieldLabel>
+            <p className="mb-2 text-xs text-base-content/50">When set, overrides the renderer&apos;s default. Leave unset to let the renderer choose.</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {([undefined, ...TREE_CARD_VARIANTS] as (StoryTreeCardVariant | undefined)[]).map((v) => (
+                <button
+                  key={v ?? "__default__"}
+                  type="button"
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
+                    data.cardVariant === v
+                      ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+                      : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+                  )}
+                  onClick={() => patchData({ cardVariant: v, cardLayout: undefined, compactCardSize: undefined })}
+                >
+                  {v == null ? "Renderer default" : TREE_CARD_VARIANT_LABELS[v]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(data.cardVariant === "full" || data.cardVariant == null) && (
+            <div className="mt-3">
+              <FieldLabel>Card layout</FieldLabel>
+              <select
+                className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.cardLayout ?? ""}
+                onChange={(e) => patchData({ cardLayout: (e.target.value as StoryTreeCardLayout) || undefined })}
+              >
+                <option value="">Renderer default</option>
+                {TREE_CARD_LAYOUTS.map((layout) => (
+                  <option key={layout} value={layout}>
+                    {TREE_CARD_LAYOUT_LABELS[layout]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {(data.cardVariant === "compact-name" || data.cardVariant === "compact-avatar") && (
+            <div className="mt-3">
+              <FieldLabel>Card size</FieldLabel>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {([undefined, ...TREE_COMPACT_SIZES] as (StoryTreeCompactCardSize | undefined)[]).map((size) => (
+                  <button
+                    key={size ?? "__default__"}
+                    type="button"
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
+                      data.compactCardSize === size
+                        ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+                        : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+                    )}
+                    onClick={() => patchData({ compactCardSize: size })}
+                  >
+                    {size == null ? "Renderer default" : TREE_COMPACT_SIZE_LABELS[size]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </CollapsibleFormSection>
+      );
+    }
+
+    if (block.embedKind === "personSpotlight") {
+      const data = (block.data ?? { fields: ["profileImage", "name", "lifespan"] }) as StoryPersonSpotlightEmbedData;
+      const fields = new Set(data.fields ?? []);
+      return (
+        <CollapsibleFormSection title="Person spotlight configuration" defaultOpen>
+          <FieldLabel>Person</FieldLabel>
+          {data.personLabel || data.personId || data.personXref ? (
+            <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+              {data.personLabel || data.personXref || data.personId}
+            </p>
+          ) : null}
+          <IndividualSearchPicker
+            idPrefix={`story-person-spotlight-${block.id}`}
+            onPick={(ind) => {
+              const label = ind.fullName?.trim() || ind.xref || ind.id;
+              patchData({ personId: ind.id, personXref: ind.xref ?? undefined, personLabel: label });
+              onPatch({ subject: { type: "individual", id: ind.id, xref: ind.xref ?? undefined, label } });
+            }}
+          />
+          <FieldLabel>Fields to show</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {PERSON_SPOTLIGHT_FIELDS.map((field) => (
+              <label key={field} className="flex items-center gap-2 rounded-lg border border-base-content/10 bg-base-100/55 px-3 py-2 text-xs">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs"
+                  checked={fields.has(field)}
+                  onChange={(e) => {
+                    const next = new Set(fields);
+                    if (e.target.checked) next.add(field);
+                    else next.delete(field);
+                    if (!e.target.checked) patchData({ fields: Array.from(next), customFields: [] });
+                    else patchData({ fields: Array.from(next) });
+                  }}
+                />
+                {PERSON_SPOTLIGHT_FIELD_LABELS[field]}
+              </label>
+            ))}
+          </div>
+          {fields.has("custom") ? (
+            <CustomFieldsEditor
+              customFields={data.customFields ?? []}
+              onChange={(customFields) => patchData({ customFields })}
+            />
+          ) : null}
+        </CollapsibleFormSection>
+      );
+    }
+
+    if (block.embedKind === "gallery") {
+      const data = (block.data ?? { sourceType: "custom" }) as StoryGalleryEmbedData;
+
+      const gallerySourcePicker = (() => {
+        if (data.sourceType === "album") {
+          return (
+            <AlbumsPicker
+              selected={data.sourceId ? [{ id: data.sourceId, name: data.sourceLabel ?? data.sourceId }] : []}
+              onAdd={(album) => patchData({ sourceId: album.id, sourceLabel: album.name })}
+              onRemove={() => patchData({ sourceId: undefined, sourceLabel: undefined })}
+              placeholder="Search albums…"
+            />
+          );
+        }
+        if (data.sourceType === "tag") {
+          return (
+            <TagsPicker
+              selected={data.sourceId ? [{ id: data.sourceId, name: data.sourceLabel ?? data.sourceId, color: null }] : []}
+              onAdd={(tag) => patchData({ sourceId: tag.id, sourceLabel: displayTagName(tag.name) })}
+              onRemove={() => patchData({ sourceId: undefined, sourceLabel: undefined })}
+              placeholder="Search tags…"
+            />
+          );
+        }
+        if (data.sourceType === "personMedia") {
+          return (
+            <>
+              {data.sourceLabel || data.sourceId ? (
+                <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+                  {data.sourceLabel ?? data.sourceId}
+                </p>
+              ) : null}
+              <IndividualSearchPicker
+                idPrefix={`story-gallery-person-${block.id}`}
+                onPick={(ind) => {
+                  const label = ind.fullName?.trim() || ind.xref || ind.id;
+                  patchData({ sourceId: ind.id, sourceLabel: label });
+                }}
+              />
+            </>
+          );
+        }
+        if (data.sourceType === "familyMedia") {
+          return (
+            <>
+              {data.sourceLabel || data.sourceId ? (
+                <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+                  {data.sourceLabel ?? data.sourceId}
+                </p>
+              ) : null}
+              <FamilySearchPicker
+                idPrefix={`story-gallery-family-${block.id}`}
+                onPick={(fam) => {
+                  const label = familyUnionPrimaryLine(fam);
+                  patchData({ sourceId: fam.id, sourceLabel: label });
+                }}
+              />
+            </>
+          );
+        }
+        if (data.sourceType === "eventMedia") {
+          return (
+            <>
+              {data.sourceLabel || data.sourceId ? (
+                <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+                  {data.sourceLabel ?? data.sourceId}
+                </p>
+              ) : null}
+              <EventPickerModal
+                triggerLabel={data.sourceId ? "Change event" : "Choose event"}
+                onPick={(ev) => {
+                  const label = formatNoteEventPickerLabel(ev);
+                  patchData({ sourceId: ev.id, sourceLabel: label });
+                }}
+              />
+            </>
+          );
+        }
+        return (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <FieldLabel>Source ID</FieldLabel>
+              <input
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                placeholder="Any identifier your renderer recognises"
+                value={data.sourceId ?? ""}
+                onChange={(e) => patchData({ sourceId: e.target.value || undefined })}
+              />
+            </div>
+            <div>
+              <FieldLabel>Display label</FieldLabel>
+              <input
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                placeholder="Shown in the editor preview"
+                value={data.sourceLabel ?? ""}
+                onChange={(e) => patchData({ sourceLabel: e.target.value || undefined })}
+              />
+            </div>
+          </div>
+        );
+      })();
+
+      return (
+        <CollapsibleFormSection title="Gallery configuration" defaultOpen>
+          <FieldLabel>Source</FieldLabel>
+          <select
+            className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+            value={data.sourceType ?? "custom"}
+            onChange={(e) => patchData({ sourceType: e.target.value, sourceId: undefined, sourceLabel: undefined })}
+          >
+            {GALLERY_SOURCE_TYPES.map((sourceType) => (
+              <option key={sourceType} value={sourceType}>
+                {GALLERY_SOURCE_TYPE_LABELS[sourceType]}
+              </option>
+            ))}
+          </select>
+          <div className="mt-3">{gallerySourcePicker}</div>
+          <div className="mt-3">
+            <FieldLabel>Photo limit</FieldLabel>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+              value={data.limit ?? ""}
+              onChange={(e) => patchData({ limit: e.target.value ? Number(e.target.value) : undefined })}
+            />
+            <p className="mt-1 text-xs text-base-content/55">Maximum photos to display. Leave blank for the renderer default.</p>
+          </div>
+        </CollapsibleFormSection>
+      );
+    }
+
+    if (block.embedKind === "map") {
+      const data = (block.data ?? { eventIds: [], mapMode: "events" }) as StoryMapEmbedData;
+      const eventLabels = (dataRecord.eventLabels ?? {}) as Record<string, string>;
+      return (
+        <CollapsibleFormSection title="Map configuration" defaultOpen>
+          <FieldLabel>Map mode</FieldLabel>
+          <select
+            className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+            value={data.mapMode ?? "events"}
+            onChange={(e) => patchData({ mapMode: e.target.value })}
+          >
+            {MAP_MODES.map((mode) => (
+              <option key={mode} value={mode}>{MAP_MODE_LABELS[mode]}</option>
+            ))}
+          </select>
+          <div className="mt-4">
+            <FieldLabel>Events on this map</FieldLabel>
+            {(data.eventIds ?? []).length > 0 ? (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {(data.eventIds ?? []).map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-base-content/15 bg-base-200/60 px-2.5 py-0.5 text-xs font-medium text-base-content"
+                  >
+                    <span className="truncate">{eventLabels[id] ?? id}</span>
+                    <button
+                      type="button"
+                      className="rounded-full p-0.5 text-base-content/60 hover:bg-base-300/80 hover:text-base-content"
+                      onClick={() => {
+                        const nextLabels = { ...eventLabels };
+                        delete nextLabels[id];
+                        patchData({ eventIds: (data.eventIds ?? []).filter((x) => x !== id), eventLabels: nextLabels });
+                      }}
+                      aria-label={`Remove ${eventLabels[id] ?? id}`}
+                    >
+                      <X className="size-3 shrink-0" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mb-3 text-xs text-base-content/55">No events added yet.</p>
+            )}
+            <EventPickerModal
+              triggerLabel="Add event"
+              excludeEventIds={new Set(data.eventIds ?? [])}
+              onPick={(event) => {
+                const label = formatNoteEventPickerLabel(event);
+                patchData({
+                  eventIds: [...(data.eventIds ?? []), event.id],
+                  eventLabels: { ...eventLabels, [event.id]: label },
+                });
+              }}
+            />
+          </div>
+        </CollapsibleFormSection>
+      );
+    }
+
+    if (block.embedKind === "event") {
+      const data = (block.data ?? {}) as StoryEventEmbedData;
+      return (
+        <CollapsibleFormSection title="Event configuration" defaultOpen>
+          {data.eventLabel || data.eventId || data.eventXref ? (
+            <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+              {data.eventLabel || data.eventXref || data.eventId}
+            </p>
+          ) : (
+            <p className="mb-3 text-xs text-base-content/55">No event selected. Use the button below to find one.</p>
+          )}
+          <EventPickerModal
+            triggerLabel={data.eventId ? "Change event" : "Choose event"}
+            onPick={(event) => {
+              const label = formatNoteEventPickerLabel(event);
+              patchData({ eventId: event.id, eventLabel: label });
+              onPatch({ subject: { type: "event", id: event.id, label } });
+            }}
+          />
+        </CollapsibleFormSection>
+      );
+    }
+
+    if (block.embedKind === "familyGroup") {
+      const data = (block.data ?? {}) as StoryFamilyGroupEmbedData;
+      return (
+        <CollapsibleFormSection title="Family group configuration" defaultOpen>
+          <p className="mb-3 text-xs leading-relaxed text-base-content/55">
+            Displays partners, children, and key events for the selected family unit.
+          </p>
+          {data.familyLabel || data.familyId || data.familyXref ? (
+            <p className="mb-3 rounded-lg border border-base-content/10 bg-base-content/[0.03] px-3 py-2 text-sm text-base-content/70">
+              {data.familyLabel || data.familyXref || data.familyId}
+            </p>
+          ) : null}
+          <FamilySearchPicker
+            idPrefix={`story-family-group-${block.id}`}
+            onPick={(fam) => {
+              const label = familyUnionPrimaryLine(fam);
+              patchData({ familyId: fam.id, familyXref: fam.xref, familyLabel: label });
+              onPatch({ subject: { type: "family", id: fam.id, xref: fam.xref, label } });
+            }}
+          />
+        </CollapsibleFormSection>
+      );
+    }
+
+    if (block.embedKind === "recipe") {
+      const data = (block.data ?? { ingredientGroups: [], stepGroups: [] }) as StoryRecipeEmbedData;
+      return (
+        <CollapsibleFormSection title="Recipe configuration" defaultOpen>
+          <p className="mb-3 text-xs leading-relaxed text-base-content/55">
+            Recipe embeds store structured ingredient and step data. A full ingredient and step editor is coming; for now configure the basic recipe details.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <FieldLabel>Yield</FieldLabel>
+              <input
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                placeholder="e.g. 4 servings, 12 cookies"
+                value={data.yield ?? ""}
+                onChange={(e) => patchData({ yield: e.target.value || undefined })}
+              />
+            </div>
+            <div>
+              <FieldLabel>Prep time (min)</FieldLabel>
+              <input
+                type="number"
+                min={0}
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.prepTimeMinutes ?? ""}
+                onChange={(e) => patchData({ prepTimeMinutes: e.target.value ? Number(e.target.value) : undefined })}
+              />
+            </div>
+            <div>
+              <FieldLabel>Cook time (min)</FieldLabel>
+              <input
+                type="number"
+                min={0}
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.cookTimeMinutes ?? ""}
+                onChange={(e) => patchData({ cookTimeMinutes: e.target.value ? Number(e.target.value) : undefined })}
+              />
+            </div>
+            <div>
+              <FieldLabel>Total time (min)</FieldLabel>
+              <input
+                type="number"
+                min={0}
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.totalTimeMinutes ?? ""}
+                onChange={(e) => patchData({ totalTimeMinutes: e.target.value ? Number(e.target.value) : undefined })}
+              />
+            </div>
+            <div>
+              <FieldLabel>Difficulty</FieldLabel>
+              <select
+                className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                value={data.difficulty ?? ""}
+                onChange={(e) => patchData({ difficulty: (e.target.value as StoryRecipeEmbedData["difficulty"]) || undefined })}
+              >
+                <option value="">Not set</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Cuisine</FieldLabel>
+              <input
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                placeholder="e.g. Portuguese, Cape Verdean"
+                value={data.cuisine ?? ""}
+                onChange={(e) => patchData({ cuisine: e.target.value || undefined })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel>Source / credit</FieldLabel>
+              <input
+                className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+                placeholder="Where this recipe comes from"
+                value={data.source ?? ""}
+                onChange={(e) => patchData({ source: e.target.value || undefined })}
+              />
+            </div>
+          </div>
+          <p className="mt-4 text-xs text-base-content/45">
+            {data.ingredientGroups.length} ingredient group{data.ingredientGroups.length === 1 ? "" : "s"} · {data.stepGroups.length} step group{data.stepGroups.length === 1 ? "" : "s"} — full editor coming soon.
+          </p>
+        </CollapsibleFormSection>
+      );
+    }
+
+    return (
+      <CollapsibleFormSection title="Source" defaultOpen>
+        <p className="mb-3 text-xs leading-relaxed text-base-content/55">
+          This embed type doesn't have a dedicated picker yet. Enter the source ID and a display label so
+          the renderer can resolve it when it is ready.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <FieldLabel>Source ID</FieldLabel>
+            <input
+              className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+              placeholder="Internal ID for the source record"
+              value={String(dataRecord.documentId ?? dataRecord.subjectId ?? "")}
+              onChange={(e) => patchData({ documentId: e.target.value || undefined, subjectId: e.target.value || undefined })}
+            />
+          </div>
+          <div>
+            <FieldLabel>Display label</FieldLabel>
+            <input
+              className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
+              placeholder="Name shown in the editor preview"
+              value={String(dataRecord.documentLabel ?? dataRecord.subjectLabel ?? "")}
+              onChange={(e) => patchData({ documentLabel: e.target.value || undefined, subjectLabel: e.target.value || undefined })}
+            />
+          </div>
+        </div>
+      </CollapsibleFormSection>
+    );
+  })();
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Embed block</p>
+      <HelperCard title="Semantic embed">
+        Embeds store the meaning and source for a structured block. The admin preview is only a lightweight visualization;
+        final styling belongs to the public renderer.
+      </HelperCard>
 
       <CollapsibleFormSection title="Source" defaultOpen>
         <FieldLabel>Preview</FieldLabel>
@@ -2795,8 +3915,8 @@ export function OtherEmbedInspector({
               aria-hidden
             />
           </div>
-          <p className="mt-3 truncate text-sm font-semibold text-base-content">{block.label || "Untitled embed"}</p>
-          <p className="mt-0.5 truncate text-xs text-base-content/50">{block.embedKind} · local draft</p>
+          <p className="mt-3 truncate text-sm font-semibold text-base-content">{title || "Untitled embed"}</p>
+          <p className="mt-0.5 truncate text-xs text-base-content/50">{EMBED_KIND_LABELS[block.embedKind] ?? block.embedKind} · local draft</p>
         </div>
         <div className="mt-4">
           <FieldLabel>Embed type</FieldLabel>
@@ -2807,100 +3927,109 @@ export function OtherEmbedInspector({
           >
             {OTHER_EMBED_KINDS.map((k) => (
               <option key={k} value={k}>
-                {k}
+                {EMBED_KIND_LABELS[k]}
               </option>
             ))}
           </select>
           <p className="mt-2 text-xs leading-relaxed text-base-content/55">
-            For library photos and files, use a <span className="font-medium text-base-content/75">Media</span> block instead.
+            Choose what this block means. Kind-specific configuration lives in the data section, not in visual style fields.
           </p>
         </div>
-        <p className="mt-3 text-xs text-base-content/50">
-          Configure / wire embed content on the canvas when that flow is available; this draft stores type and labels only.
-        </p>
       </CollapsibleFormSection>
 
-      <CollapsibleFormSection title="Text" defaultOpen={textSectionOpenDefault}>
+      <CollapsibleFormSection title="Editorial metadata" defaultOpen={textSectionOpenDefault}>
         <div>
           <FieldLabel>Title</FieldLabel>
           <input
             className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-            value={block.label}
-            onChange={(e) => onPatch({ label: e.target.value })}
+            value={title}
+            onChange={(e) => onPatch({ title: e.target.value, label: e.target.value })}
           />
         </div>
         <div className="mt-3">
-          <FieldLabel>Subtitle</FieldLabel>
+          <FieldLabel>Editorial note</FieldLabel>
           <input
             className={cn("input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-            placeholder="Optional short line under the title"
+            placeholder="Optional short line for the preview"
             value={block.sublabel ?? ""}
             onChange={(e) => onPatch({ sublabel: e.target.value || undefined })}
           />
         </div>
         <div className="mt-3">
           <FieldLabel>Caption</FieldLabel>
-          <textarea
-            className={cn(
-              "textarea textarea-bordered textarea-sm mt-1 min-h-[80px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500",
-              touchComfort && "min-h-[100px]",
-            )}
+          <StoryCaptionRichTextEditor
+            caption={block.caption}
             placeholder="Optional caption…"
-            value={block.caption ?? ""}
-            onChange={(e) => onPatch({ caption: e.target.value })}
+            touchComfort={touchComfort}
+            onChange={(caption) => onPatch({ caption })}
           />
         </div>
-        <div className="mt-4">
-          <StoryTextPlacementGrid
-            heading="Title position"
-            value={titlePlacement}
-            onPick={(v) => onPatch({ titlePlacement: v })}
-            touchComfort={touchComfort}
-          />
-        </div>
-        <div className="mt-4">
-          <StoryTextPlacementGrid
-            heading="Caption position"
-            value={captionPlacement}
-            onPick={(v) => onPatch({ captionPlacement: v })}
-            touchComfort={touchComfort}
-          />
+        <div className="mt-4 space-y-3 rounded-lg border border-base-content/10 bg-base-100/50 p-3">
+          <p className="text-xs font-semibold text-base-content/70">Story display</p>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              checked={!block.hideTitle}
+              onChange={(e) => onPatch({ hideTitle: !e.target.checked })}
+            />
+            <span>
+              <span className="font-medium text-base-content">Display title in story</span>
+              <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+                Keep the title editable here, but omit it from every story rendering when this is off.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              checked={!block.hideCaption}
+              onChange={(e) => onPatch({ hideCaption: !e.target.checked })}
+            />
+            <span>
+              <span className="font-medium text-base-content">Display caption in story</span>
+              <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+                Keep the caption editable here, but omit it from every story rendering when this is off.
+              </span>
+            </span>
+          </label>
         </div>
       </CollapsibleFormSection>
 
-      {!hideLayoutSection && (
-        <StandaloneMediaEmbedLayoutInspectorSection block={block} onPatchLayout={(p) => onPatch(p as Partial<StoryEmbedBlock>)} touchComfort={touchComfort} />
-      )}
+      {semanticConfig}
 
-      <CollapsibleFormSection title="Appearance" defaultOpen={false}>
-        <FieldLabel>Embed height</FieldLabel>
-        <p className="mb-2 text-xs text-base-content/55">Placeholder frame height in the editor and preview.</p>
-        <select
-          className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-          value={height}
-          onChange={(e) => onPatch({ heightPreset: e.target.value as StoryEmbedHeightPreset })}
-        >
-          {HEIGHT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label} — {o.hint}
-            </option>
-          ))}
-        </select>
-      </CollapsibleFormSection>
-
-      <CollapsibleFormSection title="Link / interaction" defaultOpen={false}>
-        <FieldLabel>Link behavior</FieldLabel>
-        <select
-          className={cn("select select-bordered select-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100", controlH)}
-          value={linkMode}
-          onChange={(e) => onPatch({ linkMode: e.target.value as StoryEmbedLinkMode })}
-        >
-          {LINK_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+      <CollapsibleFormSection title="Preview behavior" defaultOpen={false}>
+        <FieldLabel>Frame style</FieldLabel>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(["none", "minimal", "full"] as const).map((chrome) => {
+            const chromeLabels = { none: "No frame", minimal: "Minimal", full: "Full" } as const;
+            return (
+              <button
+                key={chrome}
+                type="button"
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
+                  (presentation.chrome ?? "minimal") === chrome
+                    ? "border-primary/45 bg-primary/15 text-primary shadow-sm ring-1 ring-primary/15"
+                    : "border-base-content/10 bg-base-100/60 text-base-content/55 hover:border-base-content/18",
+                )}
+                onClick={() => onPatch({ presentation: { ...presentation, chrome } })}
+              >
+                {chromeLabels[chrome]}
+              </button>
+            );
+          })}
+        </div>
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-base-content/70">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={presentation.controls ?? false}
+            onChange={(e) => onPatch({ presentation: { ...presentation, controls: e.target.checked } })}
+          />
+          Show preview/editor controls when this embed supports them
+        </label>
       </CollapsibleFormSection>
 
       <CollapsibleFormSection title="Advanced" defaultOpen={false}>
@@ -2911,10 +4040,9 @@ export function OtherEmbedInspector({
           <p className="mt-1 rounded-lg border border-base-content/10 bg-base-200/30 px-3 py-2 font-mono text-xs text-base-content/75">embed</p>
         </div>
         <div className="mt-3">
-          <FieldLabel>Legacy layout snapshot</FieldLabel>
+          <FieldLabel>Compatibility aliases</FieldLabel>
           <p className="mt-1 break-all font-mono text-[10px] leading-relaxed text-base-content/50">
-            widthPreset={block.widthPreset ?? "—"} · layoutAlign={block.layoutAlign ?? "—"} · textWrap=
-            {String(block.textWrap ?? false)} · fullWidth={String(block.fullWidth ?? false)}
+            label={block.label || "—"} · widthPreset={block.widthPreset ?? "—"} · layoutAlign={block.layoutAlign ?? "—"}
           </p>
         </div>
       </CollapsibleFormSection>

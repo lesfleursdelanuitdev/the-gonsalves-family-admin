@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { parseListParams } from "@/lib/admin/admin-list-params";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { inferAdminMediaCategory, type AdminMediaCategory } from "@/lib/admin/infer-admin-media-category";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
@@ -22,7 +23,28 @@ function parseMediaForm(v: unknown): "image" | "document" | "audio" | "video" | 
   return "other";
 }
 
-export const GET = withAdminAuth(async (request, user, _ctx) => {
+function normalizeVisibilityForResponse(v: string | null | undefined): "private" | "followers" | "public" {
+  if (v === "public") return "public";
+  if (v === "followers" || v === "shared") return "followers";
+  return "private";
+}
+
+function parseVisibilityForStorage(v: unknown): "private" | "followers" | "shared" | "public" {
+  if (v === "public") return "public";
+  if (v === "followers" || v === "shared") return "shared";
+  return "private";
+}
+
+function isVisibleToOtherUser(
+  visibility: string | null | undefined,
+  isFollower: boolean,
+): boolean {
+  if (visibility === "public") return true;
+  if (visibility === "followers" || visibility === "shared" || visibility === "private") return isFollower;
+  return false;
+}
+
+export const GET = withAdminAuth(async (request, user) => {
   const { searchParams } = request.nextUrl;
   const { limit, offset } = parseListParams(searchParams);
   const q = searchParams.get("q")?.trim().toLowerCase() ?? "";
@@ -32,16 +54,37 @@ export const GET = withAdminAuth(async (request, user, _ctx) => {
   const mediaCategory = searchParams.get("mediaCategory")?.trim() ?? "";
   const albumId = searchParams.get("albumId")?.trim() ?? "";
   const tagId = searchParams.get("tagId")?.trim() ?? "";
+  const requestedOwnerUserId = searchParams.get("userId")?.trim() || user.id;
+  const isOwnListing = requestedOwnerUserId === user.id;
 
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({
     where: { gedcomFileId: fileUuid },
     select: { id: true },
   });
+  await requireCan({
+    entity: "media",
+    action: "read",
+    scope: isOwnListing ? "user" : "other_users",
+    ownerUserId: requestedOwnerUserId,
+    treeId: tree?.id ?? null,
+  });
+
+  const isFollower = isOwnListing
+    ? false
+    : Boolean(
+        await prisma.follow.findFirst({
+          where: {
+            followerId: user.id,
+            followeeId: requestedOwnerUserId,
+          },
+          select: { id: true },
+        }),
+      );
 
   const rows = await prisma.userMedia.findMany({
     where: {
-      userId: user.id,
+      userId: requestedOwnerUserId,
       deletedAt: null,
       ...(tree ? { treeId: tree.id } : {}),
       ...(albumId ? { albums: { some: { albumId } } } : {}),
@@ -55,6 +98,7 @@ export const GET = withAdminAuth(async (request, user, _ctx) => {
   });
 
   const filtered = rows.filter((r) => {
+    if (!isOwnListing && !isVisibleToOtherUser(r.visibility, isFollower)) return false;
     const title = (r.title ?? "").toLowerCase();
     const desc = (r.description ?? "").toLowerCase();
     const ref = (r.fileRef ?? "").toLowerCase();
@@ -71,6 +115,7 @@ export const GET = withAdminAuth(async (request, user, _ctx) => {
   const media = page.map((r) => ({
     id: r.id,
     mediaScope: "my-media" as const,
+    ownerUserId: r.userId,
     createdAt: r.createdAt,
     title: r.title,
     description: r.description,
@@ -87,6 +132,7 @@ export const GET = withAdminAuth(async (request, user, _ctx) => {
     dateCount: 0,
     tagCount: r.tags.length,
     albumCount: r.albums.length,
+    visibility: normalizeVisibilityForResponse(r.visibility),
   }));
 
   return NextResponse.json({
@@ -96,7 +142,8 @@ export const GET = withAdminAuth(async (request, user, _ctx) => {
   });
 });
 
-export const POST = withAdminAuth(async (request, user, _ctx) => {
+export const POST = withAdminAuth(async (request, user) => {
+  await requireCan({ entity: "media", action: "create", scope: "user", ownerUserId: user.id });
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({
     where: { gedcomFileId: fileUuid },
@@ -129,10 +176,7 @@ export const POST = withAdminAuth(async (request, user, _ctx) => {
         form: parseMediaForm(body.form),
         title: typeof body.title === "string" ? body.title : null,
         description: typeof body.description === "string" ? body.description : null,
-        visibility:
-          body.visibility === "public" || body.visibility === "shared" || body.visibility === "private"
-            ? body.visibility
-            : "private",
+        visibility: parseVisibilityForStorage(body.visibility),
         reusePolicy:
           body.reusePolicy === "reusable_in_tree" ||
           body.reusePolicy === "reusable_public" ||

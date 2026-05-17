@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
 import { reserveNextTreeMediaXref } from "@/lib/admin/gedcom-media-xref";
 
@@ -12,6 +13,7 @@ function parseMediaForm(v: unknown): "image" | "document" | "audio" | "video" | 
 }
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "media", action: "read", scope: "site" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({ where: { gedcomFileId: fileUuid }, select: { id: true } });
@@ -66,6 +68,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (request, _user, ctx) => {
+  await requireCan({ entity: "media", action: "update", scope: "site" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({ where: { gedcomFileId: fileUuid }, select: { id: true } });
@@ -108,6 +111,7 @@ export const PATCH = withAdminAuth(async (request, _user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "media", action: "delete", scope: "site" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({ where: { gedcomFileId: fileUuid }, select: { id: true } });

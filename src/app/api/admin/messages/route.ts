@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
   getAdminTreeCommunityUserIds,
@@ -15,6 +16,7 @@ const UUID_RE =
 import { emitAdminMessagesChanged } from "@/lib/realtime/admin-messages-events";
 
 export const GET = withAdminAuth(async (request, user, _ctx) => {
+  await requireCan({ entity: "message", action: "read", scope: "user", ownerUserId: user.id });
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });
@@ -68,6 +70,7 @@ export const GET = withAdminAuth(async (request, user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (request, user, _ctx) => {
+  await requireCan({ entity: "message", action: "create", scope: "user", ownerUserId: user.id });
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {
     return NextResponse.json({ error: "ADMIN_TREE_ID is not configured" }, { status: 500 });

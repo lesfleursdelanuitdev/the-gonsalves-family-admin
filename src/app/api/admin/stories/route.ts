@@ -6,6 +6,22 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
 import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
+import { can } from "@/lib/authz/authorize";
+import { requireCan } from "@/lib/authz/routeGuards";
+
+function prismaStoryKindToApi(kind: StoryKind): "story" | "article" | "post" | "folklore" {
+  if (kind === StoryKind.article) return "article";
+  if (kind === StoryKind.post) return "post";
+  if (kind === StoryKind.folklore) return "folklore";
+  return "story";
+}
+
+function requestKindToPrisma(kindRaw: unknown): StoryKind {
+  if (kindRaw === "article") return StoryKind.article;
+  if (kindRaw === "post") return StoryKind.post;
+  if (kindRaw === "folklore") return StoryKind.folklore;
+  return StoryKind.story;
+}
 
 async function allocateUniqueStorySlug(treeId: string, title: string): Promise<string> {
   const base = slugifyStoryTitle(title);
@@ -24,38 +40,50 @@ async function allocateUniqueStorySlug(treeId: string, title: string): Promise<s
 
 export const GET = withAdminAuth(async (_req, user) => {
   const { treeId, canReadAllTreeData } = await getAdminTreeReadScope(user);
+  const [canReadTree, canReadOwn, canReadOthers] = await Promise.all([
+    can({ userId: user.id, entity: "story", action: "read", scope: "tree", treeId }),
+    can({ userId: user.id, entity: "story", action: "read", scope: "user", ownerUserId: user.id, treeId }),
+    can({ userId: user.id, entity: "story", action: "read", scope: "other_users", ownerUserId: "__other_user__", treeId }),
+  ]);
+  const where = canReadTree && canReadAllTreeData
+    ? { treeId, deletedAt: null as Date | null }
+    : {
+        OR: [
+          ...(canReadOwn ? [{ treeId, authorId: user.id, deletedAt: null as Date | null }] : []),
+          ...(canReadOthers
+            ? [{ treeId, authorId: { not: user.id }, status: StoryStatus.published, deletedAt: null as Date | null }]
+            : []),
+        ],
+      };
+  if (!canReadTree && !canReadOwn && !canReadOthers) {
+    await requireCan({ entity: "story", action: "read", scope: "tree", treeId });
+  }
   const stories = await prisma.story.findMany({
-    where: canReadAllTreeData
-      ? { treeId, deletedAt: null }
-      : { treeId, authorId: user.id, deletedAt: null },
+    where,
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, kind: true, status: true, slug: true, updatedAt: true },
+    select: { id: true, title: true, kind: true, status: true, slug: true, updatedAt: true, authorId: true },
   });
 
   return NextResponse.json({
     stories: stories.map((s) => ({
       id: s.id,
       title: s.title,
-      kind: s.kind === StoryKind.article ? "article" : s.kind === StoryKind.post ? "post" : "story",
+      kind: prismaStoryKindToApi(s.kind),
       status: s.status === "published" ? "published" : "draft",
       slug: s.slug,
       updatedAt: s.updatedAt.toISOString(),
+      authorId: s.authorId,
     })),
   });
 });
 
 export const POST = withAdminAuth(async (request, user) => {
+  await requireCan({ entity: "story", action: "create", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const treeId = await getAdminTreeId();
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const titleRaw = typeof body.title === "string" ? body.title.trim() : "";
   const title = titleRaw || "Untitled story";
-  const kindRaw = body.kind;
-  const kind =
-    kindRaw === "article"
-      ? StoryKind.article
-      : kindRaw === "post"
-        ? StoryKind.post
-        : StoryKind.story;
+  const kind = requestKindToPrisma(body.kind);
 
   const slug = await allocateUniqueStorySlug(treeId, title);
 

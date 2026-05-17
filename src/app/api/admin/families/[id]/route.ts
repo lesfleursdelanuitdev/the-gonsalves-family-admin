@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/admin-individual-families";
 import { deleteGedcomFamilyWithCleanup } from "@/lib/admin/admin-family-delete";
 import { newBatchId } from "@/lib/admin/changelog";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { ADMIN_FAMILY_DETAIL_INCLUDE } from "@/app/api/admin/families/family-admin-detail-include";
 import type { PrismaClient } from "@ligneous/prisma";
 
@@ -30,6 +31,7 @@ async function loadFamilyForAdminResponse(db: PrismaClient, fileUuid: string, id
 }
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "family", action: "read", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -60,6 +62,7 @@ const MARRIAGE_DENORM_FIELDS = new Set([
 ]);
 
 export const PATCH = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "family", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -168,6 +171,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "family", action: "delete", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

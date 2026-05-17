@@ -48,6 +48,43 @@ const INLINE_THEME_BOOTSTRAP = `(function(){
   }
 })();`;
 
+/**
+ * Chunk-load failures can happen right after deploy when a stale tab references old hashed JS files.
+ * Attach global handlers so we can self-heal even when the error occurs before React error boundaries mount.
+ */
+const INLINE_CHUNK_RECOVERY = `(function(){
+  try {
+    if (typeof window === 'undefined') return;
+    if (window.location.search.indexOf('__chunk_load=1') !== -1) return;
+    if (sessionStorage.getItem('__chunk_load_recovering') === '1') return;
+    var isChunkMessage = function(msg){
+      if (!msg) return false;
+      var s = String(msg);
+      return /Loading chunk \\d+ failed/i.test(s) || /ChunkLoadError/i.test(s);
+    };
+    var recover = function(){
+      try {
+        sessionStorage.setItem('__chunk_load_recovering', '1');
+        var url = new URL(window.location.href);
+        url.searchParams.set('__chunk_load', '1');
+        window.location.replace(url.toString());
+      } catch(_e) {}
+    };
+    window.addEventListener('error', function(event){
+      var err = event && event.error;
+      var name = err && err.name ? String(err.name) : '';
+      var message = err && err.message ? String(err.message) : (event && event.message ? String(event.message) : '');
+      if (name === 'ChunkLoadError' || isChunkMessage(message)) recover();
+    });
+    window.addEventListener('unhandledrejection', function(event){
+      var reason = event && event.reason;
+      var name = reason && reason.name ? String(reason.name) : '';
+      var message = reason && reason.message ? String(reason.message) : String(reason || '');
+      if (name === 'ChunkLoadError' || isChunkMessage(message)) recover();
+    });
+  } catch(_e) {}
+})();`;
+
 export const metadata: Metadata = {
   title: "Gonsalves Family Admin",
   description: "Administration for The Gonsalves Family tree",
@@ -74,6 +111,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: INLINE_THEME_BOOTSTRAP }} />
+        <script dangerouslySetInnerHTML={{ __html: INLINE_CHUNK_RECOVERY }} />
       </head>
       <body
         className={`${playfair.variable} ${cormorant.variable} ${inter.variable} antialiased`}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { findPublicAlbumNameConflict } from "@/lib/admin/admin-album-public-name";
 import { enrichAlbumWithCoverPreview } from "@/lib/admin/album-cover-preview";
 
@@ -30,8 +31,27 @@ async function assertCoverMediaInAdminTree(coverMediaId: string | null) {
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
   const { id } = await ctx.params;
+  const readable = await prisma.album.findFirst({
+    where: { id },
+    select: { id: true, userId: true, isPublic: true },
+  });
+  if (!readable) {
+    return NextResponse.json({ error: "Album not found" }, { status: 404 });
+  }
+  const ownerUserId = readable.userId ?? "";
+  const isOwn = ownerUserId === user.id;
+  await requireCan({
+    entity: "album",
+    action: "read",
+    scope: isOwn ? "user" : "other_users",
+    ownerUserId,
+    treeId: process.env.ADMIN_TREE_ID ?? null,
+  });
+  if (!isOwn && !readable.isPublic) {
+    return NextResponse.json({ error: "Album not found" }, { status: 404 });
+  }
   const album = await prisma.album.findFirst({
-    where: { id, userId: user.id },
+    where: isOwn ? { id, userId: user.id } : { id, isPublic: true },
     select: ALBUM_DETAIL_SELECT,
   });
   if (!album) {
@@ -41,6 +61,7 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "album", action: "update", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const existing = await prisma.album.findFirst({
     where: { id, userId: user.id },
@@ -142,6 +163,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "album", action: "delete", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const res = await prisma.album.deleteMany({
     where: { id, userId: user.id },

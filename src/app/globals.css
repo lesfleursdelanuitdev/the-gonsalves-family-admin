@@ -1059,6 +1059,9 @@ body {
 .story-tiptap .ProseMirror mark {
   border-radius: 0.125rem;
 }
+.story-tiptap .ProseMirror li::marker {
+  color: color-mix(in oklch, var(--color-base-content) 78%, transparent);
+}
 
 /* Media delete dialog — indeterminate progress strip */
 @keyframes admin-media-delete-progress {
@@ -1087,6 +1090,9 @@ body {
 /* Paper canvas — `base-content` follows the dark shell; use neutral ink on white/mint blocks */
 .story-tiptap--paper .ProseMirror p.is-editor-empty:first-child::before {
   color: color-mix(in oklch, var(--color-neutral) 52%, white);
+}
+.story-tiptap--paper .ProseMirror li::marker {
+  color: color-mix(in oklch, var(--color-neutral) 82%, white);
 }
 .story-tiptap--paper .ProseMirror th,
 .story-tiptap--paper .ProseMirror td {

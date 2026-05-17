@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { newBatchId } from "@/lib/admin/changelog";
 import { undoBatch } from "@/lib/admin/changelog-undo";
 
 export const POST = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "changelog", action: "update", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { batchId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

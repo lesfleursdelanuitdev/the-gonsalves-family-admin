@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { parseNoteLinkedEntityIdParam } from "@/lib/admin/admin-notes-filter";
 import { attachExistingNoteToSource } from "@/lib/admin/admin-note-links";
 
@@ -38,6 +39,7 @@ function parseJsonNoteId(body: unknown): string | null {
 }
 
 export const POST = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "note", action: "update", scope: "tree" });
   const { id: sourceId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

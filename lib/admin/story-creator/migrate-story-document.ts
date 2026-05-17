@@ -35,6 +35,7 @@ import { parseStoryAuthorsFromMetaArray } from "@/lib/admin/story-creator/story-
 import { MAX_STORY_COLUMNS_NEST_DEPTH } from "@/lib/admin/story-creator/story-columns-depth";
 import { withColumnSlotDefaults } from "@/lib/admin/story-creator/story-columns-layout";
 import { ensureMediaEmbedRowLayoutMigrated } from "@/lib/admin/story-creator/story-media-embed-layout-sync";
+import { normalizeStoryEmbedBlock } from "@/lib/admin/story-creator/story-embed-semantics";
 import { normalizeRootSections, normalizeStorySection } from "@/lib/admin/story-creator/story-section-tree";
 import { createDefaultSectionBlocks } from "@/lib/admin/story-creator/story-block-factory";
 import { legacyCoverImageRef } from "@/lib/admin/story-creator/story-images-resolve";
@@ -73,10 +74,14 @@ type LegacyEmbedJson = {
   id: string;
   type: "embed";
   embedKind?: string;
+  title?: string;
   label?: string;
   sublabel?: string;
   mediaId?: string;
   caption?: string;
+  subject?: StoryEmbedBlock["subject"];
+  presentation?: StoryEmbedBlock["presentation"];
+  data?: StoryEmbedBlock["data"];
   titlePlacement?: StoryMediaBlock["titlePlacement"];
   captionPlacement?: StoryMediaBlock["captionPlacement"];
   layoutAlign?: StoryEmbedBlock["layoutAlign"];
@@ -107,13 +112,17 @@ function legacyEmbedToBlock(b: LegacyEmbedJson): StoryMediaBlock | StoryEmbedBlo
     };
     return out;
   }
-  return {
+  return normalizeStoryEmbedBlock({
     id: b.id,
     type: "embed",
     embedKind: slot,
+    title: typeof b.title === "string" ? b.title : undefined,
     label: typeof b.label === "string" ? b.label : "Embed",
     sublabel: b.sublabel,
     caption: b.caption,
+    subject: b.subject,
+    presentation: b.presentation,
+    data: b.data,
     titlePlacement: b.titlePlacement,
     captionPlacement: b.captionPlacement,
     layoutAlign: b.layoutAlign,
@@ -122,7 +131,7 @@ function legacyEmbedToBlock(b: LegacyEmbedJson): StoryMediaBlock | StoryEmbedBlo
     fullWidth: b.fullWidth,
     textWrap: b.textWrap,
     linkMode: b.linkMode,
-  };
+  } as StoryEmbedBlock);
 }
 
 function normalizeContainerWidth(raw: StoryContainerBlockProps["width"] | undefined): StoryContainerWidth {
@@ -159,6 +168,12 @@ function migrateRichTextBlock(b: StoryRichTextBlock): StoryRichTextBlock {
   out = { ...out, doc: docOut };
   if (preset === "heading") {
     out.headingLevel = clampStoryRichTextHeadingLevel(out.headingLevel ?? inferFirstHeadingLevel(docOut) ?? 2);
+  }
+  if (preset === "verse") {
+    out.verseSpacing = out.verseSpacing ?? "relaxed";
+    out.verseTitleAlign = out.verseTitleAlign ?? "center";
+    out.verseContentAlign = out.verseContentAlign ?? "center";
+    out.verseLineLayout = out.verseLineLayout ?? "normal";
   }
   return out;
 }
@@ -197,6 +212,9 @@ function migrateNested(nb: StoryColumnNestedBlock): StoryColumnNestedBlock {
   }
   if (nb.type === "columns") return migrateColumns(nb);
   if (nb.type === "embed") {
+    if (nb.embedKind != null && GENERAL_EMBED_KINDS.includes(nb.embedKind as StoryGeneralEmbedKind)) {
+      return ensureMediaEmbedRowLayoutMigrated(nb) as StoryColumnNestedBlock;
+    }
     return legacyEmbedToBlock(nb as unknown as LegacyEmbedJson) as StoryColumnNestedBlock;
   }
   return nb;
@@ -496,8 +514,15 @@ function migrateBlock(b: StoryBlock): StoryBlock {
   }
   if (b.type === "media") return ensureMediaEmbedRowLayoutMigrated(b) as StoryBlock;
   if (b.type === "embed") {
+    // Blocks that already carry a recognized current embedKind need no legacy transform —
+    // applying legacyEmbedToBlock would drop all kind-specific fields (scope, entityId, etc.).
+    if (b.embedKind != null && GENERAL_EMBED_KINDS.includes(b.embedKind as StoryGeneralEmbedKind)) {
+      return normalizeStoryEmbedBlock(ensureMediaEmbedRowLayoutMigrated(b) as StoryEmbedBlock) as StoryBlock;
+    }
     const next = legacyEmbedToBlock(b as unknown as LegacyEmbedJson) as StoryBlock;
-    return next.type === "embed" ? (ensureMediaEmbedRowLayoutMigrated(next) as StoryBlock) : next;
+    return next.type === "embed"
+      ? (normalizeStoryEmbedBlock(ensureMediaEmbedRowLayoutMigrated(next) as StoryEmbedBlock) as StoryBlock)
+      : next;
   }
   if (b.type === "richText") return migrateRichTextBlock(b);
   if (b.type === "divider") return migrateDividerBlock(b);
@@ -530,7 +555,7 @@ function migrateBlock(b: StoryBlock): StoryBlock {
   return b;
 }
 
-const STORY_KINDS = new Set<StoryDocumentKind>(["story", "article", "post"]);
+const STORY_KINDS = new Set<StoryDocumentKind>(["story", "article", "post", "folklore"]);
 
 function normalizeStoryKind(raw: unknown): StoryDocumentKind {
   return typeof raw === "string" && STORY_KINDS.has(raw as StoryDocumentKind) ? (raw as StoryDocumentKind) : "story";

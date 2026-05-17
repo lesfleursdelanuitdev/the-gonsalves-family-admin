@@ -6,8 +6,11 @@ import { TextStyle, FontSize } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import { TableKit } from "@tiptap/extension-table";
 import type { StoryFieldKey } from "@/lib/admin/story-creator/story-field-resolve";
+import type { StoryFlowMediaAttrs } from "@/lib/admin/story-creator/story-types";
 import { StoryField } from "@/lib/admin/story-creator/story-tiptap-story-field-extension";
 import { StoryTable } from "@/lib/admin/story-creator/story-tiptap-story-table";
+import { StoryLink } from "@/components/admin/story-creator/story-tiptap-link-extension";
+import { createStoryFlowNodeExtensions } from "@/components/admin/story-creator/story-tiptap-flow-extensions";
 
 /** Empty rich-text hint in the Story Creator canvas (TipTap placeholder). */
 export const STORY_RICH_TEXT_DEFAULT_PLACEHOLDER = "enter text or insert a table";
@@ -17,6 +20,12 @@ export type CreateStoryTipTapExtensionsOptions = {
   storyFieldHtml?: (field: StoryFieldKey) => string;
   /** Use a custom `StoryField` build (e.g. editor with React `NodeView`). */
   storyFieldExtension?: AnyExtension;
+  /** Owning rich-text block id, used by flow NodeViews to route clicks to the inspector. */
+  richTextBlockId?: string;
+  /** Disable React NodeViews for static HTML generation. Flow node schemas still render semantic fallback HTML. */
+  flowNodeViews?: boolean;
+  /** Preview/static HTML hook for enriching flow media nodes with already-fetched media URLs. */
+  resolveFlowMediaForHtml?: (attrs: StoryFlowMediaAttrs) => { src: string | null; title?: string | null } | null;
 };
 
 /**
@@ -30,18 +39,19 @@ export function createStoryTipTapExtensions(
   const exts: AnyExtension[] = [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5, 6] },
-      link: {
-        openOnClick: false,
-        autolink: true,
-        defaultProtocol: "https",
-        HTMLAttributes: {
-          class: "text-primary underline underline-offset-2",
-        },
-      },
+      link: false,
       codeBlock: {
         HTMLAttributes: {
           class: "story-editor-codeblock",
         },
+      },
+    }),
+    StoryLink.configure({
+      openOnClick: false,
+      autolink: true,
+      defaultProtocol: "https",
+      HTMLAttributes: {
+        class: "text-primary underline underline-offset-2",
       },
     }),
     Highlight.configure({
@@ -96,6 +106,13 @@ export function createStoryTipTapExtensions(
       resolveFieldForHtml: opts?.storyFieldHtml ?? (() => ""),
     });
   exts.push(storyFieldExt);
+  exts.push(
+    ...createStoryFlowNodeExtensions({
+      richTextBlockId: opts?.richTextBlockId,
+      nodeViews: opts?.flowNodeViews ?? true,
+      resolveMediaForHtml: opts?.resolveFlowMediaForHtml,
+    }),
+  );
 
   return exts;
 }

@@ -51,6 +51,7 @@ import {
   personEditorSourcesSummary,
 } from "@/components/admin/individual-editor/person-editor-mobile-summaries";
 import { IndividualEditorAssociatesSection } from "@/components/admin/individual-editor/IndividualEditorAssociatesSection";
+import { IndividualEditorRelationshipsSection } from "@/components/admin/individual-editor/IndividualEditorRelationshipsSection";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { useIndividualEditorFormState } from "@/hooks/useIndividualEditorFormState";
 import { useIndividualEditorInitialJoins } from "@/hooks/useIndividualEditorInitialJoins";
@@ -375,15 +376,23 @@ export function IndividualEditForm(props: Props) {
   );
 
   const associatesBody = (
-    <IndividualEditorAssociatesSection
-      mode={mode}
-      associates={editor.seed.associates}
-      subjectIndividualId={individualId}
-      onAddRow={editor.addAssociateRow}
-      onRemoveRow={editor.removeAssociateRow}
-      onChangeRela={editor.setAssociateRela}
-      onPickAssociate={editor.pickAssociateForRow}
-    />
+    <div className="space-y-6">
+      <IndividualEditorAssociatesSection
+        mode={mode}
+        associates={editor.seed.associates}
+        subjectIndividualId={individualId}
+        onAddRow={editor.addAssociateRow}
+        onRemoveRow={editor.removeAssociateRow}
+        onChangeRela={editor.setAssociateRela}
+        onPickAssociate={editor.pickAssociateForRow}
+      />
+      {mode === "edit" && individualId ? (
+        <div className="rounded-lg border border-border p-4">
+          <h4 className="text-sm font-semibold mb-2">Rich relationships</h4>
+          <IndividualEditorRelationshipsSection individualId={individualId} individualLabel={openQuestionEntityLabel} />
+        </div>
+      ) : null}
+    </div>
   );
 
   const notesBody = (

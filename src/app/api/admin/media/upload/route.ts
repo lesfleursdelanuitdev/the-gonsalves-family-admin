@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ADMIN_MEDIA_UPLOAD_MAX_BYTES } from "@/constants/admin";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { streamAdminMediaUpload } from "@/lib/admin/stream-admin-media-upload";
+import { can } from "@/lib/authz/authorize";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,19 @@ export const POST = withAdminAuth(async (request, user) => {
   const scope = request.nextUrl.searchParams.get("scope")?.trim();
   const target =
     scope === "site-assets" ? ("site" as const) : scope === "my-media" ? ("user" as const) : ("gedcom" as const);
+
+  const authScope = target === "site" ? "site" : target === "user" ? "user" : "gedcom";
+  const permitted = await can({
+    userId: user.id,
+    entity: "media",
+    action: "create",
+    scope: authScope,
+    ownerUserId: target === "user" ? user.id : null,
+  });
+  if (!permitted) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const result = await streamAdminMediaUpload(request, maxBytes, {
     target,
     userId: target === "user" ? user.id : undefined,

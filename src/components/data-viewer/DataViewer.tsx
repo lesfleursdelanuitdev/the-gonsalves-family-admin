@@ -13,12 +13,36 @@ import { DataViewerCardGrid } from "./DataViewerCardGrid";
 import { DataViewerSelectionBar } from "./DataViewerSelectionBar";
 import { AdminListAnalyticsPanel } from "@/components/admin/AdminListAnalyticsPanel";
 import { DataViewerBulkDeleteDialog } from "./DataViewerBulkDeleteDialog";
+import { useAdminCrudPermissions } from "@/hooks/useAdminAuthz";
 import {
   APP_SETTINGS_CHANGED_EVENT,
   DATA_VIEWER_MOBILE_MEDIA,
   readDataViewerGlobalDefault,
   readPreferTableOnMobile,
 } from "@/lib/settings/app-user-settings";
+
+const DATA_VIEWER_ENTITY_MAP: Record<string, { entity: string; scope: "tree" | "user" | "site" | "gedcom" }> = {
+  roles: { entity: "role", scope: "tree" },
+  permissions: { entity: "permission", scope: "tree" },
+  users: { entity: "user", scope: "tree" },
+  individuals: { entity: "individual", scope: "tree" },
+  families: { entity: "family", scope: "tree" },
+  events: { entity: "event", scope: "tree" },
+  notes: { entity: "note", scope: "tree" },
+  sources: { entity: "source", scope: "tree" },
+  places: { entity: "place", scope: "tree" },
+  dates: { entity: "date", scope: "tree" },
+  "given-names": { entity: "givenName", scope: "tree" },
+  surnames: { entity: "lastName", scope: "tree" },
+  "open-questions": { entity: "openQuestion", scope: "tree" },
+  media: { entity: "media", scope: "tree" },
+  tags: { entity: "tag", scope: "tree" },
+  albums: { entity: "album", scope: "tree" },
+  stories: { entity: "story", scope: "tree" },
+  recipes: { entity: "recipe", scope: "tree" },
+  glossary: { entity: "glossaryEntry", scope: "tree" },
+  changelog: { entity: "changelog", scope: "tree" },
+};
 
 function readStoredViewMode(key: string): ViewMode | null {
   if (typeof window === "undefined") return null;
@@ -66,6 +90,30 @@ export function DataViewer<TRecord>({
   onBulkDeleteFinished,
   statisticsAnalyticsSegment,
 }: DataViewerProps<TRecord>) {
+  const authzTarget = DATA_VIEWER_ENTITY_MAP[config.id] ?? null;
+  const crud = useAdminCrudPermissions(authzTarget?.entity ?? null, authzTarget?.scope ?? "tree");
+  const applyCrudVisibility = authzTarget != null;
+
+  const effectiveActions = useMemo(() => {
+    if (!applyCrudVisibility) return config.actions;
+    const next = { ...config.actions };
+    if (!crud.canCreate) next.add = undefined;
+    if (!crud.canUpdate) {
+      next.edit = undefined;
+      next.bulkEdit = undefined;
+    }
+    if (!crud.canDelete) next.delete = undefined;
+    return next;
+  }, [applyCrudVisibility, config.actions, crud.canCreate, crud.canDelete, crud.canUpdate]);
+
+  const effectiveConfig = useMemo(
+    () => ({
+      ...config,
+      actions: effectiveActions,
+    }),
+    [config, effectiveActions],
+  );
+
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return defaultViewMode;
     return resolveViewMode(
@@ -296,11 +344,11 @@ export function DataViewer<TRecord>({
   const selectionEnabled = !!config.enableRowSelection;
   const selectedCount = selectedIds.size;
 
-  const bulkDeleteOne = config.actions.delete?.bulkDeleteOne;
+  const bulkDeleteOne = effectiveConfig.actions.delete?.bulkDeleteOne;
   const bulkDeleteMany =
-    config.actions.delete?.bulkDeleteIds ?? config.actions.delete?.bulkHandler ?? null;
+    effectiveConfig.actions.delete?.bulkDeleteIds ?? effectiveConfig.actions.delete?.bulkHandler ?? null;
   const canBulkDelete =
-    selectionEnabled && !!config.actions.delete && (!!bulkDeleteOne || !!bulkDeleteMany);
+    selectionEnabled && !!effectiveConfig.actions.delete && (!!bulkDeleteOne || !!bulkDeleteMany);
 
   const openBulkDeleteDialog = () => {
     bulkDeleteIdsRef.current = Array.from(selectedIds);
@@ -333,7 +381,7 @@ export function DataViewer<TRecord>({
         }
       } else {
         toast.success(
-          `Deleted ${ids.length} ${ids.length === 1 ? config.labels.singular.toLowerCase() : config.labels.plural.toLowerCase()}.`,
+          `Deleted ${ids.length} ${ids.length === 1 ? effectiveConfig.labels.singular.toLowerCase() : effectiveConfig.labels.plural.toLowerCase()}.`,
         );
       }
       await onBulkDeleteFinished?.();
@@ -348,8 +396,8 @@ export function DataViewer<TRecord>({
   return (
     <div className="space-y-4">
       <DataViewerToolbar
-        labels={config.labels}
-        actions={config.actions}
+        labels={effectiveConfig.labels}
+        actions={effectiveConfig.actions}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
         filteredCount={filteredCount}
@@ -366,7 +414,7 @@ export function DataViewer<TRecord>({
           selectedCount={selectedCount}
           pageRowIds={pageRowIds}
           selectedIds={selectedIds}
-          actions={config.actions}
+          actions={effectiveConfig.actions}
           onClear={handleClearSelection}
           onToggleSelectPage={handleToggleSelectPage}
           onBulkDelete={canBulkDelete ? openBulkDeleteDialog : undefined}
@@ -376,7 +424,7 @@ export function DataViewer<TRecord>({
       <DataViewerBulkDeleteDialog
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}
-        pluralEntityLabel={config.labels.plural.toLowerCase()}
+        pluralEntityLabel={effectiveConfig.labels.plural.toLowerCase()}
         selectedCount={bulkDeleteCount}
         deleteProgress={bulkDeleteProgress}
         onConfirm={confirmBulkDelete}
@@ -385,11 +433,11 @@ export function DataViewer<TRecord>({
       {viewMode === "statistics" && statisticsAnalyticsSegment?.trim() ? (
         <AdminListAnalyticsPanel
           segment={statisticsAnalyticsSegment.trim()}
-          entityPlural={config.labels.plural}
+          entityPlural={effectiveConfig.labels.plural}
         />
       ) : viewMode === "table" ? (
         <DataViewerTable
-          config={config}
+          config={effectiveConfig}
           data={filteredData}
           pagination={pagination}
           onPaginationChange={onPaginationChange}
@@ -410,7 +458,7 @@ export function DataViewer<TRecord>({
         />
       ) : (
         <DataViewerCardGrid
-          config={config}
+          config={effectiveConfig}
           data={pageData}
           filteredTotal={cardFilteredTotal}
           pagination={pagination}

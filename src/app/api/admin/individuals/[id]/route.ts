@@ -6,9 +6,11 @@ import { applyIndividualEditorPayload } from "@/lib/admin/admin-individual-edito
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { repairIndividualKeyFactDenormFromEvents } from "@/lib/admin/admin-individual-key-events";
 import { bodyHasIndividualEditorPayload, parseIndividualEditorPayload } from "@/lib/forms/individual-editor-payload";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { ADMIN_INDIVIDUAL_DETAIL_INCLUDE } from "@/app/api/admin/individuals/individual-detail-include";
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -54,6 +56,7 @@ const ALLOWED_LEGACY_PATCH_FIELDS = new Set([
 ]);
 
 export const PATCH = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "individual", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -117,6 +120,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "individual", action: "delete", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

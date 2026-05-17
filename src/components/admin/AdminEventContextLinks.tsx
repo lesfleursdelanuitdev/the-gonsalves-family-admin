@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 
 function personLink(
   id: string | null | undefined,

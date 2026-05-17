@@ -4,6 +4,7 @@ import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 const familySelect = {
   id: true,
@@ -13,6 +14,7 @@ const familySelect = {
 } as const;
 
 export const POST = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "media", action: "update", scope: "tree" });
   const { id: mediaId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await request.json()) as Record<string, unknown>;

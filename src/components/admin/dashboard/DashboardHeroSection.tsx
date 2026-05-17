@@ -12,6 +12,7 @@ type Props = {
   lastImportAt: string | null;
   newThisWeek: AdminDashboardSnapshot["newThisWeek"];
   isLoading: boolean;
+  canAccessHref?: (href: string) => boolean;
 };
 
 const summaryCards: ReadonlyArray<{
@@ -37,9 +38,10 @@ function formatImportDate(iso: string | null): string {
   });
 }
 
-export function DashboardHeroSection({ totals, lastImportAt, newThisWeek, isLoading }: Props) {
+export function DashboardHeroSection({ totals, lastImportAt, newThisWeek, isLoading, canAccessHref }: Props) {
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const displayName = user?.name?.trim() || user?.username || null;
+  const visibleSummaryCards = summaryCards.filter((card) => (canAccessHref ? canAccessHref(card.href) : true));
 
   return (
     <section
@@ -104,7 +106,7 @@ export function DashboardHeroSection({ totals, lastImportAt, newThisWeek, isLoad
         </div>
 
         <ul className="grid min-w-0 flex-1 grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-          {summaryCards.map(({ key, href, label, icon: Icon }) => {
+          {visibleSummaryCards.map(({ key, href, label, icon: Icon }) => {
             const n = totals?.[key];
             return (
               <li key={key}>

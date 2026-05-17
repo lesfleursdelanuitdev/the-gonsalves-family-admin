@@ -21,6 +21,7 @@ export type StoryBlockWidthMode = "full" | "wide" | "medium" | "narrow" | "custo
 export type StoryBlockWidthUnit = "%" | "px";
 
 export type StoryBlockRowAlignment = "left" | "center" | "right";
+export type StoryVerseLineLayout = "normal" | "staggered";
 
 export type StoryBlockRowLayout = {
   widthMode?: StoryBlockWidthMode;
@@ -61,6 +62,66 @@ export type StoryBlockPlaceAnnotation = {
 /** Semantic text preset (Add Block); TipTap remains the inline engine inside `doc`. */
 export type StoryRichTextTextPreset = "paragraph" | "heading" | "list" | "verse" | "quote";
 
+export type StoryFlowDisplayMode = "block" | "wrapped";
+export type StoryFlowAlign = "left" | "right" | "center";
+export type StoryFlowSize = "small" | "medium" | "large" | "full";
+
+export type StoryFlowMediaAttrs = {
+  id: string;
+  mediaId: string;
+  mediaType?: "image" | "video" | "audio" | "document";
+  title?: string;
+  caption?: string;
+  alt?: string;
+  credit?: string;
+  displayMode: StoryFlowDisplayMode;
+  align: StoryFlowAlign;
+  size: StoryFlowSize;
+};
+
+export type StoryFlowEmbedKind =
+  | "timeline"
+  | "tree"
+  | "gallery"
+  | "map"
+  | "personSpotlight"
+  | "familyGroup"
+  | "event"
+  | "recipe";
+
+export type StoryFlowEmbedPresentation = {
+  chrome?: "none" | "minimal" | "full";
+  controls?: boolean;
+};
+
+export type TreeFlowEmbedData = StoryTreeEmbedData;
+export type PersonSpotlightFlowEmbedData = StoryPersonSpotlightEmbedData;
+export type GalleryFlowEmbedData = StoryGalleryEmbedData;
+export type MapFlowEmbedData = StoryMapEmbedData;
+export type TimelineFlowEmbedData = StoryTimelineEmbedData;
+
+export type StoryFlowEmbedAttrsCommon = {
+  id: string;
+  title?: string;
+  caption?: string;
+  displayMode: StoryFlowDisplayMode;
+  align: StoryFlowAlign;
+  size: StoryFlowSize;
+  presentation?: StoryFlowEmbedPresentation;
+};
+
+export type StoryFlowEmbedAttrs = StoryFlowEmbedAttrsCommon &
+  (
+    | { embedKind: "tree"; data: TreeFlowEmbedData }
+    | { embedKind: "timeline"; data: TimelineFlowEmbedData }
+    | { embedKind: "gallery"; data: GalleryFlowEmbedData }
+    | { embedKind: "map"; data: MapFlowEmbedData }
+    | { embedKind: "personSpotlight"; data: PersonSpotlightFlowEmbedData }
+    | { embedKind: "familyGroup"; data: StoryFamilyGroupEmbedData | Record<string, unknown> }
+    | { embedKind: "event"; data: StoryEventEmbedData | Record<string, unknown> }
+    | { embedKind: "recipe"; data: StoryRecipeEmbedData | Record<string, unknown> }
+  );
+
 /** Optional layout preset for containers created from Add Block. */
 export type StoryContainerPreset = "default" | "card" | "callout" | "hero" | "quote";
 
@@ -71,7 +132,7 @@ export type StoryContainerWidth = "narrow" | "normal" | "wide" | "full";
 export type StoryDividerVariant = "line" | "spacer" | "ornamental" | "sectionBreak";
 
 /** Matches Prisma `StoryKind` — used in local drafts until server sync. */
-export type StoryDocumentKind = "story" | "article" | "post";
+export type StoryDocumentKind = "story" | "article" | "post" | "folklore";
 
 /**
  * Denormalized place link on a local story draft (same `/api/admin/places` rows as `GedcomPlaceInput` suggestions).
@@ -124,6 +185,16 @@ export type StoryRichTextBlock = {
   quoteStyle?: "simple" | "card";
   /** When preset is `verse`, vertical rhythm between lines in the editor. */
   verseSpacing?: "compact" | "relaxed";
+  /** When preset is `verse`, optional title shown above the poem/body. */
+  verseTitle?: string;
+  /** When preset is `verse`, inspector-managed multiline content. Falls back to `doc` for older drafts. */
+  verseContent?: string;
+  /** When preset is `verse`, title text alignment. */
+  verseTitleAlign?: StoryBlockRowAlignment;
+  /** When preset is `verse`, body text alignment. */
+  verseContentAlign?: StoryBlockRowAlignment;
+  /** When preset is `verse`, optional staggered line offsets for the body. */
+  verseLineLayout?: StoryVerseLineLayout;
   /**
    * When true, this block was created as a locked heading (e.g. full-screen Add block → Heading).
    * The text preset cannot be changed away from `heading`; heading level may still be edited.
@@ -144,6 +215,10 @@ export type StoryMediaBlock = {
   /** Display title for this block (optional). Shown as "Untitled media" when empty. */
   label: string;
   caption?: string;
+  /** When true, keep the title editable but never render it in story output. */
+  hideTitle?: boolean;
+  /** When true, keep the caption editable but never render it in story output. */
+  hideCaption?: boolean;
   /** Position of the title relative to the media frame. Defaults to `above` when omitted. */
   titlePlacement?: StoryBlockTextPlacement;
   /** Position of the caption relative to the media frame. Defaults to `below` when omitted. */
@@ -174,7 +249,8 @@ export type StoryGeneralEmbedKind =
   | "gallery"
   | "personSpotlight"
   | "familyGroup"
-  | "event";
+  | "event"
+  | "recipe";
 
 /** Layout for media / embed blocks (theme-controlled presets, not freeform CSS). */
 export type StoryEmbedLayoutAlign = "above" | "below" | "left" | "right" | "wrapped" | "center" | "full";
@@ -189,29 +265,375 @@ export type StoryEmbedHeightPreset = "auto" | "compact" | "default" | "tall" | "
 
 export type StoryEmbedLinkMode = "none" | "same_window" | "new_tab";
 
-export type StoryEmbedBlock = {
+export type StoryEmbedSubjectType =
+  | "individual"
+  | "family"
+  | "event"
+  | "place"
+  | "album"
+  | "media"
+  | "tree"
+  | "note"
+  | "custom";
+
+export type StoryEmbedSubject = {
+  type: StoryEmbedSubjectType;
+  id?: string;
+  xref?: string;
+  label?: string;
+};
+
+export type StoryEmbedPresentation = {
+  chrome?: "none" | "minimal" | "full";
+  controls?: boolean;
+};
+
+/** Mirrors `PersonCardVariant` from the tree viewer; renderer defaults to `full` when absent. */
+export type StoryTreeCardVariant = "full" | "compact-name" | "compact-avatar";
+
+/** Mirrors `PersonCardLayout` from the tree viewer; only meaningful when `cardVariant` is `full`. */
+export type StoryTreeCardLayout =
+  | "avatarTopActionsBottom"
+  | "avatarLeftActionsRight"
+  | "avatarLeftActionsBottom"
+  | "avatarTopActionsRight"
+  | "avatarTopMobileMenu"
+  | "avatarLeftMobileMenu";
+
+/** Mirrors `PersonCompactCardSize`; only meaningful when `cardVariant` is a compact variant. */
+export type StoryTreeCompactCardSize = "large" | "medium" | "small" | "extra-small";
+
+export type StoryTreeEmbedData = {
+  rootPersonId?: string;
+  rootPersonXref?: string;
+  rootPersonLabel?: string;
+  generations: number;
+  chartType?: "pedigree" | "verticalPedigree" | "descendancy" | "fan";
+  /** Card style override. When absent, the renderer picks its own default. */
+  cardVariant?: StoryTreeCardVariant;
+  /** Full-card layout override. Only applied when `cardVariant` is `full` or absent. */
+  cardLayout?: StoryTreeCardLayout;
+  /** Compact card size override. Only applied when `cardVariant` is a compact variant. */
+  compactCardSize?: StoryTreeCompactCardSize;
+};
+
+export type StoryPersonSpotlightField =
+  | "profileImage"
+  | "name"
+  | "birthDate"
+  | "deathDate"
+  | "age"
+  | "lifespan"
+  | "birthPlace"
+  | "deathPlace"
+  | "parents"
+  | "spouses"
+  | "children"
+  | "custom";
+
+export type StoryPersonSpotlightEmbedData = {
+  personId?: string;
+  personXref?: string;
+  personLabel?: string;
+  fields: StoryPersonSpotlightField[];
+  customFields?: Array<{
+    label: string;
+    valuePath?: string;
+    value?: string;
+  }>;
+};
+
+export type StoryGalleryEmbedData = {
+  sourceType: "album" | "personMedia" | "familyMedia" | "eventMedia" | "tag" | "custom";
+  sourceId?: string;
+  sourceLabel?: string;
+  limit?: number;
+};
+
+export type StoryMapEmbedData = {
+  eventIds: string[];
+  eventXrefs?: string[];
+  eventLabels?: Record<string, string>;
+  mapMode?: "events" | "lifeRoute" | "familyMigration" | "custom";
+};
+
+export type TimelineRelationship = "parents" | "siblings" | "children" | "grandchildren";
+
+export type TimelineEventRuleFilters = {
+  eventTypes?: string[];
+  startYear?: number;
+  endYear?: number;
+};
+
+export type TimelineEventRule =
+  | { kind: "personEvents"; personId: string; personLabel?: string; filters?: TimelineEventRuleFilters }
+  | { kind: "familyEvents"; familyId: string; familyLabel?: string; filters?: TimelineEventRuleFilters }
+  | { kind: "memberEvents"; familyId: string; familyLabel?: string; filters?: TimelineEventRuleFilters }
+  | { kind: "noteEvents"; noteId: string; noteLabel?: string; filters?: TimelineEventRuleFilters }
+  | { kind: "relativeEvents"; personId: string; personLabel?: string; relationships: TimelineRelationship[]; filters?: TimelineEventRuleFilters };
+
+export type TimelineGlobalFilters = {
+  eventTypes?: string[];
+  startYear?: number;
+  endYear?: number;
+  includeUndated?: boolean;
+};
+
+export type StoryTimelineEmbedData = {
+  /** Composite rule-based event source. When present, legacy sourceType fields are ignored. */
+  rules?: TimelineEventRule[];
+  globalFilters?: TimelineGlobalFilters;
+  /** @deprecated Use `rules`. Retained for existing local drafts. */
+  sourceType?: "personEvents" | "familyEvents" | "noteEvents" | "selectedEvents" | "storyEvents" | "custom";
+  /** @deprecated Use `rules`. */
+  sourceId?: string;
+  /** @deprecated Use `rules`. */
+  sourceXref?: string;
+  /** @deprecated Use `rules`. */
+  sourceLabel?: string;
+  /** @deprecated Use `rules`. */
+  eventIds?: string[];
+  /** @deprecated Use `rules`. */
+  eventXrefs?: string[];
+  /** @deprecated Use `rules`. */
+  eventLabels?: Record<string, string>;
+  /** @deprecated Use `globalFilters`. */
+  timelineMode?: "life" | "family" | "note" | "story" | "custom";
+  /** @deprecated Use `globalFilters`. */
+  filters?: {
+    eventTypes?: string[];
+    startYear?: number;
+    endYear?: number;
+    includeUndated?: boolean;
+  };
+};
+
+export type RecipeIngredient = {
+  id: string;
+  amount?: string;
+  amountNum?: number;
+  unit?: string;
+  name: string;
+  note?: string;
+};
+
+export type RecipeIngredientGroup = {
+  id: string;
+  title?: string;
+  items: RecipeIngredient[];
+};
+
+export type RecipeStep = {
+  id: string;
+  text: string;
+  tip?: string;
+  stepMedia?: StoryImageMediaRef;
+};
+
+export type RecipeStepGroup = {
+  id: string;
+  title?: string;
+  steps: RecipeStep[];
+};
+
+export type StoryRecipeEmbedData = {
+  yield?: string;
+  prepTimeMinutes?: number;
+  cookTimeMinutes?: number;
+  totalTimeMinutes?: number;
+  difficulty?: "easy" | "medium" | "hard";
+  cuisine?: string;
+  source?: string;
+  ingredientGroups: RecipeIngredientGroup[];
+  stepGroups: RecipeStepGroup[];
+  notes?: string;
+  dietaryTags?: string[];
+};
+
+export type StoryEventEmbedData = {
+  eventId?: string;
+  eventXref?: string;
+  eventLabel?: string;
+  fields?: Array<"type" | "date" | "place" | "description" | "people" | "custom">;
+};
+
+export type StoryFamilyGroupEmbedData = {
+  familyId?: string;
+  familyXref?: string;
+  familyLabel?: string;
+  fields?: Array<"partners" | "children" | "marriage" | "events" | "custom">;
+};
+
+export type StoryDocumentEmbedData = {
+  documentId?: string;
+  documentLabel?: string;
+};
+
+export type StoryGraphEmbedData = {
+  subjectId?: string;
+  subjectLabel?: string;
+};
+
+export type StoryEmbedDataByKind = {
+  document: StoryDocumentEmbedData;
+  timeline: StoryTimelineEmbedData;
+  map: StoryMapEmbedData;
+  tree: StoryTreeEmbedData;
+  graph: StoryGraphEmbedData;
+  gallery: StoryGalleryEmbedData;
+  personSpotlight: StoryPersonSpotlightEmbedData;
+  familyGroup: StoryFamilyGroupEmbedData;
+  event: StoryEventEmbedData;
+  recipe: StoryRecipeEmbedData;
+};
+
+export type StoryTimelineScope = "individual" | "family" | "note";
+export type StoryTimelineOrient = "toggle" | "vertical" | "horizontal";
+export type StoryTimelineAnim = "fade" | "slide" | "pop" | "none";
+export type StoryTimelineStaggerV = "staggered" | "left" | "right";
+export type StoryTimelineStaggerH = "staggered" | "top" | "bottom";
+export type StoryTimelineRenderer = "html" | "svg";
+export type StoryTimelineViewMode = "single" | "timeline-cols" | "grid-cols" | "spine-cols";
+export type StoryTimelineColumnChunkMode = "by-events-per-column" | "by-column-count";
+export type StoryTimelinePerCol = 5 | 8 | 10 | 15 | 20;
+export type StoryTimelineNumColumns = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+/** How the timeline scroll viewport width is interpreted (matches standalone timeline URL state). */
+export type StoryTimelinePreviewWidthUnit = "px" | "pct";
+
+export type StoryEmbedBlockBase = {
   id: string;
   type: "embed";
-  embedKind: StoryGeneralEmbedKind;
+  /** Canonical editorial title. `label` is kept as a legacy alias for existing drafts. */
+  title?: string;
+  /** Canonical subject/source for the embed. */
+  subject?: StoryEmbedSubject;
+  /** Minimal presentation intent. Final styling belongs to the renderer/public site. */
+  presentation?: StoryEmbedPresentation;
+  /** @deprecated Use `title`. Kept for existing local drafts and older renderers. */
   label: string;
+  /** @deprecated Prefer kind-specific semantic data or `caption`/`title`. */
   sublabel?: string;
   caption?: string;
-  /** Position of the title relative to the embed frame. Defaults to `above` when omitted. */
+  /** When true, keep the title editable but never render it in story output. */
+  hideTitle?: boolean;
+  /** When true, keep the caption editable but never render it in story output. */
+  hideCaption?: boolean;
+  /** @deprecated Admin preview-only placement. Public renderers should choose presentation. */
   titlePlacement?: StoryBlockTextPlacement;
-  /** Position of the caption relative to the embed frame. Defaults to `below` when omitted. */
+  /** @deprecated Admin preview-only placement. Public renderers should choose presentation. */
   captionPlacement?: StoryBlockTextPlacement;
+  /** @deprecated Media-era layout alias; prefer renderer-driven presentation. */
   layoutAlign?: StoryEmbedLayoutAlign;
+  /** @deprecated Media-era layout alias; prefer renderer-driven presentation. */
   widthPreset?: StoryEmbedWidthPreset;
+  /** @deprecated Admin preview placeholder sizing. */
   heightPreset?: StoryEmbedHeightPreset;
+  /** @deprecated Media-era layout alias; prefer renderer-driven presentation. */
   fullWidth?: boolean;
+  /** @deprecated Media-era layout alias; prefer renderer-driven presentation. */
   textWrap?: boolean;
+  /** @deprecated Prefer `presentation.controls` or kind-specific public behavior. */
   linkMode?: StoryEmbedLinkMode;
+  /** Optional fixed embed frame height in px (timeline embed). */
+  heightPx?: number;
+  /** Timeline subject scope (timeline embed only). */
+  scope?: StoryTimelineScope | null;
+  /** UUID of selected individual/family/note (timeline embed only). */
+  entityId?: string | null;
+  /** Timeline presentation options (timeline embed only). */
+  viewMode?: StoryTimelineViewMode;
+  orient?: StoryTimelineOrient;
+  activeView?: "vertical" | "horizontal";
+  anim?: StoryTimelineAnim;
+  vStyle?: StoryTimelineStaggerV;
+  hStyle?: StoryTimelineStaggerH;
+  pag?: boolean;
+  perPage?: 5 | 8 | 12 | 20;
+  autoplayPxPerSec?: number;
+  autoplayLoop?: boolean;
+  showImages?: boolean;
+  animRevealMinRatio?: number;
+  renderer?: StoryTimelineRenderer;
+  perCol?: StoryTimelinePerCol;
+  numColumns?: StoryTimelineNumColumns;
+  columnChunkMode?: StoryTimelineColumnChunkMode;
+  cardWidthPx?: 200 | 260 | 320;
+  gapPx?: number;
+  showArrows?: boolean;
+  /** Width of the timeline embed container as a percentage (20–100). Only applies in vertical single view. */
+  embedWidthPct?: number;
+  /** Horizontal alignment of the timeline embed when embedWidthPct < 100. Only applies in vertical single view. */
+  embedAlign?: "left" | "center" | "right";
+  /** Max timeline viewport width in px when `timelinePreviewWidthUnit` is `px`. */
+  timelineWidthPx?: number;
+  /** Viewport width as % of the embed frame when `timelinePreviewWidthUnit` is `pct`. */
+  timelineWidthPct?: number;
+  timelinePreviewWidthUnit?: StoryTimelinePreviewWidthUnit;
+  /** When true, readers see Play / Pause / Start over on the embed (pagination must be off). */
+  timelineShowPlaybackControls?: boolean;
   rowLayout?: StoryBlockRowLayout;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
   dateAnnotations?: StoryBlockDateAnnotation[];
   placeAnnotations?: StoryBlockPlaceAnnotation[];
 };
+
+export type StoryDocumentEmbedBlock = StoryEmbedBlockBase & { embedKind: "document"; data?: StoryDocumentEmbedData };
+export type StoryTimelineEmbedBlock = StoryEmbedBlockBase & { embedKind: "timeline"; data?: StoryTimelineEmbedData };
+export type StoryMapEmbedBlock = StoryEmbedBlockBase & { embedKind: "map"; data?: StoryMapEmbedData };
+export type StoryTreeEmbedBlock = StoryEmbedBlockBase & { embedKind: "tree"; data?: StoryTreeEmbedData };
+export type StoryGraphEmbedBlock = StoryEmbedBlockBase & { embedKind: "graph"; data?: StoryGraphEmbedData };
+export type StoryGalleryEmbedBlock = StoryEmbedBlockBase & { embedKind: "gallery"; data?: StoryGalleryEmbedData };
+export type StoryPersonSpotlightEmbedBlock = StoryEmbedBlockBase & {
+  embedKind: "personSpotlight";
+  data?: StoryPersonSpotlightEmbedData;
+};
+export type StoryFamilyGroupEmbedBlock = StoryEmbedBlockBase & { embedKind: "familyGroup"; data?: StoryFamilyGroupEmbedData };
+export type StoryEventEmbedBlock = StoryEmbedBlockBase & { embedKind: "event"; data?: StoryEventEmbedData };
+export type StoryRecipeEmbedBlock = StoryEmbedBlockBase & { embedKind: "recipe"; data?: StoryRecipeEmbedData };
+
+export type StoryEmbedBlock =
+  | StoryDocumentEmbedBlock
+  | StoryTimelineEmbedBlock
+  | StoryMapEmbedBlock
+  | StoryTreeEmbedBlock
+  | StoryGraphEmbedBlock
+  | StoryGalleryEmbedBlock
+  | StoryPersonSpotlightEmbedBlock
+  | StoryFamilyGroupEmbedBlock
+  | StoryEventEmbedBlock
+  | StoryRecipeEmbedBlock;
+
+export type StoryTimelineEmbedPayload = Pick<
+  StoryEmbedBlock,
+  | "scope"
+  | "entityId"
+  | "viewMode"
+  | "orient"
+  | "activeView"
+  | "anim"
+  | "vStyle"
+  | "hStyle"
+  | "pag"
+  | "perPage"
+  | "autoplayPxPerSec"
+  | "autoplayLoop"
+  | "showImages"
+  | "animRevealMinRatio"
+  | "renderer"
+  | "perCol"
+  | "numColumns"
+  | "columnChunkMode"
+  | "cardWidthPx"
+  | "gapPx"
+  | "showArrows"
+  | "heightPx"
+  | "timelineWidthPx"
+  | "timelineWidthPct"
+  | "timelinePreviewWidthUnit"
+  | "timelineShowPlaybackControls"
+>;
 
 /**
  * Content inside a column cell. Columns may nest one level (section → columns → columns);
@@ -248,6 +670,8 @@ export type StoryColumnSlot = {
   stackGapRem?: number;
 };
 
+export type StoryColumnsMobileBehavior = "stackLeftFirst" | "stackRightFirst" | "keepSideBySide";
+
 export type StoryColumnsBlock = {
   id: string;
   type: "columns";
@@ -259,6 +683,10 @@ export type StoryColumnsBlock = {
   columnWidthPercents?: [number, number];
   /** Horizontal gap between columns in `rem` (stable, theme-relative). */
   columnGapRem?: number;
+  /** Narrow-screen behavior. Defaults to stackLeftFirst for saved stories without this field. */
+  mobileBehavior?: StoryColumnsMobileBehavior;
+  /** When false, per-column stack overrides stay saved but render as shared defaults. */
+  advancedColumnLayoutEnabled?: boolean;
   design?: StoryBlockDesign;
   dateAnnotation?: StoryBlockDateAnnotation;
   dateAnnotations?: StoryBlockDateAnnotation[];
@@ -430,6 +858,10 @@ export type StorySection = {
   id: string;
   title: string;
   subtitle?: string;
+  /** Hide the title in story body renderers while keeping it available for editor navigation/TOC. */
+  hideTitle?: boolean;
+  /** Hide the subtitle in story body renderers while keeping it available for editor metadata. */
+  hideSubtitle?: boolean;
   /** When true, nested sections are hidden in the outline (editor only). */
   collapsed?: boolean;
   /**

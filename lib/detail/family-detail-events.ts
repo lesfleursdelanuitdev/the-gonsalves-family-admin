@@ -4,20 +4,16 @@
  */
 import { Prisma } from "@ligneous/prisma";
 import type { PrismaClient } from "@ligneous/prisma";
+import { eventRowGedcomId, type FamilyDetailEvent } from "@ligneous/gedcom-events";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { eventRowGedcomId, type IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 import { dedupeTimelineEvents } from "@/lib/detail/timeline-event-dedupe";
 import { grandchildParentFromFamilyRow } from "@/lib/detail/grandchild-parent-from-family-row";
 import { attachTimelineEventPreviewMedia } from "@/lib/detail/timeline-event-preview-media";
 import { mergeFamilyChildrenForApi } from "@/lib/admin/admin-family-children-merge";
-import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
+import type { TimelineSubject } from "@ligneous/gedcom-events";
 
-export type FamilyDetailEvent = IndividualDetailEvent & {
-  memberId?: string | null;
-  memberName?: string | null;
-  husbandDisplayName?: string | null;
-  wifeDisplayName?: string | null;
-};
+export type { FamilyDetailEvent } from "@ligneous/gedcom-events";
 
 type Row = Record<string, unknown>;
 

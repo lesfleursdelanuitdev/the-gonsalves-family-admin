@@ -34,12 +34,21 @@ function createPrismaClient(): PrismaClient {
 function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
   const o = client as unknown as Record<string, unknown>;
   return (
+    o.role != null &&
+    o.rolePermission != null &&
+    o.userRole != null &&
+    o.authzPermission != null &&
     o.openQuestion != null &&
     o.tagProfileMedia != null &&
     o.openQuestionSource != null &&
     o.openQuestionNote != null &&
     o.reconciliationSession != null &&
-    o.pendingGedcomImport != null
+    o.pendingGedcomImport != null &&
+    o.relationshipType != null &&
+    o.relationshipTypeRole != null &&
+    o.individualRelationship != null &&
+    o.individualRelationshipParticipant != null &&
+    o.individualRelationshipSourceAssociation != null
   );
 }
 

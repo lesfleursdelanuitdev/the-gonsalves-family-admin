@@ -38,6 +38,12 @@ const GENERAL_EMBED_KINDS = new Set<StoryGeneralEmbedKind>([
 ]);
 
 const LEGACY_EMBED_KINDS = new Set(["image", "video", "audio", "media"]);
+const FLOW_DISPLAY_MODES = new Set(["block", "wrapped"]);
+const FLOW_ALIGNS = new Set(["left", "right", "center"]);
+const FLOW_SIZES = new Set(["small", "medium", "large", "full"]);
+const FLOW_MEDIA_TYPES = new Set(["image", "video", "audio", "document"]);
+const FLOW_EMBED_KINDS = new Set(["timeline", "tree", "gallery", "map", "personSpotlight", "familyGroup", "event"]);
+const COLUMNS_MOBILE_BEHAVIORS = new Set(["stackLeftFirst", "stackRightFirst", "keepSideBySide"]);
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -45,6 +51,45 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function fail(path: string, msg: string): ValidationResult {
   return { ok: false, error: `${path}: ${msg}` };
+}
+
+function validateFlowLayout(node: Record<string, unknown>, path: string): ValidationResult {
+  const attrs = node.attrs;
+  if (!isRecord(attrs)) return fail(path, "flow node attrs must be an object");
+  if (typeof attrs.id !== "string" || attrs.id.trim() === "") return fail(path, "flow node attrs.id must be a non-empty string");
+  if (!FLOW_DISPLAY_MODES.has(String(attrs.displayMode))) return fail(path, "flow node displayMode is invalid");
+  if (!FLOW_ALIGNS.has(String(attrs.align))) return fail(path, "flow node align is invalid");
+  if (!FLOW_SIZES.has(String(attrs.size))) return fail(path, "flow node size is invalid");
+  if (attrs.displayMode === "wrapped" && attrs.align === "center") return fail(path, "wrapped flow nodes cannot be center aligned");
+  if (attrs.displayMode === "wrapped" && attrs.size === "full") return fail(path, "wrapped flow nodes cannot be full size");
+  return { ok: true };
+}
+
+function validateTipTapNode(node: unknown, path: string): ValidationResult {
+  if (!isRecord(node)) return fail(path, "TipTap node must be an object");
+  if (typeof node.type !== "string" || node.type.trim() === "") return fail(path, "TipTap node.type must be a string");
+  if (node.type === "storyFlowMedia") {
+    const layout = validateFlowLayout(node, path);
+    if (!layout.ok) return layout;
+    const attrs = node.attrs as Record<string, unknown>;
+    if (typeof attrs.mediaId !== "string" || attrs.mediaId.trim() === "") return fail(path, "storyFlowMedia.attrs.mediaId must be a non-empty string");
+    if (attrs.mediaType != null && !FLOW_MEDIA_TYPES.has(String(attrs.mediaType))) return fail(path, "storyFlowMedia.attrs.mediaType is invalid");
+  }
+  if (node.type === "storyFlowEmbed") {
+    const layout = validateFlowLayout(node, path);
+    if (!layout.ok) return layout;
+    const attrs = node.attrs as Record<string, unknown>;
+    if (!FLOW_EMBED_KINDS.has(String(attrs.embedKind))) return fail(path, "storyFlowEmbed.attrs.embedKind is invalid");
+    if (!isRecord(attrs.data)) return fail(path, "storyFlowEmbed.attrs.data must be an object");
+  }
+  if (node.content != null) {
+    if (!Array.isArray(node.content)) return fail(path, "TipTap node.content must be an array when provided");
+    for (let i = 0; i < node.content.length; i += 1) {
+      const res = validateTipTapNode(node.content[i], `${path}.content[${i}]`);
+      if (!res.ok) return res;
+    }
+  }
+  return { ok: true };
 }
 
 function validateBlock(
@@ -65,10 +110,12 @@ function validateBlock(
     case "richText": {
       if (!isRecord(block.doc)) return fail(path, "richText.doc must be an object");
       if ("textPreset" in block) return fail(path, "legacy richText.textPreset is not accepted");
-      return { ok: true };
+      return validateTipTapNode(block.doc, `${path}.doc`);
     }
     case "media": {
       if ("embedKind" in block) return fail(path, "legacy media shape with embedKind is not accepted");
+      if (block.hideTitle != null && typeof block.hideTitle !== "boolean") return fail(path, "media.hideTitle must be a boolean when provided");
+      if (block.hideCaption != null && typeof block.hideCaption !== "boolean") return fail(path, "media.hideCaption must be a boolean when provided");
       return { ok: true };
     }
     case "embed": {
@@ -79,11 +126,23 @@ function validateBlock(
       if (!GENERAL_EMBED_KINDS.has(block.embedKind as StoryGeneralEmbedKind)) {
         return fail(path, `unknown embedKind '${block.embedKind}'`);
       }
+      if (block.data != null && !isRecord(block.data)) return fail(path, "embed.data must be an object when provided");
+      if (block.presentation != null && !isRecord(block.presentation)) {
+        return fail(path, "embed.presentation must be an object when provided");
+      }
+      if (block.hideTitle != null && typeof block.hideTitle !== "boolean") return fail(path, "embed.hideTitle must be a boolean when provided");
+      if (block.hideCaption != null && typeof block.hideCaption !== "boolean") return fail(path, "embed.hideCaption must be a boolean when provided");
       return { ok: true };
     }
     case "columns": {
       if (!Array.isArray(block.columns) || block.columns.length !== 2) {
         return fail(path, "columns.columns must be a tuple with 2 slots");
+      }
+      if (block.mobileBehavior != null && !COLUMNS_MOBILE_BEHAVIORS.has(String(block.mobileBehavior))) {
+        return fail(path, "columns.mobileBehavior is invalid");
+      }
+      if (block.advancedColumnLayoutEnabled != null && typeof block.advancedColumnLayoutEnabled !== "boolean") {
+        return fail(path, "columns.advancedColumnLayoutEnabled must be a boolean when provided");
       }
       for (let i = 0; i < block.columns.length; i += 1) {
         const slot = block.columns[i];
@@ -148,6 +207,8 @@ function validateSection(section: unknown, path: string): ValidationResult {
   if (!isRecord(section)) return fail(path, "section must be an object");
   if (typeof section.id !== "string" || section.id.trim() === "") return fail(path, "section.id must be a non-empty string");
   if (typeof section.title !== "string") return fail(path, "section.title must be a string");
+  if (section.hideTitle != null && typeof section.hideTitle !== "boolean") return fail(path, "section.hideTitle must be a boolean when provided");
+  if (section.hideSubtitle != null && typeof section.hideSubtitle !== "boolean") return fail(path, "section.hideSubtitle must be a boolean when provided");
   if (!Array.isArray(section.blocks)) return fail(path, "section.blocks must be an array");
   for (let i = 0; i < section.blocks.length; i += 1) {
     const res = validateBlock(section.blocks[i], `${path}.blocks[${i}]`, SECTION_BLOCK_TYPES);

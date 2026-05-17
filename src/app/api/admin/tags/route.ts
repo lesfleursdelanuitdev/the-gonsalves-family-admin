@@ -3,21 +3,41 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 /** Tags the current user may apply: global + their own. */
 export const GET = withAdminAuth(async (request, user) => {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const requestedOwnerUserId = request.nextUrl.searchParams.get("userId")?.trim() ?? "";
   const { limit, offset } = parseListParams(request.nextUrl.searchParams);
   const { canReadAllTreeData: isAdminTreeOwner } = await getAdminTreeReadScope(user);
 
-  const baseWhere = isAdminTreeOwner
-    ? {
-        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-      }
-    : {
-        OR: [{ isGlobal: true }, { userId: user.id }],
-        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-      };
+  let baseWhere: Record<string, unknown>;
+  if (requestedOwnerUserId) {
+    const isOwn = requestedOwnerUserId === user.id;
+    await requireCan({
+      entity: "tag",
+      action: "read",
+      scope: isOwn ? "user" : "other_users",
+      ownerUserId: requestedOwnerUserId,
+      treeId: process.env.ADMIN_TREE_ID ?? null,
+    });
+    baseWhere = {
+      OR: [{ isGlobal: true }, { userId: requestedOwnerUserId }],
+      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    };
+  } else if (isAdminTreeOwner) {
+    await requireCan({ entity: "tag", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
+    baseWhere = {
+      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    };
+  } else {
+    await requireCan({ entity: "tag", action: "read", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
+    baseWhere = {
+      OR: [{ isGlobal: true }, { userId: user.id }],
+      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    };
+  }
 
   const [tags, total] = await Promise.all([
     prisma.tag.findMany({
@@ -38,6 +58,7 @@ export const GET = withAdminAuth(async (request, user) => {
 });
 
 export const POST = withAdminAuth(async (request, user) => {
+  await requireCan({ entity: "tag", action: "create", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const body = (await request.json()) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name) {

@@ -4,6 +4,7 @@ import { sanitizeExportBasename } from "@/lib/admin/export-filename";
 import { postLibApiExport } from "@/lib/admin/lib-api-export";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 const FORMATS = ["gedcom", "json", "csv"] as const;
 type ExportFormat = (typeof FORMATS)[number];
@@ -22,6 +23,7 @@ function formatToExt(format: ExportFormat): string {
 }
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "gedcom", action: "export", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { searchParams } = req.nextUrl;
   const formatRaw = (searchParams.get("format") ?? "gedcom").toLowerCase();
   if (!FORMATS.includes(formatRaw as ExportFormat)) {

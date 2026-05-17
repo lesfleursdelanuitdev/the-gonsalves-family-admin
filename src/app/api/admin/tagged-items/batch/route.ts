@@ -3,6 +3,7 @@ import { EntityType } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 const MAX_ENTITY_IDS = 2_000;
 const MAX_TAG_IDS = 80;
@@ -91,6 +92,7 @@ async function filterEntityIdsInFile(
  * Apply one or more tags to many GEDCOM-scoped entities in the admin tree (`TaggedItem`).
  */
 export const POST = withAdminAuth(async (request, user) => {
+  await requireCan({ entity: "tag", action: "update", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const file = await prisma.gedcomFile.findUnique({
     where: { id: fileUuid },

@@ -15,24 +15,33 @@ import { normalizeStoryDocContent } from "@/components/admin/story-creator/story
 import type {
   StoryBlock,
   StoryColumnNestedBlock,
-  StoryContainerBlock,
   StoryDocument,
   StoryRichTextBlock,
   StorySection,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryDividerPreset, getStoryRichTextPreset } from "@/lib/admin/story-creator/story-types";
-import { storyColumnStackStyle, storyColumnsGridStyle } from "@/lib/admin/story-creator/story-columns-layout";
+import {
+  advancedColumnLayoutEnabled,
+  DEFAULT_COLUMN_STACK_GAP_REM,
+  orderedColumnSlots,
+  resolveColumnsLayoutMode,
+  storyColumnSharedStackStyle,
+  storyColumnStackStyle,
+  storyColumnsGridStyle,
+} from "@/lib/admin/story-creator/story-columns-layout";
 import { EmbedBlockContentRenderer } from "@/components/admin/story-creator/story-block-embed-content";
 import { MediaBlockContentRenderer } from "@/components/admin/story-creator/story-block-media-content";
 import { StoryBlockRowDesignWrap } from "@/components/admin/story-creator/StoryBlockDesignWrap";
 import { groupColumnNestedBlocksForLayout, groupStoryBlocksForLayout } from "@/lib/admin/story-creator/story-block-layout";
+import { StoryVerseBlock } from "@/components/admin/story-creator/StoryVerseBlock";
 import { formatStoryAuthorLine } from "@/lib/admin/story-creator/story-author-display";
 import { resolveStoryField } from "@/lib/admin/story-creator/story-field-resolve";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { mediaThumbSrc, resolveMediaImageSrc } from "@/lib/admin/mediaPreview";
 import type { StoryMediaDetail } from "@/hooks/useStoryMediaById";
-import { useStoryMediaById } from "@/hooks/useStoryMediaById";
-import { resolveStoryImages, storyCoverAndProfileAreSameRef } from "@/lib/admin/story-creator/story-images-resolve";
+import { useStoryMediaById, useStoryMediaByIds } from "@/hooks/useStoryMediaById";
+import { resolveStoryImages } from "@/lib/admin/story-creator/story-images-resolve";
+import { STORY_FLOW_MEDIA_NODE } from "@/lib/admin/story-creator/story-flow-nodes";
 import {
   getContainerCustomBackgroundStyle,
   getContainerClasses,
@@ -40,6 +49,7 @@ import {
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import "./story-reference-preview.css";
 import "./story-preview-themes.css";
+import "./story-flow-nodes.css";
 
 const PREVIEW_THEME_LS = "story-creator-preview-theme";
 const PREVIEW_TOC_LS = "story-creator-preview-toc-open";
@@ -87,6 +97,28 @@ function storyPreviewThumbFromDetail(data: StoryMediaDetail | undefined, width: 
   return mediaThumbSrc(fileRef, data?.form ?? null, width) ?? resolveMediaImageSrc(fileRef);
 }
 
+function collectStoryFlowMediaIds(value: unknown): string[] {
+  const mediaIds = new Set<string>();
+  const visit = (current: unknown) => {
+    if (!current || typeof current !== "object") return;
+    if (Array.isArray(current)) {
+      current.forEach(visit);
+      return;
+    }
+
+    const record = current as { type?: unknown; attrs?: unknown };
+    if (record.type === STORY_FLOW_MEDIA_NODE) {
+      const attrs = record.attrs && typeof record.attrs === "object" ? (record.attrs as { mediaId?: unknown }) : null;
+      const mediaId = typeof attrs?.mediaId === "string" ? attrs.mediaId.trim() : "";
+      if (mediaId) mediaIds.add(mediaId);
+    }
+    Object.values(current).forEach(visit);
+  };
+
+  visit(value);
+  return [...mediaIds];
+}
+
 const StoryPreviewRichHtmlContext = createContext<(json: unknown) => string>(() => "");
 
 const StoryPreviewMobileContext = createContext(false);
@@ -122,49 +154,50 @@ function storyRichTextPresetPreviewClass(block: StoryRichTextBlock): string {
 
 function StoryPreviewCoverBanner({ doc }: { doc: StoryDocument }) {
   const { cover, profile } = resolveStoryImages(doc);
-  const sameRef = storyCoverAndProfileAreSameRef(doc);
   const coverId = cover?.mediaId;
-  const profileLoadId = profile && !sameRef ? profile.mediaId : undefined;
+  const profileId = profile?.mediaId;
 
-  const { data: coverData, isLoading: coverLoading } = useStoryMediaById(coverId);
-  const { data: profileData, isLoading: profileLoading } = useStoryMediaById(profileLoadId);
+  const { data: coverData, isLoading: coverLoading } = useStoryMediaById(coverId, cover?.mediaKind);
+  const { data: profileData, isLoading: profileLoading } = useStoryMediaById(profileId, profile?.mediaKind);
 
   const coverThumb = storyPreviewThumbFromDetail(coverData, 960);
   const profileThumb = storyPreviewThumbFromDetail(profileData, 320);
 
   const hasCoverVisual = Boolean(coverId && coverThumb);
   const showCoverSkeleton = Boolean(coverId && !coverThumb && coverLoading);
-  const showAvatar = Boolean(profileLoadId && !sameRef);
+  const showProfilePlaceholder = Boolean(profileId && profileLoading && !profileThumb);
+  const showProfileFrame = Boolean(profileId || hasCoverVisual || showCoverSkeleton);
   const avatarReady = Boolean(profileThumb);
-  const avatarPending = Boolean(showAvatar && profileLoading && !profileThumb);
-  const headerBodyOverlap = Boolean(showAvatar && (avatarReady || avatarPending));
+  const headerBodyOverlap = showProfileFrame;
 
   const authorLine = formatStoryAuthorLine(doc);
   const excerpt = (doc.excerpt ?? "").trim();
 
   return (
     <header className="story-preview-header">
-      {hasCoverVisual ? (
-        <div className="story-preview-cover">
+      {hasCoverVisual || showCoverSkeleton ? (
+        <div className={cn("story-preview-cover", showCoverSkeleton && "story-preview-cover--loading")}>
           <div className="story-preview-cover-inner">
-            {/* eslint-disable-next-line @next/next/no-img-element -- admin library preview */}
-            <img src={coverThumb!} alt="" className="story-preview-cover-img" decoding="async" />
+            {hasCoverVisual ? (
+              // eslint-disable-next-line @next/next/no-img-element -- admin library preview
+              <img src={coverThumb!} alt="" className="story-preview-cover-img" decoding="async" />
+            ) : (
+              <div className="story-preview-cover-placeholder" aria-hidden />
+            )}
             <div className="story-preview-cover-overlay" aria-hidden />
-            {showAvatar ? (
+            <div className="story-preview-cover-center">
               <div className="story-preview-profile">
                 {avatarReady ? (
                   // eslint-disable-next-line @next/next/no-img-element -- admin library preview
                   <img src={profileThumb!} alt="" className="story-preview-profile-img" decoding="async" />
-                ) : avatarPending ? (
+                ) : showProfilePlaceholder ? (
                   <div className="story-preview-profile-skeleton" aria-hidden />
-                ) : null}
+                ) : (
+                  <div className="story-preview-profile-placeholder" aria-hidden />
+                )}
               </div>
-            ) : null}
+            </div>
           </div>
-        </div>
-      ) : showCoverSkeleton ? (
-        <div className="story-preview-cover story-preview-cover--loading preview-toolbar-tools flex items-center justify-center text-sm">
-          Loading cover…
         </div>
       ) : null}
       <div className={cn("story-preview-header-body", headerBodyOverlap && "story-preview-header-body--with-profile")}>
@@ -242,6 +275,9 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
   const proseClass = previewBlockProseClass(readingTheme);
   if (block.type === "richText") {
     const preset = getStoryRichTextPreset(block);
+    if (preset === "verse") {
+      return <StoryVerseBlock block={block} />;
+    }
     return (
       <div className={cn("min-w-0", storyRichTextPresetPreviewClass(block))}>
         <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.doc) }} />
@@ -288,12 +324,17 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
       nestedDepth >= 2
         ? "flex min-h-[3rem] min-w-0 flex-col rounded-md border border-solid border-[color:var(--story-subtle-border)] bg-base-200/15 p-2"
         : "flex min-h-[4rem] min-w-0 flex-col rounded-lg border border-solid border-[color:var(--story-subtle-border)] bg-base-200/20 p-3";
-    const layout = previewMobile ? ("stacked" as const) : ("two-column" as const);
+    const layout = resolveColumnsLayoutMode(block, previewMobile);
+    const useAdvancedColumnLayout = advancedColumnLayoutEnabled(block);
+    const sharedStackGapRem = block.columns[0]?.stackGapRem ?? DEFAULT_COLUMN_STACK_GAP_REM;
     return (
       <div className="story-preview-columns grid min-w-0" style={storyColumnsGridStyle(block, layout)}>
-        {block.columns.map((slot) => (
+        {orderedColumnSlots(block, previewMobile).map(({ slot }) => (
           <div key={slot.id} className={cellClass}>
-            <div className="flex min-h-0 flex-1 flex-col" style={storyColumnStackStyle(slot)}>
+            <div
+              className="flex min-h-0 flex-1 flex-col"
+              style={useAdvancedColumnLayout ? storyColumnStackStyle(slot) : storyColumnSharedStackStyle(sharedStackGapRem)}
+            >
               {slot.blocks.length === 0 ? (
                 <p className="preview-empty-hint rounded-md px-2 py-3 text-center text-xs">Empty column</p>
               ) : (
@@ -422,10 +463,16 @@ function ColumnNestedBlockPreview({ block, nestedDepth }: { block: StoryColumnNe
     );
     const textCol = (
       <div className={cn(storyRichTextPresetPreviewClass(block.text))} style={{ alignSelf: "stretch", minWidth: 0 }}>
-        <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.text.doc) }} />
-        {textPreset === "quote" && block.text.quoteAttribution?.trim() ? (
-          <p className="story-preview-statusline mt-2 text-right text-xs font-medium">— {block.text.quoteAttribution.trim()}</p>
-        ) : null}
+        {textPreset === "verse" ? (
+          <StoryVerseBlock block={block.text} />
+        ) : (
+          <>
+            <div className={cn(proseClass)} dangerouslySetInnerHTML={{ __html: richHtml(block.text.doc) }} />
+            {textPreset === "quote" && block.text.quoteAttribution?.trim() ? (
+              <p className="story-preview-statusline mt-2 text-right text-xs font-medium">— {block.text.quoteAttribution.trim()}</p>
+            ) : null}
+          </>
+        )}
       </div>
     );
     return (
@@ -482,15 +529,15 @@ function SectionTreePreview({ section, depth }: { section: StorySection; depth: 
   const hasBlocks = section.blocks.length > 0;
   const hasKids = (section.children?.length ?? 0) > 0;
   const titleEl =
-    depth === 0 ? (
-      <h2 className="story-preview-section-title">{section.title}</h2>
-    ) : (
-      <h3 className="story-preview-subsection-title">{section.title}</h3>
-    );
+    section.hideTitle ? null : depth === 0 ? (
+        <h2 className="story-preview-section-title">{section.title}</h2>
+      ) : (
+        <h3 className="story-preview-subsection-title">{section.title}</h3>
+      );
   return (
     <div id={`story-sec-${section.id}`} className={cn("story-preview-section", depth > 0 && "mt-10")}>
       {titleEl}
-      {section.subtitle ? <p className="story-section-subtitle">{section.subtitle}</p> : null}
+      {section.subtitle && !section.hideSubtitle ? <p className="story-section-subtitle">{section.subtitle}</p> : null}
       {hasBlocks ? <SectionBlocksPreview blocks={section.blocks} /> : null}
       {hasKids ? (
         <div className={cn(hasBlocks && "mt-8", "space-y-8")}>
@@ -573,18 +620,15 @@ export function StoryCreatorPreview({
   onPickSection: (sectionId: string) => void;
 }) {
   const [viewport, setViewport] = useState<StoryPreviewViewport>("desktop");
-  const [previewTheme, setPreviewTheme] = useState<StoryPreviewReadingTheme>("light");
-  const [tocOpen, setTocOpen] = useState(true);
+  const [previewTheme, setPreviewTheme] = useState<StoryPreviewReadingTheme>(() => readStoredPreviewTheme());
+  const [tocOpen, setTocOpen] = useState(() => readStoredTocOpen());
   const isLg = useMediaQueryMinLg();
   /** Story Creator shell is in “mobile” layout (matches `lg` breakpoint in the editor chrome). */
   const isAppMobile = !isLg;
   /** Simulated phone frame in preview on desktop; on a real narrow window, always use mobile layout. */
   const previewMobile = isAppMobile ? true : viewport === "mobile";
-
-  useEffect(() => {
-    setPreviewTheme(readStoredPreviewTheme());
-    setTocOpen(readStoredTocOpen());
-  }, []);
+  const flowMediaIds = useMemo(() => collectStoryFlowMediaIds(doc), [doc]);
+  const flowMediaById = useStoryMediaByIds(flowMediaIds);
 
   useEffect(() => {
     try {
@@ -606,8 +650,13 @@ export function StoryCreatorPreview({
     () =>
       createStoryTipTapExtensions(null, {
         storyFieldHtml: (field) => resolveStoryField(field, doc),
+        flowNodeViews: false,
+        resolveFlowMediaForHtml: (attrs) => {
+          const data = attrs.mediaId ? flowMediaById.get(attrs.mediaId) : undefined;
+          return { src: storyPreviewThumbFromDetail(data, 720), title: data?.title ?? null };
+        },
       }) as Extensions,
-    [doc],
+    [doc, flowMediaById],
   );
 
   const previewRichHtml = useCallback(

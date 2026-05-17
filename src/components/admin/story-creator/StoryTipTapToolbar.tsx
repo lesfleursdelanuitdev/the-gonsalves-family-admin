@@ -72,6 +72,8 @@ import {
 } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
 import { getStoryEditorSemanticPreset } from "@/components/admin/story-creator/story-tiptap-semantic-preset";
 import type { StoryRichTextTextPreset } from "@/lib/admin/story-creator/story-types";
+import { StoryPersonLinkToolbarButton } from "@/components/admin/story-creator/StoryPersonLinkToolbarButton";
+import { StoryFlowInsertToolbarButtons } from "@/components/admin/story-creator/StoryFlowInsertToolbarButtons";
 
 function ToolbarBtn({
   label,
@@ -384,6 +386,17 @@ function StoryTipTapToolbarLive({
           <ToolbarBtn touch label="Insert link" active={s.link} onClick={setLink}>
             <Link2 className="size-4" />
           </ToolbarBtn>
+          <StoryPersonLinkToolbarButton editor={editor} touch />
+          <span className="mx-1 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
+          <StoryFlowInsertToolbarButtons editor={editor} touch />
+          <ToolbarBtn
+            touch
+            label="Remove link"
+            disabled={!s.link}
+            onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
+          >
+            <Link2Off className="size-4" />
+          </ToolbarBtn>
           <DropdownMenu>
             <DropdownMenuTrigger
               type="button"
@@ -468,7 +481,7 @@ function StoryTipTapToolbarLive({
               <DropdownMenuItem
                 className="min-h-10 py-2.5"
                 disabled={!s.link}
-                onClick={() => editor.chain().focus().unsetLink().run()}
+                onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
               >
                 Remove link
               </DropdownMenuItem>
@@ -696,10 +709,13 @@ function StoryTipTapToolbarLive({
         <ToolbarBtn label="Insert link" active={s.link} onClick={setLink}>
           <Link2 className="size-4" />
         </ToolbarBtn>
+        <StoryPersonLinkToolbarButton editor={editor} />
+        <span className="mx-1 h-6 w-px shrink-0 bg-base-content/12" aria-hidden />
+        <StoryFlowInsertToolbarButtons editor={editor} />
         <ToolbarBtn
           label="Remove link"
           disabled={!s.link}
-          onClick={() => editor.chain().focus().unsetLink().run()}
+          onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
         >
           <Link2Off className="size-4" />
         </ToolbarBtn>

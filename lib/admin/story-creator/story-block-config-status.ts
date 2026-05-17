@@ -5,5 +5,6 @@ export function isStoryMediaUnconfigured(block: StoryMediaBlock): boolean {
 }
 
 export function isStoryEmbedUnconfigured(block: StoryEmbedBlock): boolean {
-  return block.label === "New embed" || block.label === "Embed block" || !block.label?.trim();
+  const title = block.title ?? block.label;
+  return title === "New embed" || title === "Embed block" || !title?.trim();
 }

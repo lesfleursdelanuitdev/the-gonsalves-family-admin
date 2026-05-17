@@ -16,17 +16,17 @@ import { useAdminNoteEvents } from "@/hooks/useAdminNoteEvents";
 import type { AdminFamilyListItem } from "@/hooks/useAdminFamilies";
 import type { AdminIndividualListItem } from "@/hooks/useAdminIndividuals";
 import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
-import { sortEventsChronologically } from "@/lib/timeline/timeline-chronology";
-import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 import {
+  sortEventsChronologically,
   canonicalTimelineSearchString,
   parseTimelineUrlState,
   serializeTimelineUrlState,
   type TimelineChromeOnly,
   type TimelineScope,
   type TimelineUrlState,
-} from "@/lib/timeline/timeline-url-state";
+} from "@ligneous/timeline-view";
+import type { TimelineSubject } from "@ligneous/gedcom-events";
 import { cn } from "@/lib/utils";
 
 function chromeFromParsed(parsed: TimelineUrlState): TimelineChromeOnly {

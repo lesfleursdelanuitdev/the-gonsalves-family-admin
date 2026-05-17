@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "user", action: "update", scope: "site" });
   const { id: userId, linkId } = await ctx.params;
   const treeId = process.env.ADMIN_TREE_ID;
   if (!treeId) {

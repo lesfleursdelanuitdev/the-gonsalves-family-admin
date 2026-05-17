@@ -5,6 +5,7 @@ import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { ensureMediaDatePlaceFromLinkedEvent } from "@/lib/admin/ensure-media-date-place-from-event";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 /** Nested under `event` — matches admin events list enough for descriptive labels in the media editor. */
@@ -51,6 +52,7 @@ const eventIncludeForMediaLink = {
 } as const;
 
 export const POST = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "media", action: "update", scope: "tree" });
   const { id: mediaId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await request.json()) as Record<string, unknown>;

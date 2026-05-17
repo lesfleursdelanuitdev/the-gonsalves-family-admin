@@ -1,6 +1,19 @@
 "use client";
 
-import { Columns2, ChevronDown, ImageIcon, Layers, LayoutTemplate, Minus, PanelRight, Quote, ScrollText, Table2, Type } from "lucide-react";
+import {
+  CalendarClock,
+  Columns2,
+  ChevronDown,
+  ImageIcon,
+  Layers,
+  LayoutTemplate,
+  Minus,
+  PanelRight,
+  Quote,
+  ScrollText,
+  Table2,
+  Type,
+} from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -95,6 +108,10 @@ export function StoryEmptySlotAddBlockMenu({
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("embed_document")}>
             <Layers className="size-3.5 opacity-80" aria-hidden />
             Embed
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("embed_timeline")}>
+            <CalendarClock className="size-3.5 opacity-80" aria-hidden />
+            Timeline
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 font-medium" onClick={() => onInsert("layout_container")}>
             <LayoutTemplate className="size-3.5 opacity-80" aria-hidden />

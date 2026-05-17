@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import {
   ChevronRight,
   History,
@@ -12,11 +13,36 @@ import { DashboardDiscoverySection } from "@/components/admin/dashboard/Dashboar
 import { DashboardHeroSection } from "@/components/admin/dashboard/DashboardHeroSection";
 import { DashboardInsightsOverview } from "@/components/admin/dashboard/DashboardInsightsOverview";
 import { DashboardRecentActivity } from "@/components/admin/dashboard/DashboardRecentActivity";
+import { useAdminHrefPermissions } from "@/hooks/useAdminAuthz";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 import { cn } from "@/lib/utils";
 
 export function DashboardHome() {
   const { data, isLoading, isError } = useAdminDashboard();
+  const dashboardLinks = useMemo(
+    () => [
+      "/admin/messages",
+      "/admin/changelog",
+      "/admin/individuals",
+      "/admin/families",
+      "/admin/events",
+      "/admin/media",
+      "/admin/individuals/new",
+      "/admin/families/new",
+      "/admin/events/new",
+      "/admin/notes/new",
+      "/admin/media/new",
+      "/admin/albums/new",
+      "/admin/tags",
+      "/admin/stories/new",
+      "/admin/stories",
+      "/admin/gedcom/validator",
+      "/admin/merge-records",
+      "/admin/merge-records?tab=review",
+    ],
+    [],
+  );
+  const dashboardPermissions = useAdminHrefPermissions(dashboardLinks);
 
   const unread = data?.unreadMessages ?? 0;
   const updates = data?.configured ? data.recentUpdatesCount : 0;
@@ -36,7 +62,6 @@ export function DashboardHome() {
   const insights = snap?.insights ?? null;
   const discoveries = snap?.discoveries ?? [];
   const activity = data?.activity ?? [];
-  const needsAttention = data?.needsAttention ?? [];
 
   return (
     <div className="w-full min-w-0 space-y-10 pb-8">
@@ -49,43 +74,48 @@ export function DashboardHome() {
         lastImportAt={lastImportAt}
         newThisWeek={newThisWeek}
         isLoading={isLoading}
+        canAccessHref={dashboardPermissions.canAccessHref}
       />
 
       <section aria-label="Summary" className="grid gap-3 sm:grid-cols-3">
-        <Link
-          href="/admin/messages"
-          className="group flex items-center justify-between gap-3 rounded-2xl border border-base-content/[0.08] bg-base-200/25 px-4 py-3.5 transition-colors hover:border-primary/30 hover:bg-base-200/40"
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
-              <MessageSquare className="size-4" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Messages</p>
-              <p className="truncate text-sm font-medium text-base-content">
-                {isLoading ? "…" : `${unread} new`}
-              </p>
+        {dashboardPermissions.canAccessHref("/admin/messages") ? (
+          <Link
+            href="/admin/messages"
+            className="group flex items-center justify-between gap-3 rounded-2xl border border-base-content/[0.08] bg-base-200/25 px-4 py-3.5 transition-colors hover:border-primary/30 hover:bg-base-200/40"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                <MessageSquare className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Messages</p>
+                <p className="truncate text-sm font-medium text-base-content">
+                  {isLoading ? "…" : `${unread} new`}
+                </p>
+              </div>
             </div>
-          </div>
-          <ChevronRight className="size-4 shrink-0 text-base-content/35 transition group-hover:text-primary" aria-hidden />
-        </Link>
-        <Link
-          href="/admin/changelog"
-          className="group flex items-center justify-between gap-3 rounded-2xl border border-base-content/[0.08] bg-base-200/25 px-4 py-3.5 transition-colors hover:border-primary/30 hover:bg-base-200/40"
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
-              <History className="size-4" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Updates</p>
-              <p className="truncate text-sm font-medium text-base-content">
-                {isLoading ? "…" : configured ? `${updates} this week` : "—"}
-              </p>
+            <ChevronRight className="size-4 shrink-0 text-base-content/35 transition group-hover:text-primary" aria-hidden />
+          </Link>
+        ) : null}
+        {dashboardPermissions.canAccessHref("/admin/changelog") ? (
+          <Link
+            href="/admin/changelog"
+            className="group flex items-center justify-between gap-3 rounded-2xl border border-base-content/[0.08] bg-base-200/25 px-4 py-3.5 transition-colors hover:border-primary/30 hover:bg-base-200/40"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                <History className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Updates</p>
+                <p className="truncate text-sm font-medium text-base-content">
+                  {isLoading ? "…" : configured ? `${updates} this week` : "—"}
+                </p>
+              </div>
             </div>
-          </div>
-          <ChevronRight className="size-4 shrink-0 text-base-content/35 transition group-hover:text-primary" aria-hidden />
-        </Link>
+            <ChevronRight className="size-4 shrink-0 text-base-content/35 transition group-hover:text-primary" aria-hidden />
+          </Link>
+        ) : null}
       </section>
 
       <div
@@ -95,7 +125,10 @@ export function DashboardHome() {
         )}
       >
         <div className="flex min-w-0 flex-col gap-10">
-          <DashboardContinueWorking suggestionBadgeCount={suggestionBadge} />
+          <DashboardContinueWorking
+            suggestionBadgeCount={suggestionBadge}
+            canAccessHref={dashboardPermissions.canAccessHref}
+          />
           <div
             className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.07] to-transparent p-4 text-xs leading-relaxed text-base-content/70"
             role="note"

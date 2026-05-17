@@ -66,6 +66,15 @@ export function effectiveMediaEmbedInspectorRowLayout(block: StoryMediaBlock | S
     return effectiveRowLayout(block.rowLayout);
   }
   const l = legacyMediaEmbedShape(block);
+  // Timeline embeds manage their own sub-width via embedWidthPct; the outer row
+  // wrapper must be full-width so that embedWidthPct=100% actually fills the page.
+  if (block.type === "embed" && block.embedKind === "timeline") {
+    return effectiveRowLayout({
+      widthMode: "full",
+      alignment: layoutAlignToRowAlignment(l.layoutAlign),
+      displayMode: "block",
+    });
+  }
   const widthMode = l.fullWidth ? "full" : legacyWidthPresetToWidthMode(l.widthPreset);
   return effectiveRowLayout({
     widthMode,

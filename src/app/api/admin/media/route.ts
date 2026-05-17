@@ -3,6 +3,7 @@ import { Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
@@ -142,6 +143,7 @@ async function listMediaFiltered(
 }
 
 export const GET = withAdminAuth(async (request, _user, _ctx) => {
+  await requireCan({ entity: "media", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q")?.trim() || null;
@@ -179,6 +181,7 @@ export const GET = withAdminAuth(async (request, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (request, user, _ctx) => {
+  await requireCan({ entity: "media", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = await request.json();
   const { fileRef, form, title, description, linkedIndividualId, linkedFamilyId, linkedEventId } = body;

@@ -7,11 +7,13 @@ import { buildImportMergePlanFromMergePlan } from "@/lib/admin/gedcom-import-mer
 import { postLibApiReconcileMergePlan } from "@/lib/admin/lib-api-export";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export const POST = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

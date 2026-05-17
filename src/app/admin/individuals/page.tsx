@@ -44,6 +44,7 @@ import {
 } from "@/lib/admin/admin-individuals-url-filters";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { deleteJson } from "@/lib/infra/api";
+import { cn } from "@/lib/utils";
 import {
   photoUrlFromProfileRow,
   type ProfileMediaSelectionShape,
@@ -161,6 +162,7 @@ function buildIndividualsConfig(
           <IconHelpCircle {...tablerIconSm} aria-hidden />
         );
       const avatarInitials = initialsFromPersonLabel(nameDisplay);
+      const actionCount = [onView, onEdit, onDelete].filter(Boolean).length;
 
       return (
       <Card className="group overflow-hidden border-base-content/12 bg-base-100/95 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md hover:shadow-black/20">
@@ -205,38 +207,46 @@ function buildIndividualsConfig(
             {record.id}
           </div>
         </CardContent>
-        <div className="grid grid-cols-3 divide-x divide-base-content/10 border-t border-base-content/10 bg-base-content/[0.015]">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
-            onClick={onView}
-            aria-label={`View ${nameDisplay}`}
-            title="View"
-          >
-            <Eye className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
-            onClick={onEdit}
-            aria-label={`Edit ${nameDisplay}`}
-            title="Edit"
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-9 w-full rounded-none border-0 text-base-content/55 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:text-destructive"
-            onClick={onDelete}
-            aria-label={`Delete ${nameDisplay}`}
-            title="Delete"
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
+        {actionCount > 0 ? (
+          <div className={cn("grid divide-x divide-base-content/10 border-t border-base-content/10 bg-base-content/[0.015]", actionCount === 1 ? "grid-cols-1" : actionCount === 2 ? "grid-cols-2" : "grid-cols-3")}>
+            {onView ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
+                onClick={onView}
+                aria-label={`View ${nameDisplay}`}
+                title="View"
+              >
+                <Eye className="size-4" />
+              </Button>
+            ) : null}
+            {onEdit ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
+                onClick={onEdit}
+                aria-label={`Edit ${nameDisplay}`}
+                title="Edit"
+              >
+                <Pencil className="size-4" />
+              </Button>
+            ) : null}
+            {onDelete ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-9 w-full rounded-none border-0 text-base-content/55 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:text-destructive"
+                onClick={onDelete}
+                aria-label={`Delete ${nameDisplay}`}
+                title="Delete"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </Card>
       );
     },

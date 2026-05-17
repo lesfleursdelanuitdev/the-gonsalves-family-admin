@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { ADMIN_EVENT_DETAIL_INCLUDE } from "@/app/api/admin/events/event-admin-detail-include";
 
 export const PUT = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "event", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as { mediaId?: unknown };
@@ -41,6 +43,7 @@ export const PUT = withAdminAuth(async (req, _user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "event", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

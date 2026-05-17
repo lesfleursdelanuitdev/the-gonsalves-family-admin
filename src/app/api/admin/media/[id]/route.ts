@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { cleanupNonFkReferencesToGedcomMedia } from "@/lib/admin/delete-gedcom-media-cleanup";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
 
@@ -38,6 +39,7 @@ const individualForMediaLink = {
 } as const;
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "media", action: "read", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -119,6 +121,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "media", action: "update", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = await request.json();
@@ -169,6 +172,7 @@ export const PATCH = withAdminAuth(async (request, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "media", action: "delete", scope: "tree" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

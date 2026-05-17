@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database/prisma";
 import { postLibApiParseValidateEnrich } from "@/lib/admin/lib-api-pipeline";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import type { Prisma } from "@ligneous/prisma";
 
 export const runtime = "nodejs";
@@ -25,6 +26,7 @@ function countValidationSeverity(errList: unknown): { errors: number; warnings: 
 }
 
 export const GET = withAdminAuth(async () => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const fileUuid = await getAdminFileUuid();
   const rows = await prisma.pendingGedcomImport.findMany({
     where: { fileUuid },
@@ -44,6 +46,7 @@ export const GET = withAdminAuth(async () => {
 });
 
 export const POST = withAdminAuth(async (req, user) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const fileUuid = await getAdminFileUuid();
   const ct = req.headers.get("content-type") ?? "";
   if (!ct.includes("multipart/form-data")) {

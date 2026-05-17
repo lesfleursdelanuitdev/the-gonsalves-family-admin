@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin/gedcom-import-merge-plan";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 function asResolutions(v: unknown): Record<string, ImportResolution> {
   if (!v || typeof v !== "object") return {};
@@ -27,6 +28,7 @@ function asResolutions(v: unknown): Record<string, ImportResolution> {
 }
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const row = await prisma.pendingGedcomImport.findFirst({
@@ -48,6 +50,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;

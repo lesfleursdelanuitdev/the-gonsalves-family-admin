@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FilePenLine,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { flattenSectionBlocksForOutline } from "@/lib/admin/story-creator/story-structure-outline-blocks";
 import type { StoryDocument, StorySection } from "@/lib/admin/story-creator/story-types";
-import { sectionIsAncestorOf } from "@/lib/admin/story-creator/story-section-tree";
+import { findSectionById, findSectionPath, sectionIsAncestorOf } from "@/lib/admin/story-creator/story-section-tree";
 
 export type OutlineRenameTarget = { kind: "section"; id: string };
 
@@ -97,6 +108,132 @@ export function OutlineRenameInput({
   );
 }
 
+function SectionOutlineEditForm({
+  doc,
+  sectionId,
+  onPatch,
+}: {
+  doc: StoryDocument;
+  sectionId: string;
+  onPatch: (id: string, patch: Partial<StorySection>) => void;
+}) {
+  const section = findSectionById(doc.sections ?? [], sectionId);
+  const path = findSectionPath(doc.sections ?? [], sectionId);
+  const isRoot = path?.parent == null;
+
+  if (!section) {
+    return <p className="text-sm text-base-content/60">This section is no longer in the document.</p>;
+  }
+
+  const fieldLabelClass = "text-[11px] font-semibold uppercase tracking-wide text-base-content/55";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className={fieldLabelClass} htmlFor={`story-section-edit-title-${sectionId}`}>
+          Title
+        </label>
+        <input
+          id={`story-section-edit-title-${sectionId}`}
+          type="text"
+          className="input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100"
+          value={section.title}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => onPatch(sectionId, { title: e.target.value })}
+          onBlur={() => {
+            const t = section.title.trim();
+            if (t.length === 0) onPatch(sectionId, { title: "Untitled section" });
+            else if (t !== section.title) onPatch(sectionId, { title: t });
+          }}
+        />
+      </div>
+      <div>
+        <label className={fieldLabelClass} htmlFor={`story-section-edit-subtitle-${sectionId}`}>
+          Subtitle
+        </label>
+        <input
+          id={`story-section-edit-subtitle-${sectionId}`}
+          type="text"
+          className="input input-bordered input-sm mt-1 w-full rounded-lg border-base-content/12 bg-base-100"
+          placeholder="Optional subtitle"
+          value={section.subtitle ?? ""}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => onPatch(sectionId, { subtitle: e.target.value || undefined })}
+        />
+      </div>
+      <div className="space-y-3 rounded-lg border border-base-content/10 bg-base-100/50 p-3">
+        <p className="text-xs font-semibold text-base-content/70">Story display</p>
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            checked={section.hideTitle ?? false}
+            onChange={(e) => onPatch(sectionId, { hideTitle: e.target.checked })}
+          />
+          <span>
+            <span className="font-medium text-base-content">Hide title in story</span>
+            <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+              Keep this title in the outline, but do not print it above section content.
+            </span>
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            checked={section.hideSubtitle ?? false}
+            onChange={(e) => onPatch(sectionId, { hideSubtitle: e.target.checked })}
+          />
+          <span>
+            <span className="font-medium text-base-content">Hide subtitle in story</span>
+            <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+              Keep this subtitle editable, but do not show it in story previews or public reading views.
+            </span>
+          </span>
+        </label>
+      </div>
+      {isRoot ? (
+        <div className="space-y-3 rounded-lg border border-base-content/10 bg-base-100/50 p-3">
+          <p className="text-xs font-semibold text-base-content/70">Outline & print</p>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              checked={section.isChapter ?? false}
+              onChange={(e) => onPatch(sectionId, { isChapter: e.target.checked })}
+            />
+            <span>
+              <span className="font-medium text-base-content">Mark as chapter</span>
+              <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+                Narrative chapter for the public table of contents (story kind).
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-base-content/80">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-base-content/45 bg-base-100 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              checked={section.isPage ?? false}
+              onChange={(e) => onPatch(sectionId, { isPage: e.target.checked })}
+            />
+            <span>
+              <span className="font-medium text-base-content">Mark as page</span>
+              <span className="mt-0.5 block text-xs leading-snug text-base-content/55">
+                Start a new page in print and paginated views.
+              </span>
+            </span>
+          </label>
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-base-content/15 bg-base-100/30 px-3 py-2 text-xs leading-relaxed text-base-content/55">
+          Chapter and page flags apply to <span className="font-medium text-base-content/70">top-level</span> sections only.
+          Move this section to the root of the outline to set them.
+        </p>
+      )}
+    </div>
+  );
+}
+
 type BranchProps = {
   doc: StoryDocument;
   parentId: string | null;
@@ -110,6 +247,7 @@ type BranchProps = {
   onRenameTargetChange: (t: OutlineRenameTarget | null) => void;
   onRenameSection: (sectionId: string, title: string) => void;
   onAddSectionAfter: (afterSectionId: string | null) => void;
+  onAddSectionBefore: (beforeSectionId: string | null) => void;
   onAddChildSection: (parentSectionId: string) => void;
   onDeleteSection: (sectionId: string) => void;
   onToggleCollapsed: (sectionId: string) => void;
@@ -117,6 +255,7 @@ type BranchProps = {
   setDraggedId: (id: string | null) => void;
   onToggleSectionChapter?: (sectionId: string, isChapter: boolean) => void;
   onToggleSectionPage?: (sectionId: string, isPage: boolean) => void;
+  onOpenSectionEdit: (sectionId: string) => void;
   /** When set (mobile full-screen outline), section tap navigation is delayed so double-click-to-rename can cancel it. */
   deferOutlineSectionClickMs?: number;
 };
@@ -134,6 +273,7 @@ function OutlineSectionBranch({
   onRenameTargetChange,
   onRenameSection,
   onAddSectionAfter,
+  onAddSectionBefore,
   onAddChildSection,
   onDeleteSection,
   onToggleCollapsed,
@@ -141,6 +281,7 @@ function OutlineSectionBranch({
   setDraggedId,
   onToggleSectionChapter,
   onToggleSectionPage,
+  onOpenSectionEdit,
   deferOutlineSectionClickMs,
 }: BranchProps) {
   const deferredOutlineNavTimerRef = useRef<number | null>(null);
@@ -340,6 +481,17 @@ function OutlineSectionBranch({
                   <Pencil className="size-3.5 opacity-70" aria-hidden />
                   Rename
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => onOpenSectionEdit(sec.id)}
+                >
+                  <FilePenLine className="size-3.5 opacity-70" aria-hidden />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddSectionBefore(sec.id)}>
+                  <Plus className="size-3.5 opacity-70" aria-hidden />
+                  Add section above
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onAddSectionAfter(sec.id)}>
                   <Plus className="size-3.5 opacity-70" aria-hidden />
                   Add section below
@@ -396,6 +548,7 @@ function OutlineSectionBranch({
               onRenameTargetChange={onRenameTargetChange}
               onRenameSection={onRenameSection}
               onAddSectionAfter={onAddSectionAfter}
+              onAddSectionBefore={onAddSectionBefore}
               onAddChildSection={onAddChildSection}
               onDeleteSection={onDeleteSection}
               onToggleCollapsed={onToggleCollapsed}
@@ -403,6 +556,7 @@ function OutlineSectionBranch({
               setDraggedId={setDraggedId}
               onToggleSectionChapter={onToggleSectionChapter}
               onToggleSectionPage={onToggleSectionPage}
+              onOpenSectionEdit={onOpenSectionEdit}
               deferOutlineSectionClickMs={deferOutlineSectionClickMs}
             />
           ) : null}
@@ -474,12 +628,14 @@ export function StoryStructureSidebar({
   onRenameTargetChange,
   onRenameSection,
   onAddSectionAfter,
+  onAddSectionBefore,
   onAddChildSection,
   onDeleteSection,
   onToggleCollapsed,
   onMoveSection,
   onToggleSectionChapter,
   onToggleSectionPage,
+  onPatchSectionOutline,
   isCompact,
   mobileOverlay,
   onCloseMobileOverlay,
@@ -498,12 +654,15 @@ export function StoryStructureSidebar({
   onRenameTargetChange: (t: OutlineRenameTarget | null) => void;
   onRenameSection: (sectionId: string, title: string) => void;
   onAddSectionAfter: (afterSectionId: string | null) => void;
+  onAddSectionBefore: (beforeSectionId: string | null) => void;
   onAddChildSection: (parentSectionId: string) => void;
   onDeleteSection: (sectionId: string) => void;
   onToggleCollapsed: (sectionId: string) => void;
   onMoveSection: (draggedId: string, newParentId: string | null, insertBeforeId: string | null) => void;
   onToggleSectionChapter?: (sectionId: string, isChapter: boolean) => void;
   onToggleSectionPage?: (sectionId: string, isPage: boolean) => void;
+  /** Merge fields into a section (title, subtitle, chapter/page flags, etc.). */
+  onPatchSectionOutline: (sectionId: string, patch: Partial<StorySection>) => void;
   isCompact: boolean;
   mobileOverlay?: boolean;
   onCloseMobileOverlay?: () => void;
@@ -512,8 +671,28 @@ export function StoryStructureSidebar({
   outlineSectionNavDeferMs?: number;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [sectionEditId, setSectionEditId] = useState<string | null>(null);
 
-  const body = (
+  const handleOpenSectionEdit = useCallback(
+    (id: string) => {
+      onRenameTargetChange(null);
+      setSectionEditId(id);
+      const sec = findSectionById(doc.sections ?? [], id);
+      if (sec) onSelectSection(sec.id, sec.blocks?.[0]?.id ?? null);
+    },
+    [doc.sections, onRenameTargetChange, onSelectSection],
+  );
+
+  useEffect(() => {
+    if (!outlineOpen && !mobileOverlay) queueMicrotask(() => setSectionEditId(null));
+  }, [outlineOpen, mobileOverlay]);
+
+  useEffect(() => {
+    if (!sectionEditId) return;
+    if (!findSectionById(doc.sections ?? [], sectionEditId)) queueMicrotask(() => setSectionEditId(null));
+  }, [doc, sectionEditId]);
+
+  const outlineTree = (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
       <OutlineSectionBranch
         doc={doc}
@@ -528,6 +707,7 @@ export function StoryStructureSidebar({
         onRenameTargetChange={onRenameTargetChange}
         onRenameSection={onRenameSection}
         onAddSectionAfter={onAddSectionAfter}
+        onAddSectionBefore={onAddSectionBefore}
         onAddChildSection={onAddChildSection}
         onDeleteSection={onDeleteSection}
         onToggleCollapsed={onToggleCollapsed}
@@ -535,6 +715,7 @@ export function StoryStructureSidebar({
         setDraggedId={setDraggedId}
         onToggleSectionChapter={onToggleSectionChapter}
         onToggleSectionPage={onToggleSectionPage}
+        onOpenSectionEdit={handleOpenSectionEdit}
         deferOutlineSectionClickMs={outlineSectionNavDeferMs}
       />
       <Button
@@ -549,6 +730,14 @@ export function StoryStructureSidebar({
       </Button>
     </div>
   );
+
+  const sectionEditBody = sectionEditId ? (
+    <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <SectionOutlineEditForm doc={doc} sectionId={sectionEditId} onPatch={onPatchSectionOutline} />
+    </div>
+  ) : null;
+
+  const body = sectionEditId ? sectionEditBody : outlineTree;
 
   if (!outlineOpen && !mobileOverlay) {
     if (!showCollapsedRail) return null;
@@ -587,44 +776,101 @@ export function StoryStructureSidebar({
         isCompact ? "w-full" : "w-full max-w-none",
       )}
     >
-      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-base-content/10 px-3">
-        <span className="truncate text-xs font-semibold uppercase tracking-wide text-base-content/55">Story structure</span>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 rounded-lg p-0"
-            title="Add section"
-            onClick={() => onAddSectionAfter(null)}
-          >
-            <Plus className="size-4" />
-          </Button>
-          {mobileOverlay && onCloseMobileOverlay ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-lg p-0"
-              title="Close"
-              onClick={onCloseMobileOverlay}
-            >
-              <X className="size-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 rounded-lg p-0 text-base-content/70 hover:bg-primary/12 hover:text-primary"
-              title="Collapse outline"
-              aria-label="Close story structure panel"
-              onClick={() => onOutlineOpenChange(false)}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-          )}
-        </div>
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-base-content/10 px-2 sm:px-3">
+        {sectionEditId ? (
+          <>
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 shrink-0 rounded-lg p-0"
+                title="Back to outline"
+                aria-label="Back to outline"
+                onClick={() => setSectionEditId(null)}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="truncate text-xs font-semibold uppercase tracking-wide text-base-content/55">Edit section</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 rounded-lg p-0"
+                title="Add section"
+                onClick={() => onAddSectionAfter(null)}
+              >
+                <Plus className="size-4" />
+              </Button>
+              {mobileOverlay && onCloseMobileOverlay ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-lg p-0"
+                  title="Close"
+                  onClick={onCloseMobileOverlay}
+                >
+                  <X className="size-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 rounded-lg p-0 text-base-content/70 hover:bg-primary/12 hover:text-primary"
+                  title="Collapse outline"
+                  aria-label="Close story structure panel"
+                  onClick={() => onOutlineOpenChange(false)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="truncate text-xs font-semibold uppercase tracking-wide text-base-content/55">Story structure</span>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 rounded-lg p-0"
+                title="Add section"
+                onClick={() => onAddSectionAfter(null)}
+              >
+                <Plus className="size-4" />
+              </Button>
+              {mobileOverlay && onCloseMobileOverlay ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-lg p-0"
+                  title="Close"
+                  onClick={onCloseMobileOverlay}
+                >
+                  <X className="size-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 rounded-lg p-0 text-base-content/70 hover:bg-primary/12 hover:text-primary"
+                  title="Collapse outline"
+                  aria-label="Close story structure panel"
+                  onClick={() => onOutlineOpenChange(false)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </div>
       {body}
     </div>

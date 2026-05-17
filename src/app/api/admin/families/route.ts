@@ -12,6 +12,7 @@ import {
   syncFamilySpouseXrefs,
 } from "@/lib/admin/admin-individual-families";
 import { parseListParams } from "@/lib/admin/admin-list-params";
+import { requireCan } from "@/lib/authz/routeGuards";
 import {
   adminFamiliesFilterConditions,
   adminFamiliesWhereSql,
@@ -116,6 +117,7 @@ async function listFamiliesFiltered(
 }
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "family", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
 
   const { searchParams } = req.nextUrl;
@@ -186,6 +188,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (req, user, _ctx) => {
+  await requireCan({ entity: "family", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
 

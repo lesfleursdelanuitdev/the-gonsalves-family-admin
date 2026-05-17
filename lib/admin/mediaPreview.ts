@@ -119,11 +119,13 @@ const ADMIN_SITE_MEDIA_URL_PREFIX = "/uploads/site-media/";
 /** Keep in sync with `ADMIN_USER_MEDIA_URL_PREFIX` in `media-upload-storage.ts`. */
 const ADMIN_USER_MEDIA_URL_PREFIX = "/uploads/user-media/";
 const ADMIN_MEDIA_THUMB_API_PREFIX = "/api/admin/media/thumb/";
+const ADMIN_MEDIA_THUMB_API_VERSION = "2";
 
 /**
  * Returns a thumbnail URL for a raster `fileRef` under `/uploads/gedcom-admin/`, `/uploads/site-media/`,
- * or `/uploads/user-media/...`. The thumb endpoint serves resized JPEGs cached on disk. Returns `null`
- * for non-raster, external, or unsupported refs — callers should fall back to {@link resolveMediaImageSrc}.
+ * or `/uploads/user-media/...`. The thumb endpoint serves resized cached images, preserving alpha for
+ * transparent sources. Returns `null` for non-raster, external, or unsupported refs — callers should
+ * fall back to {@link resolveMediaImageSrc}.
  */
 export function mediaThumbSrc(
   fileRef: string,
@@ -137,17 +139,17 @@ export function mediaThumbSrc(
   if (t.startsWith(ADMIN_MEDIA_URL_PREFIX)) {
     const remainder = t.slice(ADMIN_MEDIA_URL_PREFIX.length);
     if (!remainder || remainder.includes("..")) return null;
-    return `${ADMIN_MEDIA_THUMB_API_PREFIX}${remainder}?w=${wq}`;
+    return `${ADMIN_MEDIA_THUMB_API_PREFIX}${remainder}?w=${wq}&v=${ADMIN_MEDIA_THUMB_API_VERSION}`;
   }
   if (t.startsWith(ADMIN_SITE_MEDIA_URL_PREFIX)) {
     const remainder = t.slice(ADMIN_SITE_MEDIA_URL_PREFIX.length);
     if (!remainder || remainder.includes("..")) return null;
-    return `${ADMIN_MEDIA_THUMB_API_PREFIX}site-media/${remainder}?w=${wq}`;
+    return `${ADMIN_MEDIA_THUMB_API_PREFIX}site-media/${remainder}?w=${wq}&v=${ADMIN_MEDIA_THUMB_API_VERSION}`;
   }
   if (t.startsWith(ADMIN_USER_MEDIA_URL_PREFIX)) {
     const remainder = t.slice(ADMIN_USER_MEDIA_URL_PREFIX.length);
     if (!remainder || remainder.includes("..")) return null;
-    return `${ADMIN_MEDIA_THUMB_API_PREFIX}user-media/${remainder}?w=${wq}`;
+    return `${ADMIN_MEDIA_THUMB_API_PREFIX}user-media/${remainder}?w=${wq}&v=${ADMIN_MEDIA_THUMB_API_VERSION}`;
   }
   return null;
 }

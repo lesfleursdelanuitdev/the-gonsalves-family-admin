@@ -51,6 +51,7 @@ export async function buildEnrichedDocumentForExport(
     familyChildren,
     spouses,
     individualAssociations,
+    individualRelationships,
   ] = await Promise.all([
     prisma.gedcomDate.findMany({ where, orderBy: { id: "asc" } }),
     prisma.gedcomPlace.findMany({ where, orderBy: { id: "asc" } }),
@@ -100,6 +101,14 @@ export async function buildEnrichedDocumentForExport(
       where,
       orderBy: [{ subjectIndividualId: "asc" }, { sortOrder: "asc" }],
     }),
+    prisma.individualRelationship.findMany({
+      where,
+      include: {
+        relationshipType: true,
+        participants: { include: { role: true }, orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const dateIndex = buildIdIndex(dates);
@@ -123,6 +132,69 @@ export async function buildEnrichedDocumentForExport(
   for (const fe of familyEvents) {
     eventOwnerMap[fe.eventId] = { xref: famIdToXref[fe.familyId] ?? "", type: "FAM" };
   }
+
+  const richAssociates = individualRelationships.flatMap((rel) => {
+    const participants = rel.participants ?? [];
+    if (participants.length < 2) return [];
+    if (participants.length === 2) {
+      const a = participants[0]!;
+      const b = participants[1]!;
+      const roleARela =
+        (a.role.reciprocalRoleKey && a.role.reciprocalRoleKey === b.role.key
+          ? rel.relationshipType.gedcomRelaAtoB
+          : null) ??
+        rel.relationshipType.gedcomRelaAtoB ??
+        a.role.key;
+      const roleBRela =
+        (b.role.reciprocalRoleKey && b.role.reciprocalRoleKey === a.role.key
+          ? rel.relationshipType.gedcomRelaBtoA
+          : null) ??
+        rel.relationshipType.gedcomRelaBtoA ??
+        b.role.key;
+      return [
+        {
+          owner_xref: indiIdToXref[a.individualId] ?? "",
+          owner_type: "INDI",
+          associate_xref: indiIdToXref[b.individualId] ?? "",
+          relationship: roleARela ?? "",
+          source_tag: "ASSO",
+          owner_event_type: "",
+        },
+        {
+          owner_xref: indiIdToXref[b.individualId] ?? "",
+          owner_type: "INDI",
+          associate_xref: indiIdToXref[a.individualId] ?? "",
+          relationship: roleBRela ?? "",
+          source_tag: "ASSO",
+          owner_event_type: "",
+        },
+      ];
+    }
+    return [];
+  });
+
+  const rawAssociates = individualAssociations.map((a) => ({
+    owner_xref: indiIdToXref[a.subjectIndividualId] ?? "",
+    owner_type: "INDI",
+    associate_xref: indiIdToXref[a.associateIndividualId] ?? "",
+    relationship: a.rela ?? "",
+    source_tag: "ASSO",
+    owner_event_type: "",
+  }));
+
+  const associateKey = (row: {
+    owner_xref: string;
+    associate_xref: string;
+    relationship: string;
+  }) => `${row.owner_xref}\t${row.associate_xref}\t${row.relationship.trim().toLowerCase()}`;
+  const seenAssociates = new Set<string>();
+  const mergedAssociates = [...richAssociates, ...rawAssociates].filter((row) => {
+    if (!row.owner_xref || !row.associate_xref) return false;
+    const key = associateKey(row);
+    if (seenAssociates.has(key)) return false;
+    seenAssociates.add(key);
+    return true;
+  });
 
   return {
     Individuals: individuals.map((indi) => {
@@ -396,16 +468,7 @@ export async function buildEnrichedDocumentForExport(
       family_xref: sp.familyId ? (famIdToXref[sp.familyId] ?? "") : "",
     })),
 
-    Associates: individualAssociations
-      .map((a) => ({
-        owner_xref: indiIdToXref[a.subjectIndividualId] ?? "",
-        owner_type: "INDI",
-        associate_xref: indiIdToXref[a.associateIndividualId] ?? "",
-        relationship: a.rela ?? "",
-        source_tag: "ASSO",
-        owner_event_type: "",
-      }))
-      .filter((row) => row.owner_xref !== "" && row.associate_xref !== ""),
+    Associates: mergedAssociates,
 
     Stats: {
       individuals: individuals.length,

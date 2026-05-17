@@ -4,11 +4,13 @@ import { postLibApiExport } from "@/lib/admin/lib-api-export";
 import { postLibApiValidateGedcomFile } from "@/lib/admin/lib-api-validate";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const runtime = "nodejs";
 
 /** Validates the configured admin tree by exporting to GEDCOM (same path as download) then running lib-api validate. */
 export const POST = withAdminAuth(async (_req, _user, _ctx) => {
+  await requireCan({ entity: "gedcom", action: "validate_tree", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const fileUuid = await getAdminFileUuid();
   try {
     const enriched = await buildEnrichedDocumentForExport(fileUuid);

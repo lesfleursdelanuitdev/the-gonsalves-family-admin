@@ -3,8 +3,10 @@ import type { Prisma } from "@ligneous/prisma";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 export const POST = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id: sessionId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;

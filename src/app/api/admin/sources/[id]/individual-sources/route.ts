@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database/prisma";
 import { commitMediaJunctionLink } from "@/lib/admin/media-junction-changelog";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 
 function optText(v: unknown): string | null {
@@ -19,6 +20,7 @@ function optQuality(v: unknown): number | null {
 }
 
 export const POST = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "source", action: "update", scope: "tree" });
   const { id: sourceId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;

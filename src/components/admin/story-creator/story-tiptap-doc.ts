@@ -107,6 +107,46 @@ export function storyDocJsonEquals(a: unknown, b: unknown): boolean {
   }
 }
 
+function isEmptyParagraphNode(node: JSONContent | undefined): boolean {
+  return Boolean(node && node.type === "paragraph" && (!Array.isArray(node.content) || node.content.length === 0));
+}
+
+function singleCellTableContent(node: JSONContent | undefined): JSONContent[] | null {
+  if (!node || node.type !== "table" || !Array.isArray(node.content) || node.content.length !== 1) return null;
+  const row = node.content[0];
+  if (!row || row.type !== "tableRow" || !Array.isArray(row.content) || row.content.length !== 1) return null;
+  const cell = row.content[0];
+  if (!cell || (cell.type !== "tableCell" && cell.type !== "tableHeader") || !Array.isArray(cell.content)) return null;
+  return cell.content.length > 0 ? cell.content : [{ type: "paragraph" }];
+}
+
+/**
+ * Some rich-text sources copy ordinary paragraphs inside a one-cell HTML table.
+ * Paragraph story blocks should treat that wrapper as paste debris, not as an authored table.
+ */
+export function unwrapSingleCellTablesToParagraphContent(doc: JSONContent): JSONContent {
+  const normalized = normalizeStoryDocContent(doc);
+  if (!Array.isArray(normalized.content)) return normalized;
+
+  let changed = false;
+  const content: JSONContent[] = [];
+  for (const node of normalized.content) {
+    const unwrapped = singleCellTableContent(node as JSONContent);
+    if (unwrapped) {
+      changed = true;
+      content.push(...deepCloneJson(unwrapped));
+    } else {
+      content.push(deepCloneJson(node as JSONContent));
+    }
+  }
+
+  if (!changed) return normalized;
+  while (content.length > 1 && isEmptyParagraphNode(content[content.length - 1])) {
+    content.pop();
+  }
+  return { type: "doc", content: content.length > 0 ? content : [{ type: "paragraph" }] };
+}
+
 export type StoryRichTextListVariant = "bullet" | "ordered";
 
 function deepCloneJson<T>(v: T): T {
@@ -277,7 +317,7 @@ export function syncRichTextDocToPreset(
   const normalized = normalizeStoryDocContent(doc);
   switch (preset) {
     case "paragraph":
-      return convertHeadingsToParagraphsInDoc(unwrapListItemsToParagraphDoc(normalized));
+      return convertHeadingsToParagraphsInDoc(unwrapSingleCellTablesToParagraphContent(unwrapListItemsToParagraphDoc(normalized)));
     case "heading": {
       const lvl = clampStoryRichTextHeadingLevel(opts?.headingLevel ?? inferFirstHeadingLevel(normalized) ?? 2);
       return applyHeadingLevelToRichTextDoc(normalized, lvl);

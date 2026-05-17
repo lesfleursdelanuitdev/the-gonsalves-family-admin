@@ -93,6 +93,8 @@ export type StoryDbSerializedPayload = {
     sections: Array<{
       title: string;
       subtitle: string | null;
+      hideTitle: boolean;
+      hideSubtitle: boolean;
       sortOrder: number;
       slug: string | null;
       isChapter: boolean;
@@ -171,12 +173,14 @@ function docKindToPrisma(kind: StoryDocumentKind | undefined): StoryKind {
   const k = kind ?? "story";
   if (k === "article") return StoryKind.article;
   if (k === "post") return StoryKind.post;
+  if (k === "folklore") return StoryKind.folklore;
   return StoryKind.story;
 }
 
 function prismaKindToDoc(kind: StoryKind): StoryDocumentKind {
   if (kind === StoryKind.article) return "article";
   if (kind === StoryKind.post) return "post";
+  if (kind === StoryKind.folklore) return "folklore";
   return "story";
 }
 
@@ -260,6 +264,8 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
         sections: childList.map((ch, j) => ({
           title: ch.title,
           subtitle: ch.subtitle?.trim() || null,
+          hideTitle: ch.hideTitle ?? false,
+          hideSubtitle: ch.hideSubtitle ?? false,
           sortOrder: j,
           slug: null,
           isChapter: j === 0 ? parentChapter : false,
@@ -276,6 +282,8 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
           {
             title: root.title,
             subtitle: root.subtitle?.trim() || null,
+            hideTitle: root.hideTitle ?? false,
+            hideSubtitle: root.hideSubtitle ?? false,
             sortOrder: 0,
             slug: null,
             isChapter: root.isChapter ?? false,
@@ -342,6 +350,8 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
         id: s0.id,
         title: s0.title,
         subtitle: s0.subtitle ?? undefined,
+        hideTitle: s0.hideTitle ?? false,
+        hideSubtitle: s0.hideSubtitle ?? false,
         collapsed: false,
         isChapter: s0.isChapter ?? false,
         isPage: s0.isPage ?? false,
@@ -361,6 +371,8 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
           id: s.id,
           title: s.title,
           subtitle: s.subtitle ?? undefined,
+          hideTitle: s.hideTitle ?? false,
+          hideSubtitle: s.hideSubtitle ?? false,
           collapsed: false,
           blocks: parseSectionContentJson(s.contentJson),
         })),

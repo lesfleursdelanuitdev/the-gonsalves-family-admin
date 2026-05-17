@@ -13,6 +13,7 @@ import {
   Highlighter,
   Italic,
   Link2,
+  Link2Off,
   Redo2,
   Strikethrough,
   Underline,
@@ -20,6 +21,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { blockTextAlign, validateStoryLinkUrl } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
+import { StoryPersonLinkToolbarButton } from "@/components/admin/story-creator/StoryPersonLinkToolbarButton";
+import { StoryFlowInsertToolbarButtons } from "@/components/admin/story-creator/StoryFlowInsertToolbarButtons";
 
 const scrollRow =
   "flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -139,6 +142,17 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
         <ToolbarButton touch={touch} label="Link" active={s.link} onClick={setLink}>
           <Link2 className="size-4" />
         </ToolbarButton>
+        <StoryPersonLinkToolbarButton editor={editor} touch={touch} />
+        <ToolbarButton
+          touch={touch}
+          label="Remove link"
+          disabled={!s.link}
+          onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
+        >
+          <Link2Off className="size-4" />
+        </ToolbarButton>
+        <ToolbarSeparator />
+        <StoryFlowInsertToolbarButtons editor={editor} touch={touch} />
         <ToolbarSeparator />
         <ToolbarButton
           touch={touch}

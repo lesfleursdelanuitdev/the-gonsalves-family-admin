@@ -164,7 +164,7 @@ export function StorySettingsInspector({
             Optional teaser for cards, search, and social previews. Keep it one or two sentences.
           </p>
           <textarea
-            className="textarea textarea-bordered textarea-sm min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-neutral-900 placeholder:text-neutral-500"
+            className="textarea textarea-bordered textarea-sm min-h-[88px] w-full resize-y rounded-lg border-base-content/12 bg-base-100 text-sm leading-relaxed text-base-content placeholder:text-base-content/45"
             placeholder="e.g. How the family came to California…"
             value={doc.excerpt ?? ""}
             onChange={(e) => onExcerptChange(e.target.value)}

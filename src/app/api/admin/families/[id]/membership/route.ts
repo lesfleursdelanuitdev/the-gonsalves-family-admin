@@ -13,6 +13,7 @@ import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { createIndividualFromEditorPayload } from "@/lib/admin/admin-individual-editor-apply";
 import { parseIndividualEditorPayload } from "@/lib/forms/individual-editor-payload";
 import { ADMIN_FAMILY_DETAIL_INCLUDE } from "@/app/api/admin/families/family-admin-detail-include";
+import { requireCan } from "@/lib/authz/routeGuards";
 
 async function loadFamilyMerged(fileUuid: string, id: string) {
   const family = await prisma.gedcomFamily.findFirst({
@@ -25,6 +26,7 @@ async function loadFamilyMerged(fileUuid: string, id: string) {
 }
 
 export const POST = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "family", action: "update", scope: "tree" });
   const { id: familyId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 
@@ -83,6 +85,7 @@ export const POST = withAdminAuth(async (req, user, ctx) => {
         await removeChildFromFamily(changeCtx, familyId, childId);
       });
     } else if (action === "createParentAndAdd") {
+      await requireCan({ entity: "individual", action: "create", scope: "tree" });
       const inner = body.individual;
       if (!inner || typeof inner !== "object") {
         return NextResponse.json({ error: "individual object is required" }, { status: 400 });
@@ -94,6 +97,7 @@ export const POST = withAdminAuth(async (req, user, ctx) => {
         await addParentToFamily(changeCtx, familyId, newId);
       });
     } else if (action === "createChildAndAdd") {
+      await requireCan({ entity: "individual", action: "create", scope: "tree" });
       const inner = body.individual;
       if (!inner || typeof inner !== "object") {
         return NextResponse.json({ error: "individual object is required" }, { status: 400 });

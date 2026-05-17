@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/infra/api";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
-import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
+import type { TimelineSubject } from "@ligneous/gedcom-events";
 import { createAdminCrudHooks } from "@/hooks/createAdminCrudHooks";
 
 export interface AdminIndividualListItem {

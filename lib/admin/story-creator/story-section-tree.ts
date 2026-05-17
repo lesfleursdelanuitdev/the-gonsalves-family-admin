@@ -159,6 +159,18 @@ export function insertSectionAfterSibling(doc: StoryDocument, afterSectionId: st
   return { ...doc, sections: insertSectionIntoParent(roots, parentId, insertBeforeId, node) };
 }
 
+/** Prepend at root, or insert as the previous sibling before `beforeSectionId` (same parent list). */
+export function insertSectionBeforeSibling(doc: StoryDocument, beforeSectionId: string | null, node: StorySection): StoryDocument {
+  const roots = doc.sections ?? [];
+  if (beforeSectionId == null) {
+    return { ...doc, sections: [node, ...roots] };
+  }
+  const path = findSectionPath(roots, beforeSectionId);
+  if (!path) return doc;
+  const parentId = path.parent?.id ?? null;
+  return { ...doc, sections: insertSectionIntoParent(roots, parentId, beforeSectionId, node) };
+}
+
 /** Append a new child section under `parentId`. */
 export function appendChildSection(doc: StoryDocument, parentId: string, node: StorySection): StoryDocument {
   return { ...doc, sections: insertSectionIntoParent(doc.sections ?? [], parentId, null, node) };

@@ -13,7 +13,7 @@ import { selectClassName } from "@/components/data-viewer/constants";
 import { DataViewerPagination } from "@/components/data-viewer/DataViewerPagination";
 import { INDIVIDUAL_DETAIL_EVENTS_PAGE_SIZE } from "@/constants/admin";
 import type { LivingMode } from "@/lib/admin/admin-individual-living";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 import type { KeyFactFormState } from "@/lib/forms/individual-editor-form";
 import { formatEventDate } from "@/lib/gedcom/format-event-date";
 import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";

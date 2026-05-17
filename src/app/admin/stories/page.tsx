@@ -24,6 +24,8 @@ function kindLabel(kind: StoryDocumentKind | undefined): string {
       return "Article";
     case "post":
       return "Post";
+    case "folklore":
+      return "Folklore";
     default:
       return "Story";
   }

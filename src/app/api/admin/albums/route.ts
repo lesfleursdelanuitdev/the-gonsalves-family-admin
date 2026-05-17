@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
 import { findPublicAlbumNameConflict } from "@/lib/admin/admin-album-public-name";
 import { enrichAlbumsWithCoverPreview, enrichAlbumWithCoverPreview } from "@/lib/admin/album-cover-preview";
@@ -10,17 +11,37 @@ import { enrichAlbumsWithCoverPreview, enrichAlbumWithCoverPreview } from "@/lib
 /** Albums owned by the current user (for linking Gedcom media). */
 export const GET = withAdminAuth(async (request, user) => {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const requestedOwnerUserId = request.nextUrl.searchParams.get("userId")?.trim() ?? "";
   const { limit, offset } = parseListParams(request.nextUrl.searchParams);
   const { canReadAllTreeData: isAdminTreeOwner } = await getAdminTreeReadScope(user);
 
-  const baseWhere = isAdminTreeOwner
-    ? {
-        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-      }
-    : {
-        userId: user.id,
-        ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
-      };
+  let baseWhere: Record<string, unknown>;
+  if (requestedOwnerUserId) {
+    const isOwn = requestedOwnerUserId === user.id;
+    await requireCan({
+      entity: "album",
+      action: "read",
+      scope: isOwn ? "user" : "other_users",
+      ownerUserId: requestedOwnerUserId,
+      treeId: process.env.ADMIN_TREE_ID ?? null,
+    });
+    baseWhere = {
+      userId: requestedOwnerUserId,
+      ...(isOwn ? {} : { isPublic: true }),
+      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    };
+  } else if (isAdminTreeOwner) {
+    await requireCan({ entity: "album", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
+    baseWhere = {
+      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    };
+  } else {
+    await requireCan({ entity: "album", action: "read", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
+    baseWhere = {
+      userId: user.id,
+      ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    };
+  }
 
   const [albums, total] = await Promise.all([
     prisma.album.findMany({
@@ -51,6 +72,7 @@ export const GET = withAdminAuth(async (request, user) => {
 });
 
 export const POST = withAdminAuth(async (request, user) => {
+  await requireCan({ entity: "album", action: "create", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const body = (await request.json()) as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name) {

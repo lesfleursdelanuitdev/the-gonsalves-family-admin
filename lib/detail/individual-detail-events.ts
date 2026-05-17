@@ -5,65 +5,18 @@
  */
 import { Prisma } from "@ligneous/prisma";
 import type { PrismaClient } from "@ligneous/prisma";
+import { eventRowGedcomId, type IndividualDetailEvent } from "@ligneous/gedcom-events";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { grandchildParentFromFamilyRow } from "@/lib/detail/grandchild-parent-from-family-row";
 import { attachTimelineEventPreviewMedia } from "@/lib/detail/timeline-event-preview-media";
 import { dedupeTimelineEvents } from "@/lib/detail/timeline-event-dedupe";
 import { filterEventsWithinSubjectLifespan, type LifespanYmd } from "@/lib/detail/timeline-lifespan";
-import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
+import type { TimelineSubject } from "@ligneous/gedcom-events";
 
-export type IndividualDetailEvent = {
-  /** Present when this row is backed by a `gedcom_events_v2` row (admin deep-link). */
-  eventId: string | null;
-  eventType: string;
-  customType: string | null;
-  /** From `gedcom_events_v2.event_label` when joined; null for synthetic rows. */
-  eventLabel: string | null;
-  value: string | null;
-  cause: string | null;
-  dateOriginal: string | null;
-  /** From `gedcom_dates_v2.date_type` when joined; null for denormalized-only rows. */
-  dateType: string | null;
-  year: number | null;
-  month: number | null;
-  day: number | null;
-  placeOriginal: string | null;
-  placeName: string | null;
-  sortOrder: number;
-  source: string;
-  familyId: string | null;
-  childXref: string | null;
-  childName?: string | null;
-  spouseName?: string | null;
-  spouseXref?: string | null;
-  /** Related person (spouse, parent, grandparent, etc.) for admin links */
-  spouseIndividualId?: string | null;
-  /** Child, sibling, grandchild, etc. for admin links */
-  childIndividualId?: string | null;
-  /** Family partners on family-detail MARR/DIV (optional) */
-  husbandIndividualId?: string | null;
-  wifeIndividualId?: string | null;
-  /** Sex (GEDCOM `SEX`) of the related person for child / spouse / sibling / grandchild rows. */
-  relatedSex?: string | null;
-  parentSide?: "father" | "mother" | null;
-  grandparentSide?: "grandfather" | "grandmother" | null;
-  /** Husband / wife / child when `source === "member"` (family timeline). */
-  memberRole?: "husband" | "wife" | "child" | null;
-  /** Random raster `file_ref` from linked event media (set server-side). */
-  previewMediaFileRef?: string | null;
-  /** Grandchild's parent (subject's child) for richer grandchild copy. */
-  relatedParentName?: string | null;
-  relatedParentSex?: string | null;
-};
+export type { IndividualDetailEvent } from "@ligneous/gedcom-events";
+export { eventRowGedcomId } from "@ligneous/gedcom-events";
 
 type Row = Record<string, unknown>;
-
-/** `event_id` from family-event joins, or `id` from direct event selects. */
-export function eventRowGedcomId(r: Row): string | null {
-  if (r.event_id != null && String(r.event_id) !== "") return String(r.event_id);
-  if (r.id != null && String(r.id) !== "") return String(r.id);
-  return null;
-}
 
 function stripName(s: string | null | undefined): string | null {
   const t = stripSlashesFromName(s);

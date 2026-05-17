@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@ligneous/prisma";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 
 /** Server-side raster check aligned with `isLikelyRasterImage` in `lib/admin/mediaPreview.ts`. */
 function isLikelyRasterFileRef(fileRef: string, formStr: string | null | undefined): boolean {

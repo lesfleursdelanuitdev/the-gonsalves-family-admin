@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { attachTimelineEventPreviewMedia } from "@/lib/detail/timeline-event-preview-media";
-import type { IndividualDetailEvent } from "@/lib/detail/individual-detail-events";
-import { sortEventsChronologically } from "@/lib/timeline/timeline-chronology";
-import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
+import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
+import { sortEventsChronologically } from "@ligneous/timeline-view";
+import type { TimelineSubject } from "@ligneous/gedcom-events";
 
 function mapEventToIndividualDetailRow(
   event: {
@@ -50,6 +51,7 @@ function mapEventToIndividualDetailRow(
 }
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "note", action: "read", scope: "tree" });
   const { id: noteId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

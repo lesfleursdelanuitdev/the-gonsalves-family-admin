@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { parseNoteLinkedEntityIdParam } from "@/lib/admin/admin-notes-filter";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@/lib/admin/open-questions";
 
 export const GET = withAdminAuth(async (req) => {
+  await requireCan({ entity: "openQuestion", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
   const status = parseOpenQuestionStatusParam(searchParams.get("status"));
@@ -45,6 +47,7 @@ export const GET = withAdminAuth(async (req) => {
 });
 
 export const POST = withAdminAuth(async (req, _user) => {
+  await requireCan({ entity: "openQuestion", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
   const question = typeof body.question === "string" ? body.question.trim() : "";

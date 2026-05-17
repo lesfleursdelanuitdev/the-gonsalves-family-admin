@@ -55,7 +55,7 @@ export interface MediaEditorInitial {
   isPublic?: boolean;
   exportable?: boolean;
   /** User media (detail API). */
-  visibility?: "private" | "shared" | "public";
+  visibility?: "private" | "followers" | "shared" | "public";
   reusePolicy?: "private" | "reusable_in_tree" | "reusable_public";
 }
 

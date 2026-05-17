@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "user", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const treeId = process.env.ADMIN_TREE_ID!;
   const fileUuid = await getAdminFileUuid();
@@ -95,6 +97,7 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "user", action: "update", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
   const body = await req.json();
   const { name, email, isActive } = body as {
@@ -131,6 +134,7 @@ export const PATCH = withAdminAuth(async (req, _user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "user", action: "delete", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
 
   const user = await prisma.user.update({

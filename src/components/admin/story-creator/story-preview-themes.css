@@ -257,6 +257,10 @@
   color: #9ca3af;
 }
 
+.preview-root.theme-dark .story-preview .story-tiptap li::marker {
+  color: #d1d5db;
+}
+
 .preview-root.theme-dark .story-preview .story-table-row {
   border-color: rgba(255, 255, 255, 0.1);
 }

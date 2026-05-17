@@ -52,6 +52,8 @@ export function StoryTiptapActiveEditorProvider({
       const el = document.activeElement;
       if (!(el instanceof Element)) return false;
       if (el.closest("[data-story-global-tiptap-toolbar]")) return true;
+      if (el.closest("[data-story-person-link-dialog]")) return true;
+      if (el.closest("[data-story-flow-insert-dialog]")) return true;
       if (el.closest('[data-slot="dropdown-menu-content"]')) return true;
       if (el.closest('[data-slot="dropdown-menu-sub-content"]')) return true;
       return false;

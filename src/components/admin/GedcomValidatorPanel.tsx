@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ChevronRight, FileCheck, Loader2, Trash2, TreeDeciduous, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import type { LibApiValidationError, LibApiValidateResponse } from "@/lib/admin/lib-api-validate";
 import { GedcomValidationFindingModal } from "@/components/admin/GedcomValidationFindingModal";
 import { toast } from "sonner";
+import { useAdminCrudPermissions } from "@/hooks/useAdminAuthz";
 
 type ValidatePayload = LibApiValidateResponse & {
   source: "upload" | "database";
@@ -53,6 +54,10 @@ function matchesSeverityTab(row: LibApiValidationError, tab: SeverityTab): boole
 }
 
 export function GedcomValidatorPanel() {
+  const authz = useAdminCrudPermissions("gedcom", "gedcom");
+  const canValidateUpload = Boolean(authz.permissions.validate_external);
+  const canValidateTree = Boolean(authz.permissions.validate_tree);
+
   const [busy, setBusy] = useState<"upload" | "tree" | "cleanup" | null>(null);
   const [result, setResult] = useState<ValidatePayload | null>(null);
   const [severityTab, setSeverityTab] = useState<SeverityTab>("all");
@@ -62,13 +67,7 @@ export function GedcomValidatorPanel() {
   const [findingModalOpen, setFindingModalOpen] = useState(false);
   const [selectedFinding, setSelectedFinding] = useState<LibApiValidationError | null>(null);
 
-  useEffect(() => {
-    if (!result) return;
-    setSeverityTab("all");
-    setExcludedCodes([]);
-  }, [result]);
-
-  const allRows = result?.errors ?? [];
+  const allRows = useMemo(() => result?.errors ?? [], [result]);
 
   const distinctCodes = useMemo(() => {
     const s = new Set<string>();
@@ -123,6 +122,8 @@ export function GedcomValidatorPanel() {
     try {
       const data = await runTreeValidation();
       setResult(data);
+      setSeverityTab("all");
+      setExcludedCodes([]);
       if (data.valid) {
         toast.success("Tree passed validation (no blocking errors).");
       } else {
@@ -172,6 +173,8 @@ export function GedcomValidatorPanel() {
       }
       const v = await runTreeValidation();
       setResult(v);
+      setSeverityTab("all");
+      setExcludedCodes([]);
       if (!v.valid && (v.errors?.length ?? 0) > 0) {
         toast.error("Validation still reports errors — see table below.");
       }
@@ -203,6 +206,8 @@ export function GedcomValidatorPanel() {
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       setResult(data);
+      setSeverityTab("all");
+      setExcludedCodes([]);
       if (data.valid) {
         toast.success("File passed validation (no blocking errors).");
       } else {
@@ -219,6 +224,7 @@ export function GedcomValidatorPanel() {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
+        {canValidateUpload ? (
         <Card className="border-base-content/10 bg-card/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -258,7 +264,9 @@ export function GedcomValidatorPanel() {
             </form>
           </CardContent>
         </Card>
+        ) : null}
 
+        {canValidateTree ? (
         <Card className="border-base-content/10 bg-card/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -287,7 +295,16 @@ export function GedcomValidatorPanel() {
             </Button>
           </CardContent>
         </Card>
+        ) : null}
       </div>
+
+      {!authz.isLoading && !canValidateUpload && !canValidateTree ? (
+        <Card className="border-base-content/10 bg-card/80">
+          <CardContent className="pt-6 text-sm text-muted-foreground">
+            You do not have permission to run GEDCOM validation checks.
+          </CardContent>
+        </Card>
+      ) : null}
 
       {result ? (
         <Card className="border-base-content/10 bg-card/80">
@@ -318,7 +335,7 @@ export function GedcomValidatorPanel() {
               </span>
             </div>
 
-            {result.source === "database" && emptyFamilyFindingCount > 0 ? (
+            {result.source === "database" && canValidateTree && emptyFamilyFindingCount > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100">
                 <p className="min-w-0 flex-1">
                   <span className="font-medium">Empty families</span> — {emptyFamilyFindingCount} EMPTY_FAMILY

@@ -4,6 +4,13 @@ export type StoryEditorMode = "edit" | "preview";
 export type StoryInspectorTab = "block" | "story" | "debug";
 export type StoryPanelKey = "left" | "right";
 
+export type StoryFlowNodeSelection = {
+  richTextBlockId: string;
+  nodeType: "storyFlowMedia" | "storyFlowEmbed";
+  nodeId: string;
+  pos?: number;
+};
+
 export type StoryValidationError = {
   code: string;
   message: string;
@@ -46,6 +53,7 @@ export type AddSectionPosition =
 export type StoryEditorState = {
   document: StoryDocument | null;
   selectedBlockId: string | null;
+  selectedFlowNode: StoryFlowNodeSelection | null;
   selectedSectionId: string | null;
   activeRichTextBlockId: string | null;
   activeEditorId: string | null;
@@ -64,6 +72,7 @@ export type StoryEditorActions = {
   resetDocument: (document: StoryDocument) => void;
   updateStorySettings: (patch: StoryDocumentMetaPatch) => void;
   selectBlock: (blockId: string | null) => void;
+  selectFlowNode: (selection: StoryFlowNodeSelection | null) => void;
   selectSection: (sectionId: string | null) => void;
   setActiveRichTextBlock: (blockId: string | null) => void;
   updateBlock: (blockId: string, patch: Partial<StoryBlock>) => void;

@@ -17,6 +17,7 @@ import {
   upsertIndividualKeyFact,
 } from "@/lib/admin/admin-individual-key-events";
 import { computeIsLiving, deathKnownFromIndividualSnapshot, type LivingMode } from "@/lib/admin/admin-individual-living";
+import { normalizeRawAssociationsForSubject } from "@/lib/admin/individual-relationships";
 import type { SurnamePayloadRow } from "@/lib/forms/individual-editor-form";
 import {
   composeFullNameFromParts,
@@ -1006,6 +1007,7 @@ export async function applyIndividualEditorPayload(
 
   if (Object.prototype.hasOwnProperty.call(payload, "associates")) {
     await syncIndividualAssociations(tx, fileUuid, individualId, payload.associates);
+    await normalizeRawAssociationsForSubject(tx, { fileUuid, subjectIndividualId: individualId });
   }
 }
 
@@ -1089,6 +1091,7 @@ export async function createAssociateIndividualAndMergeSyncAssociations(
   });
 
   await syncIndividualAssociations(tx, fileUuid, subj, merged);
+  await normalizeRawAssociationsForSubject(tx, { fileUuid, subjectIndividualId: subj });
   return newIndividualId;
 }
 

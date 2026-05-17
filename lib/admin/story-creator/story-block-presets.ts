@@ -129,7 +129,8 @@ export const STORY_ADD_BLOCK_DOCK_PRESET_GROUPS: StoryAddBlockPresetGroup[] = ((
   const text = byCat("text")?.items.filter((i) => textIds.includes(i.id)) ?? [];
   const data = byCat("data")?.items.filter((i) => i.id === "data_table") ?? [];
   const media = byCat("media")?.items.filter((i) => i.id === "media_default") ?? [];
-  const embeds = byCat("embeds")?.items.filter((i) => i.id === "embed_document") ?? [];
+  const dockEmbedIds: StoryAddBlockPresetId[] = ["embed_document", "embed_timeline"];
+  const embeds = byCat("embeds")?.items.filter((i) => dockEmbedIds.includes(i.id)) ?? [];
   const layoutIds: StoryAddBlockPresetId[] = [
     "layout_columns",
     "layout_split",
@@ -221,7 +222,13 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
     case "text_list":
       return withRichPreset(emptyListStarterDoc("bullet"), "list", { listVariant: "bullet" });
     case "text_verse":
-      return { ...withRichPreset(richDocVerse(), "verse"), verseSpacing: "relaxed" };
+      return {
+        ...withRichPreset(richDocVerse(), "verse"),
+        verseSpacing: "relaxed",
+        verseTitleAlign: "center",
+        verseContentAlign: "center",
+        verseLineLayout: "normal",
+      };
     case "text_quote":
       return {
         ...withRichPreset(richDocQuote(), "quote"),
@@ -312,7 +319,7 @@ export function createStoryBlockFromPreset(id: StoryAddBlockPresetId): StoryBloc
 
 function labelEmbed(kind: StoryGeneralEmbedKind, label: string) {
   const e = createEmbedBlock(kind);
-  return { ...e, label };
+  return { ...e, title: label, label };
 }
 
 export function createColumnNestedBlockFromPreset(id: StoryAddBlockPresetId): StoryColumnNestedBlock {

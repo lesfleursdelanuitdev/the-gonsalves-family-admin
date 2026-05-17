@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/infra/api";
 import { ADMIN_FAMILIES_API_BASE, ADMIN_FAMILIES_QUERY_KEY } from "@/hooks/admin-families-shared";
 import type { FamilyDetailEvent } from "@/lib/detail/family-detail-events";
-import type { TimelineSubject } from "@/lib/timeline/timeline-friendly-description";
+import type { TimelineSubject } from "@ligneous/gedcom-events";
 
 /** Matches API `GET /api/admin/families/[id]/events`. */
 export type AdminFamilyEventRow = FamilyDetailEvent;

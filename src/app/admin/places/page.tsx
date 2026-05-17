@@ -210,47 +210,46 @@ function PlaceGridCard({
         )}
       </CardContent>
 
-      <div className="mt-auto grid grid-cols-3 divide-x divide-base-content/10 border-t border-base-content/10 bg-base-content/[0.015]">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
-          onClick={onView}
-          aria-label={`View ${nameForAria}`}
-          title="View"
-        >
-          <Eye className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
-          onClick={onEdit}
-          aria-label={`Edit ${nameForAria}`}
-          title="Edit"
-        >
-          <Pencil className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          disabled={!onDelete}
-          className={
-            onDelete
-              ? "h-9 w-full rounded-none border-0 text-base-content/55 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:text-destructive"
-              : "h-9 w-full cursor-not-allowed rounded-none border-0 text-base-content/35 opacity-60"
-          }
-          onClick={onDelete}
-          aria-label={onDelete ? `Delete ${nameForAria}` : "Delete unavailable for catalog places"}
-          title={
-            onDelete
-              ? "Delete"
-              : "Places can’t be removed from this catalog. Update person or event records that reference this place."
-          }
-        >
-          <Trash2 className={cn("size-4", onDelete ? "" : "text-destructive/50")} />
-        </Button>
-      </div>
+      {onView || onEdit || onDelete ? (
+        <div className={cn("mt-auto grid divide-x divide-base-content/10 border-t border-base-content/10 bg-base-content/[0.015]", [onView, onEdit, onDelete].filter(Boolean).length === 1 ? "grid-cols-1" : [onView, onEdit, onDelete].filter(Boolean).length === 2 ? "grid-cols-2" : "grid-cols-3")}>
+          {onView ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
+              onClick={onView}
+              aria-label={`View ${nameForAria}`}
+              title="View"
+            >
+              <Eye className="size-4" />
+            </Button>
+          ) : null}
+          {onEdit ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-9 w-full rounded-none border-0 text-base-content/70 hover:bg-base-content/[0.04] hover:text-base-content focus-visible:z-10"
+              onClick={onEdit}
+              aria-label={`Edit ${nameForAria}`}
+              title="Edit"
+            >
+              <Pencil className="size-4" />
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-9 w-full rounded-none border-0 text-base-content/55 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:text-destructive"
+              onClick={onDelete}
+              aria-label={`Delete ${nameForAria}`}
+              title="Delete"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </Card>
   );
 }

@@ -3,13 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser, useLogout } from "@/hooks/useAuth";
+import { useAdminHrefPermissions } from "@/hooks/useAdminAuthz";
 import { useAdminUnreadMessageCount } from "@/hooks/useAdminMessages";
 import { useAdminMessagesRealtime } from "@/hooks/useAdminMessagesRealtime";
-import { Button } from "@/components/ui/button";
 import { AdminTopBar } from "@/components/admin/AdminTopBar";
 import { AdminTreeSetupBanner } from "@/components/AdminTreeSetupBanner";
 import {
@@ -23,19 +23,19 @@ import {
   ADMIN_SIDEBAR_LAYOUT_CHANGED_EVENT,
   type AdminSidebarLayoutChangedDetail,
 } from "@/lib/admin/admin-sidebar-layout";
+import { resolveAdminRoutePermission } from "@/lib/authz/admin-route-permissions";
 
 const DRAWER_ID = "admin-drawer";
 
 function useSidebarCollapsed() {
-  const [collapsed, setCollapsed] = useState(false);
-
-  useLayoutEffect(() => {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      setCollapsed(localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_STORAGE_KEY) === "1");
+      return localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_STORAGE_KEY) === "1";
     } catch {
-      /* ignore */
+      return false;
     }
-  }, []);
+  });
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((c) => {
@@ -64,11 +64,49 @@ function closeAdminDrawer() {
   if (el) el.checked = false;
 }
 
+function resolveFormAction(pathname: string): "create" | "update" | null {
+  const clean = (pathname ?? "").replace(/\/+$/, "");
+  const parts = clean.split("/").filter(Boolean);
+  const last = parts[parts.length - 1] ?? "";
+  if (last === "new") return "create";
+  if (last === "edit") return "update";
+  if (parts[0] === "admin" && parts[1] === "roles" && parts.length === 3) return "update";
+  return null;
+}
+
 export function AdminChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const p = pathname.replace(/\/$/, "") || "/";
   const isMessagesRoute = pathname.startsWith("/admin/messages");
   const isStoryEditorShell = p.startsWith("/admin/stories/") && p !== "/admin/stories";
+  const navHrefs = useMemo(
+    () => [...adminNavSections.flatMap((section) => section.items.map((item) => item.href)), ...adminNavBottom.map((item) => item.href)],
+    [],
+  );
+  const navPermissions = useAdminHrefPermissions(navHrefs);
+  const visibleNavSections = useMemo(
+    () =>
+      adminNavSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => navPermissions.canAccessHref(item.href)),
+        }))
+        .filter((section) => section.items.length > 0),
+    [navPermissions],
+  );
+  const visibleNavBottom = useMemo(
+    () => adminNavBottom.filter((item) => navPermissions.canAccessHref(item.href)),
+    [navPermissions],
+  );
+
+  const routeRequirement = useMemo(() => resolveAdminRoutePermission(pathname), [pathname]);
+  const formAction = useMemo(() => resolveFormAction(pathname), [pathname]);
+  const routePermissions = useAdminHrefPermissions([pathname]);
+  const routeGuardPending = routeRequirement != null && routePermissions.isLoading;
+  const routeBlocked =
+    routeRequirement != null &&
+    !routeGuardPending &&
+    !routePermissions.canAccessHref(pathname);
   const { data: user, isLoading } = useCurrentUser();
   const logout = useLogout();
   const { collapsed, toggleCollapsed } = useSidebarCollapsed();
@@ -99,17 +137,31 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
           {isMessagesRoute || isStoryEditorShell ? (
             <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6 lg:px-8 lg:pb-8">
               {!isStoryEditorShell ? <AdminTreeSetupBanner /> : null}
-              <div className="min-h-0 flex-1">{children}</div>
+              <div className="min-h-0 flex-1">
+                {routeGuardPending ? (
+                  <PermissionGateLoading />
+                ) : routeBlocked ? (
+                  <PermissionDeniedNotice action={formAction} />
+                ) : (
+                  children
+                )}
+              </div>
             </div>
           ) : (
             <>
               <AdminTreeSetupBanner />
-              {children}
+              {routeGuardPending ? (
+                <PermissionGateLoading />
+              ) : routeBlocked ? (
+                <PermissionDeniedNotice action={formAction} />
+              ) : (
+                children
+              )}
             </>
           )}
         </main>
       </div>
-      <div className="drawer-side z-40 border-r border-base-content/[0.08]">
+      <div className="drawer-side z-[60] h-dvh overflow-hidden border-r border-base-content/[0.08]">
         <label
           htmlFor={DRAWER_ID}
           className="drawer-overlay lg:hidden"
@@ -117,7 +169,7 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
         />
         <aside
           className={cn(
-            "flex min-h-full max-w-[85vw] flex-col overflow-hidden bg-base-300 text-base-content transition-[width] duration-200 ease-out",
+            "flex h-dvh min-h-0 max-w-[85vw] flex-col overflow-hidden bg-base-300 text-base-content transition-[width] duration-200 ease-out",
             collapsed ? "w-[4.25rem]" : "w-72"
           )}
         >
@@ -172,8 +224,8 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
               )}
             </button>
           </div>
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 sm:p-3">
-            {adminNavSections.map((section) => (
+          <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 sm:p-3">
+            {visibleNavSections.map((section) => (
               <div
                 key={section.label ?? section.items[0]?.href ?? "nav-section"}
                 className="flex flex-col gap-0.5"
@@ -200,8 +252,8 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
               </div>
             ))}
           </nav>
-          <nav className="flex flex-col gap-0.5 border-t border-base-content/[0.08] p-2 sm:p-3">
-            {adminNavBottom.map((item) => (
+          <nav className="shrink-0 border-t border-base-content/[0.08] p-2 sm:p-3">
+            {visibleNavBottom.map((item) => (
               <SidebarNavLink
                 key={item.href}
                 item={item}
@@ -215,6 +267,23 @@ export function AdminChrome({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
+}
+
+function PermissionDeniedNotice({ action }: { action: "create" | "update" | null }) {
+  const message = action === "create"
+    ? "You do not have permission to create this content."
+    : action === "update"
+      ? "You do not have permission to edit this content."
+      : "You do not have permission to view this content.";
+  return (
+    <div className="rounded-box border border-warning/30 bg-warning/10 p-4 text-sm text-base-content">
+      {message}
+    </div>
+  );
+}
+
+function PermissionGateLoading() {
+  return <div className="rounded-box border border-base-content/10 bg-base-100 p-4 text-sm text-muted-foreground">Checking permissions…</div>;
 }
 
 function formatSidebarUnread(n: number): string {

@@ -24,6 +24,9 @@ export function withAdminAuth(handler: AdminHandler) {
       if (e instanceof Error && e.message === "Unauthorized") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
+      if (e instanceof Error && (e.message === "Forbidden" || e.name === "AuthorizationError")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       if (e instanceof AdminTreeResolutionError) {
         return NextResponse.json({ error: e.message }, { status: 503 });
       }

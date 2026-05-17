@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { parseListParams } from "@/lib/admin/admin-list-params";
+import { requireCan } from "@/lib/authz/routeGuards";
 import bcrypt from "bcryptjs";
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "user", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { searchParams } = req.nextUrl;
   const q = searchParams.get("q") ?? "";
   const { limit, offset } = parseListParams(searchParams);
@@ -63,6 +65,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "user", action: "create", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
   const body = await req.json();
   const { username, email, name, password } = body as {
     username: string;

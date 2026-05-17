@@ -5,9 +5,11 @@ import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { parseIndividualEditorPayload } from "@/lib/forms/individual-editor-payload";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { gedcomIndividualNlDenormSelect } from "@/lib/gedcom/gedcom-individual-nl-select";
 
 export const POST = withAdminAuth(async (req, user, ctx) => {
+  await requireCan({ entity: "individual", action: "update", scope: "tree" });
   const { id: subjectIndividualId } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

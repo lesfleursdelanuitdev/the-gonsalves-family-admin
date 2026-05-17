@@ -4,6 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
 import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { dbRecordToStoryDocument, STORY_DB_READ_INCLUDE } from "@/lib/admin/story-creator/story-db-mapping";
 import { replaceStoryFromDocumentInTx } from "@/lib/admin/story-creator/persist-story-from-document";
 import { validateStoryDocumentStrictBlocks } from "@/lib/admin/story-creator/story-document-strict-validate";
@@ -18,15 +19,24 @@ async function assertOwnedStory(storyId: string, userId: string, treeId: string)
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
   const { storyId } = await ctx.params;
-  const { treeId, canReadAllTreeData } = await getAdminTreeReadScope(user);
+  const { treeId } = await getAdminTreeReadScope(user);
 
   const story = await prisma.story.findFirst({
-    where: canReadAllTreeData
-      ? { id: storyId, treeId, deletedAt: null }
-      : { id: storyId, treeId, authorId: user.id, deletedAt: null },
+    where: { id: storyId, treeId, deletedAt: null },
     include: STORY_DB_READ_INCLUDE,
   });
   if (!story) {
+    return NextResponse.json({ error: "Story not found" }, { status: 404 });
+  }
+  const isOwn = story.authorId === user.id;
+  await requireCan({
+    entity: "story",
+    action: "read",
+    scope: isOwn ? "user" : "other_users",
+    ownerUserId: story.authorId,
+    treeId,
+  });
+  if (!isOwn && story.status !== "published") {
     return NextResponse.json({ error: "Story not found" }, { status: 404 });
   }
 
@@ -35,6 +45,7 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
 });
 
 export const PUT = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "story", action: "update", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const { storyId } = await ctx.params;
   const treeId = await getAdminTreeId();
   const owned = await assertOwnedStory(storyId, user.id, treeId);
@@ -101,6 +112,7 @@ export const PUT = withAdminAuth(async (request, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "story", action: "delete", scope: "user", ownerUserId: user.id, treeId: process.env.ADMIN_TREE_ID ?? null });
   const { storyId } = await ctx.params;
   const treeId = await getAdminTreeId();
   const owned = await assertOwnedStory(storyId, user.id, treeId);

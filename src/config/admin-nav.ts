@@ -24,6 +24,11 @@ import {
   GitMerge,
   ScrollText,
   CircleHelp,
+  Shield,
+  KeyRound,
+  Link2,
+  ChefHat,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -52,6 +57,7 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/places", label: "Places", icon: MapPin },
       { href: "/admin/notes", label: "Notes", icon: StickyNote },
       { href: "/admin/sources", label: "Sources", icon: BookOpen },
+      { href: "/admin/relationship-types", label: "Relationship types", icon: Link2 },
     ],
   },
   {
@@ -72,6 +78,8 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/media", label: "Media", icon: Image },
       { href: "/admin/timelines", label: "Timelines", icon: ListTree },
       { href: "/admin/stories", label: "Stories", icon: ScrollText },
+      { href: "/admin/recipes", label: "Recipes", icon: ChefHat },
+      { href: "/admin/glossary", label: "Words & phrases", icon: BookOpen },
       { href: "/admin/albums", label: "Albums", icon: FolderOpen },
       { href: "/admin/tags", label: "Tags", icon: Tag },
     ],
@@ -88,6 +96,8 @@ export const adminNavSections: AdminNavSection[] = [
     label: "Community",
     items: [
       { href: "/admin/users", label: "Users & access", icon: UserCog },
+      { href: "/admin/roles", label: "Roles", icon: Shield },
+      { href: "/admin/permissions", label: "Permissions", icon: KeyRound },
       { href: "/admin/messages", label: "Messages", icon: MessageSquare },
     ],
   },
@@ -95,6 +105,7 @@ export const adminNavSections: AdminNavSection[] = [
     label: "System",
     items: [
       { href: "/admin/changelog", label: "Changelog", icon: History },
+      { href: "/admin/site-settings", label: "Site settings", icon: SlidersHorizontal },
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },

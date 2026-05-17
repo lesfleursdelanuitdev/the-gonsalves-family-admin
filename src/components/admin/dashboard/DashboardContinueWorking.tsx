@@ -74,9 +74,10 @@ const groups: Group[] = [
 
 type Props = {
   suggestionBadgeCount: number;
+  canAccessHref?: (href: string) => boolean;
 };
 
-export function DashboardContinueWorking({ suggestionBadgeCount }: Props) {
+export function DashboardContinueWorking({ suggestionBadgeCount, canAccessHref }: Props) {
   const merged = groups.map((g) =>
     g.id === "tree"
       ? {
@@ -87,6 +88,14 @@ export function DashboardContinueWorking({ suggestionBadgeCount }: Props) {
         }
       : g,
   );
+  const visible = merged
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => (canAccessHref ? canAccessHref(item.href) : true)),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  if (visible.length === 0) return null;
 
   return (
     <section
@@ -115,7 +124,7 @@ export function DashboardContinueWorking({ suggestionBadgeCount }: Props) {
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {merged.map((group) => (
+        {visible.map((group) => (
           <div
             key={group.id}
             className="flex min-h-[14rem] flex-col rounded-2xl border border-base-content/[0.07] bg-base-100/20 p-5 shadow-sm transition hover:border-primary/25 hover:bg-base-100/30"

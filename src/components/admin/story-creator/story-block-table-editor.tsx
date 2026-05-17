@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { normalizeStoryDocContent, storyDocJsonEquals } from "@/components/admin/story-creator/story-tiptap-doc";
 import { useStoryTiptapActiveEditorOptional } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import type { StoryTableBlock } from "@/lib/admin/story-creator/story-types";
+import { StoryLink } from "@/components/admin/story-creator/story-tiptap-link-extension";
 
 // ─── Extension set for table cells ───────────────────────────────────────────
 
@@ -26,12 +27,13 @@ function createTableCellExtensions(): AnyExtension[] {
       codeBlock: false,
       horizontalRule: false,
       code: false,
-      link: {
-        openOnClick: false,
-        autolink: true,
-        defaultProtocol: "https",
-        HTMLAttributes: { class: "text-primary underline underline-offset-2" },
-      },
+      link: false,
+    }),
+    StoryLink.configure({
+      openOnClick: false,
+      autolink: true,
+      defaultProtocol: "https",
+      HTMLAttributes: { class: "text-primary underline underline-offset-2" },
     }),
     Highlight.configure({
       multicolor: false,

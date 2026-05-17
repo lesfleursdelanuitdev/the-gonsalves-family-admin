@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { normalizeStoredMediaFileRef } from "@/lib/admin/media-upload-storage";
 import { reserveNextTreeMediaXref } from "@/lib/admin/gedcom-media-xref";
 
@@ -11,14 +12,29 @@ function parseMediaForm(v: unknown): "image" | "document" | "audio" | "video" | 
   return "other";
 }
 
-function parseUserMediaVisibility(v: unknown): "private" | "shared" | "public" | undefined {
-  if (v === "private" || v === "shared" || v === "public") return v;
+function parseUserMediaVisibility(v: unknown): "private" | "followers" | "shared" | "public" | undefined {
+  if (v === "private" || v === "followers" || v === "shared" || v === "public") return v;
   return undefined;
 }
 
 function parseUserMediaReusePolicy(v: unknown): "private" | "reusable_in_tree" | "reusable_public" | undefined {
   if (v === "private" || v === "reusable_in_tree" || v === "reusable_public") return v;
   return undefined;
+}
+
+function normalizeVisibilityForResponse(v: string | null | undefined): "private" | "followers" | "public" {
+  if (v === "public") return "public";
+  if (v === "followers" || v === "shared") return "followers";
+  return "private";
+}
+
+function isVisibleToOtherUser(
+  visibility: string | null | undefined,
+  isFollower: boolean,
+): boolean {
+  if (visibility === "public") return true;
+  if (visibility === "followers" || visibility === "shared" || visibility === "private") return isFollower;
+  return false;
 }
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
@@ -33,10 +49,29 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
   } as const;
 
   let media = await prisma.userMedia.findFirst({
-    where: { id, treeId: tree.id, userId: user.id, deletedAt: null },
+    where: { id, treeId: tree.id, deletedAt: null },
     include,
   });
   if (!media) return NextResponse.json({ error: "User media not found" }, { status: 404 });
+  const isOwner = media.userId === user.id;
+  await requireCan({
+    entity: "media",
+    action: "read",
+    scope: isOwner ? "user" : "other_users",
+    ownerUserId: media.userId,
+    treeId: tree.id,
+  });
+  if (!isOwner) {
+    const isFollower = Boolean(
+      await prisma.follow.findFirst({
+        where: { followerId: user.id, followeeId: media.userId },
+        select: { id: true },
+      }),
+    );
+    if (!isVisibleToOtherUser(media.visibility, isFollower)) {
+      return NextResponse.json({ error: "User media not found" }, { status: 404 });
+    }
+  }
 
   if (media.exportable && !(media.gedcomXref?.trim())) {
     await prisma.$transaction(async (tx) => {
@@ -44,7 +79,7 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
       await tx.userMedia.update({ where: { id }, data: { gedcomXref: xref } });
     });
     media = await prisma.userMedia.findFirst({
-      where: { id, treeId: tree.id, userId: user.id, deletedAt: null },
+      where: { id, treeId: tree.id, deletedAt: null },
       include,
     });
     if (!media) return NextResponse.json({ error: "User media not found" }, { status: 404 });
@@ -68,7 +103,7 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
       eventMedia: [],
       placeLinks: [],
       dateLinks: [],
-      visibility: media.visibility,
+      visibility: normalizeVisibilityForResponse(media.visibility),
       reusePolicy: media.reusePolicy,
       exportable: media.exportable,
     },
@@ -76,6 +111,7 @@ export const GET = withAdminAuth(async (_req, user, ctx) => {
 });
 
 export const PATCH = withAdminAuth(async (request, user, ctx) => {
+  await requireCan({ entity: "media", action: "update", scope: "user", ownerUserId: user.id });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({ where: { gedcomFileId: fileUuid }, select: { id: true } });
@@ -104,7 +140,7 @@ export const PATCH = withAdminAuth(async (request, user, ctx) => {
         ...(body.fileRef !== undefined ? { fileRef: normalizeStoredMediaFileRef(body.fileRef) } : {}),
         ...(body.form !== undefined ? { form: parseMediaForm(body.form) } : {}),
         ...(body.mimeType !== undefined ? { mimeType: typeof body.mimeType === "string" ? body.mimeType : null } : {}),
-        ...(vis !== undefined ? { visibility: vis } : {}),
+        ...(vis !== undefined ? { visibility: vis === "followers" ? "shared" : vis } : {}),
         ...(reuse !== undefined ? { reusePolicy: reuse } : {}),
         ...(body.exportable !== undefined ? { exportable: Boolean(body.exportable) } : {}),
         ...(nextXref ? { gedcomXref: nextXref } : {}),
@@ -120,6 +156,7 @@ export const PATCH = withAdminAuth(async (request, user, ctx) => {
 });
 
 export const DELETE = withAdminAuth(async (_req, user, ctx) => {
+  await requireCan({ entity: "media", action: "delete", scope: "user", ownerUserId: user.id });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
   const tree = await prisma.tree.findFirst({ where: { gedcomFileId: fileUuid }, select: { id: true } });

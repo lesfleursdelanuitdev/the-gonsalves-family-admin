@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { tagMayMutate } from "@/lib/admin/tag-admin-access";
 import { gedcomMediaWithAppTagsInclude } from "@/lib/admin/gedcom-media-with-tags-include";
 
-async function loadTagReadable(id: string, user: { id: string; isWebsiteOwner: boolean }) {
+async function loadTagReadable(id: string) {
   return prisma.tag.findFirst({
-    where: { id, OR: [{ isGlobal: true }, { userId: user.id }] },
+    where: { id },
     select: {
       id: true,
       name: true,
@@ -50,9 +51,21 @@ async function findNameConflict(
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
   const { id } = await ctx.params;
-  const tag = await loadTagReadable(id, user);
+  const tag = await loadTagReadable(id);
   if (!tag) {
     return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+  }
+  if (tag.isGlobal) {
+    await requireCan({ entity: "tag", action: "read", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
+  } else {
+    const isOwn = tag.userId === user.id;
+    await requireCan({
+      entity: "tag",
+      action: "read",
+      scope: isOwn ? "user" : "other_users",
+      ownerUserId: tag.userId,
+      treeId: process.env.ADMIN_TREE_ID ?? null,
+    });
   }
   const canMutate = tagMayMutate(tag, user);
   const fileUuid = await getAdminFileUuid();
@@ -79,6 +92,18 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
   });
   if (!existing) {
     return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+  }
+  if (existing.isGlobal) {
+    await requireCan({ entity: "tag", action: "update", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
+  } else {
+    const isOwn = existing.userId === user.id;
+    await requireCan({
+      entity: "tag",
+      action: "update",
+      scope: isOwn ? "user" : "other_users",
+      ownerUserId: existing.userId,
+      treeId: process.env.ADMIN_TREE_ID ?? null,
+    });
   }
   if (!tagMayMutate(existing, user)) {
     return NextResponse.json(
@@ -135,7 +160,7 @@ export const PATCH = withAdminAuth(async (req, user, ctx) => {
     data,
   });
 
-  const tag = await loadTagReadable(id, user);
+  const tag = await loadTagReadable(id);
   const fileUuid = await getAdminFileUuid();
   const profileMediaSelection = await prisma.tagProfileMedia.findUnique({
     where: { tagId_fileUuid: { tagId: id, fileUuid } },
@@ -162,6 +187,18 @@ export const DELETE = withAdminAuth(async (_req, user, ctx) => {
   });
   if (!tag) {
     return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+  }
+  if (tag.isGlobal) {
+    await requireCan({ entity: "tag", action: "delete", scope: "tree", treeId: process.env.ADMIN_TREE_ID ?? null });
+  } else {
+    const isOwn = tag.userId === user.id;
+    await requireCan({
+      entity: "tag",
+      action: "delete",
+      scope: isOwn ? "user" : "other_users",
+      ownerUserId: tag.userId,
+      treeId: process.env.ADMIN_TREE_ID ?? null,
+    });
   }
 
   const isOwnUserTag = !tag.isGlobal && tag.userId === user.id;

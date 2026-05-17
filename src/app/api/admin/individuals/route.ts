@@ -6,6 +6,7 @@ import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { createIndividualFromEditorPayload } from "@/lib/admin/admin-individual-editor-apply";
 import { newBatchId, type ChangeCtx } from "@/lib/admin/changelog";
 import { parseIndividualEditorPayload } from "@/lib/forms/individual-editor-payload";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { ADMIN_INDIVIDUAL_DETAIL_INCLUDE } from "@/app/api/admin/individuals/individual-detail-include";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 import {
@@ -118,6 +119,7 @@ async function listIndividualsFiltered(
 }
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
 
   const { searchParams } = req.nextUrl;
@@ -160,6 +162,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (req, user, _ctx) => {
+  await requireCan({ entity: "individual", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
 

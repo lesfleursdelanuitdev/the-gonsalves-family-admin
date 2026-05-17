@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   isLikelyAudioFile,
@@ -19,6 +19,7 @@ import type { StoryMediaBlock } from "@/lib/admin/story-creator/story-types";
 import { useStoryMediaById } from "@/hooks/useStoryMediaById";
 import { Button } from "@/components/ui/button";
 import { ImageIcon, Settings } from "lucide-react";
+import { StoryCaptionRichTextDisplay } from "@/components/admin/story-creator/StoryCaptionRichText";
 
 export type MediaBlockContentVariant = "editor" | "preview";
 
@@ -46,7 +47,6 @@ export function MediaBlockContentRenderer({
   compact,
   onConfigure,
   onResizeWidth,
-  onResizeHeight,
 }: {
   block: StoryMediaBlock;
   variant: MediaBlockContentVariant;
@@ -66,18 +66,17 @@ export function MediaBlockContentRenderer({
   const captionTrim = block.caption?.trim() ?? "";
   const titleDisplay = labelTrim || (isEditor ? "Untitled media" : "");
   const captionDisplay = captionTrim || (isEditor ? "No caption" : "");
-  const showTitleSlot = isEditor || Boolean(labelTrim);
-  const showCaptionSlot = isEditor || Boolean(captionTrim);
+  const showTitleSlot = !block.hideTitle && (isEditor || Boolean(labelTrim));
+  const showCaptionSlot = !block.hideCaption && (isEditor || Boolean(captionTrim));
 
   const [isDragging, setIsDragging] = useState(false);
   const dragState = useRef<DragState | null>(null);
   const lastWidthPctRef = useRef(100);
 
   // Track whether the <img> has finished loading so we can fade it in.
-  const [imgLoaded, setImgLoaded] = useState(false);
-  // Reset whenever the resolved fileRef changes (new media selected, block swapped).
   const resolvedFileRef = data?.fileRef?.trim() || null;
-  useEffect(() => { setImgLoaded(false); }, [resolvedFileRef]);
+  const [loadedFileRef, setLoadedFileRef] = useState<string | null>(null);
+  const imgLoaded = resolvedFileRef != null && loadedFileRef === resolvedFileRef;
 
   // --- Width handle ---
   function onSidePointerDown(e: React.PointerEvent<HTMLDivElement>, side: "left" | "right") {
@@ -110,7 +109,7 @@ export function MediaBlockContentRenderer({
     state.scopeEl.style.maxWidth = "100%";
   }
 
-  function onSidePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  function onSidePointerUp() {
     const state = dragState.current;
     if (!state || state.kind !== "width") return;
     state.scopeEl.style.width = "";
@@ -120,13 +119,6 @@ export function MediaBlockContentRenderer({
     // Snap only on release so the commit value lands on a clean preset when close.
     onResizeWidth?.(snapWidth(lastWidthPctRef.current));
   }
-
-  const sideHandleEvents = (side: "left" | "right") => ({
-    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => onSidePointerDown(e, side),
-    onPointerMove: onSidePointerMove,
-    onPointerUp: onSidePointerUp,
-    onPointerCancel: onSidePointerUp,
-  });
 
   if (compact && isEditor && isStoryMediaUnconfigured(block) && onConfigure) {
     return (
@@ -188,7 +180,7 @@ export function MediaBlockContentRenderer({
     const imgSrc = nativeImg ? (directSrc ?? thumb) : thumb;
     asset = (
       <div
-        className="relative w-full overflow-hidden rounded-xl border border-base-content/10 bg-base-200/10 ring-1 ring-base-content/[0.06]"
+        className="relative w-full overflow-hidden rounded-xl border border-base-content/10 bg-transparent ring-1 ring-base-content/[0.06]"
         style={fixedHeight ? { height: fixedHeight } : undefined}
       >
         {/* Shimmer sits behind the image and disappears once it loads */}
@@ -210,7 +202,7 @@ export function MediaBlockContentRenderer({
             fixedHeight ? "h-full object-cover" : "h-auto",
             imgLoaded ? "opacity-100" : "opacity-0",
           )}
-          onLoad={() => setImgLoaded(true)}
+          onLoad={() => setLoadedFileRef(resolvedFileRef)}
         />
       </div>
     );
@@ -244,10 +236,11 @@ export function MediaBlockContentRenderer({
   ) : null;
 
   const captionNode = showCaptionSlot ? (
-    <p
-      className="text-xs leading-relaxed text-neutral-500"
+    <StoryCaptionRichTextDisplay
+      caption={captionDisplay}
+      className="text-neutral-500"
       style={!isEditor ? { color: "var(--story-media-caption-color, #6b7280)" } : undefined}
-    >{captionDisplay}</p>
+    />
   ) : null;
 
   const showHandles = isEditor && !compact && Boolean(onResizeWidth);
@@ -260,12 +253,24 @@ export function MediaBlockContentRenderer({
   return (
     <figure className={cn("group/mediaresize relative min-w-0", alignClass)}>
       {showHandles && onResizeWidth && (
-        <div className={cn(sideHandleBase, "-left-2")} {...sideHandleEvents("left")}>
+        <div
+          className={cn(sideHandleBase, "-left-2")}
+          onPointerDown={(e) => onSidePointerDown(e, "left")}
+          onPointerMove={onSidePointerMove}
+          onPointerUp={onSidePointerUp}
+          onPointerCancel={onSidePointerUp}
+        >
           <div className="h-10 w-1 rounded-full bg-primary/60 shadow" />
         </div>
       )}
       {showHandles && onResizeWidth && (
-        <div className={cn(sideHandleBase, "-right-2")} {...sideHandleEvents("right")}>
+        <div
+          className={cn(sideHandleBase, "-right-2")}
+          onPointerDown={(e) => onSidePointerDown(e, "right")}
+          onPointerMove={onSidePointerMove}
+          onPointerUp={onSidePointerUp}
+          onPointerCancel={onSidePointerUp}
+        >
           <div className="h-10 w-1 rounded-full bg-primary/60 shadow" />
         </div>
       )}
@@ -273,8 +278,8 @@ export function MediaBlockContentRenderer({
         <StoryAssetWithTitleCaption
           titlePlacement={block.titlePlacement}
           captionPlacement={block.captionPlacement}
-          titleClassName="min-w-0 max-w-full sm:max-w-[min(100%,22rem)] text-center"
-          captionClassName="min-w-0 max-w-full sm:max-w-[min(100%,22rem)] text-center"
+          titleClassName="min-w-0 w-full max-w-full text-center"
+          captionClassName="min-w-0 w-full max-w-full text-center"
           asset={assetWithHandles}
           title={titleNode}
           caption={captionNode}

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { parseListParams } from "@/lib/admin/admin-list-params";
+import { requireCan } from "@/lib/authz/routeGuards";
 import {
   adminNotesFilterConditions,
   adminNotesWhereSql,
@@ -102,6 +103,7 @@ async function listNotesFiltered(
 }
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "note", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
   const q = searchParams.get("q")?.trim() || null;
@@ -137,6 +139,7 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
 });
 
 export const POST = withAdminAuth(async (req, user, _ctx) => {
+  await requireCan({ entity: "note", action: "create", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const body = (await req.json()) as Record<string, unknown>;
   const { content, isTopLevel } = body;

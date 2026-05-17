@@ -1,11 +1,17 @@
 import type { CSSProperties } from "react";
-import type { StoryColumnSlot, StoryColumnStackJustify, StoryColumnsBlock } from "@/lib/admin/story-creator/story-types";
+import type {
+  StoryColumnSlot,
+  StoryColumnStackJustify,
+  StoryColumnsBlock,
+  StoryColumnsMobileBehavior,
+} from "@/lib/admin/story-creator/story-types";
 
 /** Equal split — default for new blocks. */
 export const DEFAULT_COLUMN_WIDTH_PERCENTS: [number, number] = [50, 50];
 
 /** Default gutter between columns (`rem`, stable across zoom). */
 export const DEFAULT_COLUMN_GAP_REM = 1;
+export const DEFAULT_COLUMNS_MOBILE_BEHAVIOR: StoryColumnsMobileBehavior = "stackLeftFirst";
 
 export const STORY_COLUMNS_GAP_PRESETS = [
   { gapRem: 0, label: "None" },
@@ -87,6 +93,39 @@ export function resolveColumnGapRem(block: StoryColumnsBlock): number {
   return Math.min(6, g);
 }
 
+export function resolveColumnsMobileBehavior(block: StoryColumnsBlock): StoryColumnsMobileBehavior {
+  if (
+    block.mobileBehavior === "stackRightFirst" ||
+    block.mobileBehavior === "keepSideBySide" ||
+    block.mobileBehavior === "stackLeftFirst"
+  ) {
+    return block.mobileBehavior;
+  }
+  return DEFAULT_COLUMNS_MOBILE_BEHAVIOR;
+}
+
+export function resolveColumnsLayoutMode(block: StoryColumnsBlock, isNarrow: boolean): "two-column" | "stacked" {
+  if (!isNarrow) return "two-column";
+  return resolveColumnsMobileBehavior(block) === "keepSideBySide" ? "two-column" : "stacked";
+}
+
+export function orderedColumnSlots(
+  block: StoryColumnsBlock,
+  isNarrow: boolean,
+): Array<{ slot: StoryColumnSlot; columnIndex: 0 | 1 }> {
+  const behavior = resolveColumnsMobileBehavior(block);
+  if (isNarrow && behavior === "stackRightFirst") {
+    return [
+      { slot: block.columns[1], columnIndex: 1 },
+      { slot: block.columns[0], columnIndex: 0 },
+    ];
+  }
+  return [
+    { slot: block.columns[0], columnIndex: 0 },
+    { slot: block.columns[1], columnIndex: 1 },
+  ];
+}
+
 /**
  * Renders as CSS Grid: percent intent becomes `fr` tracks (minmax(0, Nfr)) so gap does not skew ratios.
  * @param layout `two-column` side-by-side; `stacked` single column (narrow viewports).
@@ -103,6 +142,18 @@ export function resolveColumnStackGapRem(slot: StoryColumnSlot): number {
   return Math.min(4, g);
 }
 
+export function columnsHaveAdvancedLayout(block: StoryColumnsBlock): boolean {
+  const [left, right] = block.columns;
+  return (
+    block.columns.some((slot) => resolveColumnStackJustify(slot) !== DEFAULT_COLUMN_STACK_JUSTIFY) ||
+    Math.abs(resolveColumnStackGapRem(left) - resolveColumnStackGapRem(right)) > 0.05
+  );
+}
+
+export function advancedColumnLayoutEnabled(block: StoryColumnsBlock): boolean {
+  return block.advancedColumnLayoutEnabled ?? columnsHaveAdvancedLayout(block);
+}
+
 /** Vertical stack inside one column (blocks laid out in document order). */
 export function storyColumnStackStyle(slot: StoryColumnSlot): CSSProperties {
   return {
@@ -111,6 +162,18 @@ export function storyColumnStackStyle(slot: StoryColumnSlot): CSSProperties {
     justifyContent: resolveColumnStackJustify(slot),
     alignItems: "stretch",
     gap: `${resolveColumnStackGapRem(slot)}rem`,
+    minWidth: 0,
+    minHeight: 0,
+  };
+}
+
+export function storyColumnSharedStackStyle(gapRem = DEFAULT_COLUMN_STACK_GAP_REM): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: DEFAULT_COLUMN_STACK_JUSTIFY,
+    alignItems: "stretch",
+    gap: `${Math.max(0, Math.min(4, gapRem))}rem`,
     minWidth: 0,
     minHeight: 0,
   };

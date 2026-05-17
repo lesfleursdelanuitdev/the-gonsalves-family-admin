@@ -19,8 +19,9 @@ import { getCurrentUser } from "@/lib/infra/auth";
  * - **User uploads:** prefix `user-media/<userId>/` then category + file (same layout as the
  *   authenticated `/uploads/user-media/...` route).
  * - `?w=<width>` selects the long-edge target (clamped). `?fmt=` reserved for future use.
- * - Encoded result is cached on disk under `<dir>/.thumbs/<basename>_w<w>.jpg`. Re-emits when the
- *   source file mtime is newer than the cache (so re-uploads invalidate cleanly).
+ * - Encoded result is cached on disk under `<dir>/.thumbs/<basename>_w<w>.<ext>`. Non-alpha images
+ *   use JPEG; alpha images use WebP so transparent PNGs stay transparent. Re-emits when the source
+ *   file mtime is newer than the cache (so re-uploads invalidate cleanly).
  * - Falls through to the original via 302 if Sharp can't decode the source (e.g. exotic formats).
  *
  * Auth: gedcom-admin and site-media thumbs are readable without auth (same exposure model as using
@@ -32,6 +33,12 @@ const ALLOWED_WIDTHS = [120, 240, 360, 480, 720, 960, 1280] as const;
 const DEFAULT_WIDTH = 480;
 const THUMBS_SUBDIR = ".thumbs";
 const THUMB_QUALITY = 78;
+
+type ThumbCacheTarget = {
+  diskPath: string;
+  contentType: "image/jpeg" | "image/webp";
+  format: "jpeg" | "webp";
+};
 
 function pickWidth(raw: string | null): number {
   const n = raw ? Number.parseInt(raw, 10) : NaN;
@@ -51,10 +58,21 @@ function normalizePathSegments(pathParam: string | string[] | undefined): string
   return Array.isArray(pathParam) ? pathParam : [pathParam];
 }
 
-function thumbCachePath(sourceDiskPath: string, width: number): string {
+function thumbCacheTarget(sourceDiskPath: string, width: number, hasAlpha: boolean): ThumbCacheTarget {
   const dir = path.dirname(sourceDiskPath);
   const base = path.basename(sourceDiskPath, path.extname(sourceDiskPath));
-  return path.join(dir, THUMBS_SUBDIR, `${base}_w${width}.jpg`);
+  if (hasAlpha) {
+    return {
+      diskPath: path.join(dir, THUMBS_SUBDIR, `${base}_w${width}.webp`),
+      contentType: "image/webp",
+      format: "webp",
+    };
+  }
+  return {
+    diskPath: path.join(dir, THUMBS_SUBDIR, `${base}_w${width}.jpg`),
+    contentType: "image/jpeg",
+    format: "jpeg",
+  };
 }
 
 function resolveThumbSourceDiskPath(segments: string[]): string | null {
@@ -78,7 +96,7 @@ function fallbackUploadsPath(segments: string[]): string {
   return `/uploads/gedcom-admin/${segments.join("/")}`;
 }
 
-async function streamFile(diskPath: string, privateCache: boolean): Promise<NextResponse> {
+async function streamFile(diskPath: string, privateCache: boolean, contentType: ThumbCacheTarget["contentType"]): Promise<NextResponse> {
   const stream = createReadStream(diskPath);
   const cacheControl = privateCache
     ? "private, max-age=3600"
@@ -86,7 +104,7 @@ async function streamFile(diskPath: string, privateCache: boolean): Promise<Next
   return new NextResponse(Readable.toWeb(stream) as ReadableStream<Uint8Array>, {
     status: 200,
     headers: {
-      "Content-Type": "image/jpeg",
+      "Content-Type": contentType,
       "Cache-Control": cacheControl,
     },
   });
@@ -127,25 +145,30 @@ export async function GET(
 
   const url = new URL(request.url);
   const width = pickWidth(url.searchParams.get("w"));
-  const cachePath = thumbCachePath(sourceDiskPath, width);
 
   try {
-    const cacheStat = await stat(cachePath);
-    if (cacheStat.isFile() && cacheStat.mtimeMs >= sourceStat.mtimeMs) {
-      return await streamFile(cachePath, isUserMediaThumb);
+    const metadata = await sharp(sourceDiskPath).metadata();
+    const cacheTarget = thumbCacheTarget(sourceDiskPath, width, metadata.hasAlpha === true);
+
+    try {
+      const cacheStat = await stat(cacheTarget.diskPath);
+      if (cacheStat.isFile() && cacheStat.mtimeMs >= sourceStat.mtimeMs) {
+        return await streamFile(cacheTarget.diskPath, isUserMediaThumb, cacheTarget.contentType);
+      }
+    } catch {
+      // Cache miss; fall through to generation.
     }
-  } catch {
-    // Cache miss; fall through to generation.
-  }
 
-  try {
-    await mkdir(path.dirname(cachePath), { recursive: true });
-    await sharp(sourceDiskPath)
+    await mkdir(path.dirname(cacheTarget.diskPath), { recursive: true });
+    const thumb = sharp(sourceDiskPath)
       .rotate()
-      .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: THUMB_QUALITY, mozjpeg: true })
-      .toFile(cachePath);
-    return await streamFile(cachePath, isUserMediaThumb);
+      .resize({ width, height: width, fit: "inside", withoutEnlargement: true });
+    if (cacheTarget.format === "webp") {
+      await thumb.webp({ quality: THUMB_QUALITY }).toFile(cacheTarget.diskPath);
+    } else {
+      await thumb.jpeg({ quality: THUMB_QUALITY, mozjpeg: true }).toFile(cacheTarget.diskPath);
+    }
+    return await streamFile(cacheTarget.diskPath, isUserMediaThumb, cacheTarget.contentType);
   } catch (err) {
     console.warn("[media thumb] generation failed, falling back to original:", err);
     const fallbackUrl = new URL(fallbackUploadsPath(segments), url.origin);
