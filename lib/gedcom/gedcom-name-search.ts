@@ -14,7 +14,7 @@ export function escapeRegex(s: string): string {
  */
 export function surnamePrefixRegexPattern(lastNameInput: string): string {
   const prefix = escapeRegex(lastNameInput.trim().toLowerCase());
-  return "\\/" + prefix;
+  return "\\/\\s*" + prefix;
 }
 
 /** Escape % and _ for safe use inside a LIKE pattern (user input is the literal part). */

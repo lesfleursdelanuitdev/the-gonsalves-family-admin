@@ -85,7 +85,13 @@ export function adminIndividualsFilterConditions(
   }
 
   if (structured.lastNamePrefix) {
-    parts.push(lastNameRegexSql(Prisma.raw("i.full_name_lower"), structured.lastNamePrefix));
+    parts.push(
+      lastNameRegexSql(
+        Prisma.raw("i.full_name_lower"),
+        structured.lastNamePrefix,
+        Prisma.raw("i.primary_surname_lower"),
+      ),
+    );
   }
 
   if (structured.givenContains) {
@@ -99,13 +105,22 @@ export function adminIndividualsFilterConditions(
       const { firstToken, surnamePrefix, hasSurname } = parsed;
       if (hasSurname && surnamePrefix) {
         const givenPrefix = escapeLike(firstToken) + "%";
-        const surnamePattern = surnamePrefixRegexPattern(surnamePrefix);
         parts.push(Prisma.sql`i.full_name_lower LIKE ${givenPrefix} ESCAPE '\\'`);
-        parts.push(Prisma.sql`i.full_name_lower ~* ${surnamePattern}`);
+        parts.push(
+          lastNameRegexSql(
+            Prisma.raw("i.full_name_lower"),
+            surnamePrefix,
+            Prisma.raw("i.primary_surname_lower"),
+          ),
+        );
       } else {
         const likePrefix = escapeLike(firstToken) + "%";
-        const surnamePattern = surnamePrefixRegexPattern(firstToken);
-        parts.push(Prisma.sql`(i.full_name_lower LIKE ${likePrefix} ESCAPE '\\' OR i.full_name_lower ~* ${surnamePattern})`);
+        parts.push(
+          Prisma.sql`(
+            i.full_name_lower LIKE ${likePrefix} ESCAPE '\\'
+            OR ${lastNameRegexSql(Prisma.raw("i.full_name_lower"), firstToken, Prisma.raw("i.primary_surname_lower"))}
+          )`,
+        );
       }
     }
   }

@@ -25,14 +25,20 @@ export function givenNameExistsSql(
 }
 
 /**
- * Regex condition matching an individual's full_name_lower against a surname prefix.
+ * Match surname prefix on full_name_lower (GEDCOM slash token) and primary_surname_lower.
  * @param fullNameExpr - SQL expression for the full_name_lower column
+ * @param primarySurnameExpr - optional SQL expression for primary_surname_lower
  */
 export function lastNameRegexSql(
   fullNameExpr: Prisma.Sql,
   lastNamePrefix: string,
+  primarySurnameExpr?: Prisma.Sql,
 ): Prisma.Sql {
   const pattern = surnamePrefixRegexPattern(lastNamePrefix);
+  const primaryPrefix = lastNamePrefix.trim().toLowerCase() + "%";
+  if (primarySurnameExpr) {
+    return Prisma.sql`(${fullNameExpr} ~* ${pattern} OR ${primarySurnameExpr} LIKE ${primaryPrefix})`;
+  }
   return Prisma.sql`${fullNameExpr} ~* ${pattern}`;
 }
 
@@ -51,7 +57,7 @@ export function linkedNameConditions(
     parts.push(givenNameExistsSql(individualIdExpr, givenName));
   }
   if (lastName) {
-    parts.push(lastNameRegexSql(fullNameExpr, lastName));
+    parts.push(lastNameRegexSql(fullNameExpr, lastName, Prisma.raw("i.primary_surname_lower")));
   }
   return parts;
 }
