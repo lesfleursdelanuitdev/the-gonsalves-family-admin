@@ -29,6 +29,12 @@ import {
   Link2,
   ChefHat,
   SlidersHorizontal,
+  Library,
+  Inbox,
+  Layers,
+  ShieldCheck,
+  UserPlus,
+  HeartPulse,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -57,6 +63,7 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/places", label: "Places", icon: MapPin },
       { href: "/admin/notes", label: "Notes", icon: StickyNote },
       { href: "/admin/sources", label: "Sources", icon: BookOpen },
+      { href: "/admin/repositories", label: "Repositories", icon: Library },
       { href: "/admin/relationship-types", label: "Relationship types", icon: Link2 },
     ],
   },
@@ -95,16 +102,26 @@ export const adminNavSections: AdminNavSection[] = [
   {
     label: "Community",
     items: [
+      { href: "/admin/contact-inbox", label: "Site messages", icon: Inbox },
+      { href: "/admin/contributions", label: "Contributions", icon: Layers },
+      { href: "/admin/messages", label: "Messages", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Users & access",
+    items: [
       { href: "/admin/users", label: "Users & access", icon: UserCog },
       { href: "/admin/roles", label: "Roles", icon: Shield },
       { href: "/admin/permissions", label: "Permissions", icon: KeyRound },
-      { href: "/admin/messages", label: "Messages", icon: MessageSquare },
+      { href: "/admin/access-requests", label: "Access requests", icon: ShieldCheck },
+      { href: "/admin/registration-requests", label: "Registration requests", icon: UserPlus },
     ],
   },
   {
     label: "System",
     items: [
       { href: "/admin/changelog", label: "Changelog", icon: History },
+      { href: "/admin/site-health", label: "Site health", icon: HeartPulse },
       { href: "/admin/site-settings", label: "Site settings", icon: SlidersHorizontal },
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],

@@ -182,6 +182,7 @@ function RoleRow({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`role-label-${role.id}`}>Display label</Label>
+          <FieldHint>What this person is called in this relationship, e.g. <em>Godparent</em> or <em>Godchild</em>. Shown next to the person's name in the relationship panel.</FieldHint>
           <Input
             id={`role-label-${role.id}`}
             value={role.label}
@@ -194,12 +195,12 @@ function RoleRow({
             }}
             placeholder={isSymmetric ? "e.g. Partner" : "e.g. Godparent"}
           />
-          <FieldHint>The name shown in the relationship panel next to a person.</FieldHint>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`role-key-${role.id}`}>
             Key <span className="ml-1 text-xs font-normal text-muted-foreground">(auto-generated)</span>
           </Label>
+          <FieldHint>Stable identifier for this role used in exports and the API. Lowercase letters, numbers, and underscores only. Auto-filled from the label.</FieldHint>
           <Input
             id={`role-key-${role.id}`}
             value={role.key}
@@ -208,7 +209,6 @@ function RoleRow({
             placeholder="e.g. godparent"
             className="font-mono text-sm"
           />
-          <FieldHint>Machine identifier — lowercase letters, numbers, underscores only.</FieldHint>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-4">
@@ -406,6 +406,7 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="rt-label">Label</Label>
+                <FieldHint>The human-readable name shown in the UI when editors pick or view this relationship type. Use a noun that describes the connection, e.g. <em>Godparenthood</em> or <em>Legal guardianship</em>.</FieldHint>
                 <Input
                   id="rt-label"
                   value={form.label}
@@ -421,12 +422,12 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                   autoFocus
                 />
                 <FieldError message={errors.label ?? null} />
-                <FieldHint>The human-readable name shown in the relationship panel.</FieldHint>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="rt-key">
                   Key <span className="ml-1 text-xs font-normal text-muted-foreground">(auto-generated)</span>
                 </Label>
+                <FieldHint>A stable machine identifier used in exports and the API. Must be lowercase letters, numbers, and underscores only — no spaces. Auto-filled from the label; edit only if you need a specific value.</FieldHint>
                 <Input
                   id="rt-key"
                   value={form.key}
@@ -437,11 +438,11 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                   aria-invalid={!!errors.key}
                 />
                 <FieldError message={errors.key ?? null} />
-                <FieldHint>Unique machine identifier — lowercase, underscores, no spaces. Auto-filled from the label.</FieldHint>
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rt-description">Description <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+              <FieldHint>Explain when editors should use this relationship type and how it differs from similar ones. This text is shown as a tooltip or hint when someone picks a relationship type from the dropdown.</FieldHint>
               <textarea
                 id="rt-description"
                 value={form.description}
@@ -450,7 +451,6 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                 className="flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="When should editors use this relationship type? Any notes about how it differs from similar types."
               />
-              <FieldHint>Shown to editors when picking a relationship type.</FieldHint>
             </div>
           </div>
         </SectionCard>
@@ -502,6 +502,7 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor={`role-label-${role.id}`}>Role label</Label>
+                      <FieldHint>What both people in this relationship are called, e.g. <em>Partner</em> or <em>Colleague</em>. Since the relationship is symmetric, both parties share this label.</FieldHint>
                       <Input
                         id={`role-label-${role.id}`}
                         value={role.label}
@@ -520,6 +521,7 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                       <Label htmlFor={`role-key-${role.id}`}>
                         Role key <span className="text-xs font-normal text-muted-foreground">(auto-generated)</span>
                       </Label>
+                      <FieldHint>Stable machine identifier for this role. Lowercase, underscores only. Auto-filled from the label.</FieldHint>
                       <Input
                         id={`role-key-${role.id}`}
                         value={role.key}
@@ -567,6 +569,7 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5">
                           <Label htmlFor={`role-label-${role.id}`}>Display label</Label>
+                          <FieldHint>What a person holding this role is called, e.g. <em>Godparent</em>. Shown next to their name in the relationship panel.</FieldHint>
                           <Input
                             id={`role-label-${role.id}`}
                             value={role.label}
@@ -585,6 +588,7 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                           <Label htmlFor={`role-key-${role.id}`}>
                             Key <span className="text-xs font-normal text-muted-foreground">(auto)</span>
                           </Label>
+                          <FieldHint>Stable machine identifier. Lowercase, underscores only. Auto-filled from the label.</FieldHint>
                           <Input
                             id={`role-key-${role.id}`}
                             value={role.key}
@@ -668,6 +672,7 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="rt-gedcom-atob">RELA tag — A to B</Label>
+                  <FieldHint>The GEDCOM <code>RELA</code> tag value written when person A holds the primary role toward person B (e.g. <code>godparent</code>). Only fill this if your GEDCOM files use a custom RELA tag for this relationship type.</FieldHint>
                   <Input
                     id="rt-gedcom-atob"
                     value={form.gedcomRelaAtoB}
@@ -675,12 +680,10 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                     placeholder="e.g. godparent"
                     className="font-mono text-sm"
                   />
-                  <FieldHint>
-                    The GEDCOM RELA value used when individual A relates to individual B (e.g. the godparent side).
-                  </FieldHint>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="rt-gedcom-btoa">RELA tag — B to A</Label>
+                  <FieldHint>The GEDCOM <code>RELA</code> tag value written when person B holds the reciprocal role toward person A (e.g. <code>godchild</code>). Leave blank if A-to-B covers both directions.</FieldHint>
                   <Input
                     id="rt-gedcom-btoa"
                     value={form.gedcomRelaBtoA}
@@ -688,9 +691,6 @@ export function RelationshipTypeNewForm({ backHref = "/admin/relationship-types"
                     placeholder="e.g. godchild"
                     className="font-mono text-sm"
                   />
-                  <FieldHint>
-                    The GEDCOM RELA value used when individual B relates to individual A (e.g. the godchild side).
-                  </FieldHint>
                 </div>
               </div>
             </div>

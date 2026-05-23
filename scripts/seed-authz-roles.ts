@@ -38,8 +38,15 @@ const CRUD_ACTIONS = ["create", "read", "update", "delete"] as const;
 const GEDCOM_ACTIONS = ["validate_external", "validate_tree", "merge_records", "export"] as const;
 const SCOPED_CONTENT_ENTITIES = ["media", "tag", "album", "story"] as const;
 const SOCIAL_SCOPES = ["site", "tree", "user", "other_users"] as const;
+const COMMUNITY_ADMIN_ENTITIES = ["contact_message", "contribution", "access_request", "registration_request"] as const;
 
 function buildRoleSeeds(): RoleSeed[] {
+  const repositoryCrud: Perm[] = CRUD_ACTIONS.map((action) => ({ entity: "repository", action, scope: "tree" }));
+  const communityCrud: Perm[] = COMMUNITY_ADMIN_ENTITIES.flatMap((entity) =>
+    CRUD_ACTIONS.map((action) => ({ entity, action, scope: "site" })),
+  );
+  const communityReply: Perm = { entity: "contact_message", action: "reply", scope: "site" };
+
   const siteAdminPerms: Perm[] = [
     ...["user", "role", "permission"].flatMap((entity) =>
       CRUD_ACTIONS.map((action) => ({ entity, action, scope: "site" })),
@@ -59,6 +66,9 @@ function buildRoleSeeds(): RoleSeed[] {
     { entity: "media", action: "manage", scope: "site" },
     { entity: "tag", action: "manage", scope: "site" },
     { entity: "album", action: "manage", scope: "site" },
+    ...repositoryCrud,
+    ...communityCrud,
+    communityReply,
   ];
 
   const treeOwnerPerms: Perm[] = [
@@ -82,6 +92,9 @@ function buildRoleSeeds(): RoleSeed[] {
     { entity: "media", action: "manage", scope: "gedcom" },
     { entity: "tag", action: "manage", scope: "tree" },
     { entity: "album", action: "manage", scope: "tree" },
+    ...repositoryCrud,
+    ...communityCrud,
+    communityReply,
   ];
 
   const treeMaintainerPerms: Perm[] = [
@@ -92,6 +105,7 @@ function buildRoleSeeds(): RoleSeed[] {
         ["create", "read", "update"].map((action) => ({ entity, action, scope })),
       ),
     ),
+    ...repositoryCrud,
   ];
 
   const treeContributorPerms: Perm[] = [
@@ -102,9 +116,13 @@ function buildRoleSeeds(): RoleSeed[] {
         ["read"].map((action) => ({ entity, action, scope })),
       ),
     ),
+    ...repositoryCrud,
   ];
 
-  const viewerPerms: Perm[] = [...TREE_ENTITIES.map((entity) => ({ entity, action: "read", scope: "tree" }))];
+  const viewerPerms: Perm[] = [
+    ...TREE_ENTITIES.map((entity) => ({ entity, action: "read", scope: "tree" })),
+    { entity: "repository", action: "read", scope: "tree" },
+  ];
 
   return [
     {

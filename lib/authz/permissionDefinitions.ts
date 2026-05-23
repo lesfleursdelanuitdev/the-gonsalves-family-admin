@@ -1,4 +1,4 @@
-const DEFINITION_ACTIONS = new Set(["read", "create", "update", "delete", "manage"]);
+const DEFINITION_ACTIONS = new Set(["read", "create", "update", "delete", "manage", "reply"]);
 const UI_CREATE_ACTIONS = ["read", "create", "update", "delete"] as const;
 
 function humanizeEntity(entity: string): string {
@@ -14,6 +14,7 @@ function actionVerb(action: string): string {
   if (action === "create") return "Create";
   if (action === "update") return "Edit";
   if (action === "delete") return "Delete";
+  if (action === "reply") return "Reply to";
   if (action === "validate_external") return "Validate uploaded GEDCOM files";
   if (action === "validate_tree") return "Validate and repair this tree database";
   if (action === "merge_records") return "Merge records";
