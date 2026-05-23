@@ -17,6 +17,8 @@ import {
   CaseUpper,
   Settings,
   History,
+  DatabaseBackup,
+  Clock,
   Tag,
   FolderOpen,
   Download,
@@ -130,6 +132,8 @@ export const adminNavSections: AdminNavSection[] = [
   {
     label: "System",
     items: [
+      { href: "/admin/backups", label: "Backups", icon: DatabaseBackup },
+      { href: "/admin/cron", label: "Scheduled jobs", icon: Clock },
       { href: "/admin/changelog", label: "Changelog", icon: History },
       { href: "/admin/site-health", label: "Site health", icon: HeartPulse },
       { href: "/admin/site-settings", label: "Site settings", icon: SlidersHorizontal },

@@ -2,10 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { HeartPulse, RefreshCw, ChevronDown, ChevronUp, Trash2, Archive, ExternalLink, EyeOff, Database } from "lucide-react";
+import { HeartPulse, RefreshCw, ChevronDown, ChevronUp, Trash2, Archive, ExternalLink, EyeOff, Database, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   useLatestHealthRun,
@@ -132,6 +140,57 @@ function RecordRow({
   );
 }
 
+type BatchConfirmState = {
+  ids: string[] | undefined;
+  count: number;
+  action: "delete" | "archive";
+} | null;
+
+function BatchConfirmDialog({
+  state,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  state: BatchConfirmState;
+  onClose: () => void;
+  onConfirm: () => void;
+  isPending: boolean;
+}) {
+  if (!state) return null;
+  const isDelete = state.action === "delete";
+  const scope = state.ids ? `${state.count} selected record${state.count !== 1 ? "s" : ""}` : `all ${state.count} record${state.count !== 1 ? "s" : ""}`;
+  return (
+    <Dialog open={!!state} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent>
+        <DialogTitle className="flex items-center gap-2">
+          <AlertTriangle className="size-5 text-destructive" aria-hidden />
+          {isDelete ? "Permanently delete records?" : "Archive records?"}
+        </DialogTitle>
+        <DialogDescription>
+          This will {isDelete ? "permanently delete" : "archive"} <strong>{scope}</strong>.
+          {isDelete ? " Deleted records cannot be recovered." : " Archived items will no longer appear in active queues."}
+        </DialogDescription>
+        {isDelete ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            In an archive, records that appear unlinked may still be historically significant. Review the list before deleting.
+          </p>
+        ) : null}
+        <DialogFooter>
+          <DialogClose disabled={isPending}>Cancel</DialogClose>
+          <Button
+            variant={isDelete ? "destructive" : "outline"}
+            onClick={onConfirm}
+            disabled={isPending}
+          >
+            {isPending ? "Working…" : isDelete ? `Delete ${scope}` : `Archive ${scope}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RecordsPanel({
   checkKey,
   batchAction,
@@ -143,6 +202,7 @@ function RecordsPanel({
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openRefsId, setOpenRefsId] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<BatchConfirmState>(null);
   const { data, isLoading } = useCheckRecords(checkKey, true);
   const batch = useBatchAction(checkKey);
   const suppress = useSuppress(checkKey);
@@ -159,11 +219,19 @@ function RecordsPanel({
     }
   }
 
-  async function handleBatch(ids?: string[]) {
+  function requestBatch(ids?: string[]) {
+    if (!batchAction) return;
+    const count = ids ? ids.length : total;
+    setConfirmState({ ids, count, action: batchAction });
+  }
+
+  async function executeBatch() {
+    if (!confirmState || !batchAction) return;
     try {
-      const result = await batch.mutateAsync(ids);
+      const result = await batch.mutateAsync(confirmState.ids);
       toast.success(`${result.affected} record${result.affected !== 1 ? "s" : ""} ${batchAction === "delete" ? "deleted" : "archived"}.`);
       setSelected(new Set());
+      setConfirmState(null);
       onBatchDone();
     } catch {
       toast.error("Action failed.");
@@ -189,13 +257,19 @@ function RecordsPanel({
 
   return (
     <div className="mt-1 space-y-3">
+      <BatchConfirmDialog
+        state={confirmState}
+        onClose={() => setConfirmState(null)}
+        onConfirm={executeBatch}
+        isPending={batch.isPending}
+      />
       {batchAction ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
             variant={batchAction === "delete" ? "destructive" : "outline"}
             disabled={batch.isPending}
-            onClick={() => handleBatch()}
+            onClick={() => requestBatch()}
             className="gap-1.5"
           >
             <ActionIcon className="size-3.5" />
@@ -206,7 +280,7 @@ function RecordsPanel({
               size="sm"
               variant={batchAction === "delete" ? "destructive" : "outline"}
               disabled={batch.isPending}
-              onClick={() => handleBatch(Array.from(selected))}
+              onClick={() => requestBatch(Array.from(selected))}
               className="gap-1.5"
             >
               <ActionIcon className="size-3.5" />

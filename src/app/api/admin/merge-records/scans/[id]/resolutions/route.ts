@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import type { InternalDuplicateResolution } from "@/lib/admin/gedcom-internal-scan";
 import type { Prisma } from "@ligneous/prisma";
@@ -14,6 +15,7 @@ const VALID_RESOLUTIONS = new Set<string>([
 
 /** PATCH /api/admin/merge-records/scans/[id]/resolutions — save resolution overrides */
 export const PATCH = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom" });
   const { id } = await ctx.params;
   const fileUuid = await getAdminFileUuid();
 

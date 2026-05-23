@@ -4,6 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { sanitizeExportBasename } from "@/lib/admin/export-filename";
 import { startAlbumZipStream, type AlbumZipMediaInput } from "@/lib/admin/stream-album-zip";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 
 export const maxDuration = 300;
@@ -17,6 +18,8 @@ const MEDIA_SELECT = {
 } as const;
 
 export const GET = withAdminAuth(async (_req, user, ctx) => {
+  // DB query further scopes to userId === user.id; permission confirms album read access.
+  await requireCan({ entity: "album", action: "read", scope: "user", ownerUserId: user.id });
   const { id: albumId } = await ctx.params;
 
   const album = await prisma.album.findFirst({

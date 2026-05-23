@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { AdminTreeResolutionError, getAdminFileUuid, getAdminTreeId } from "@/lib/infra/admin-tree";
 import { countUnreadTreeInboxForUser } from "@/lib/admin/admin-message-unread";
 import { buildAdminDashboardSnapshot } from "@/lib/admin/admin-dashboard-snapshot";
 
 export const GET = withAdminAuth(async (_req, user) => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   let unreadMessages = 0;
   const treeIdEnv = process.env.ADMIN_TREE_ID?.trim();
   if (treeIdEnv) {

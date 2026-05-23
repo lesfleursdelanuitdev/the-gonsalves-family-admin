@@ -4,12 +4,14 @@ import { buildEnrichedDocumentForExport } from "@/lib/admin/build-enriched-docum
 import { sanitizeExportBasename } from "@/lib/admin/export-filename";
 import { startExportBundleZipStream } from "@/lib/admin/stream-export-bundle-zip";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 
 /** Large trees / many media files can take several minutes to stream. */
 export const maxDuration = 300;
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "gedcom", action: "export", scope: "gedcom" });
   const { searchParams } = req.nextUrl;
   const basename = sanitizeExportBasename(
     searchParams.get("filename"),

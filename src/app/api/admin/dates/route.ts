@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { gedcomDateSearchWhereFromQuery } from "@/lib/admin/gedcom-date-search-where";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "date", action: "read", scope: "tree" });
   const fileUuid = await getAdminFileUuid();
   const { searchParams } = req.nextUrl;
   const q = searchParams.get("q")?.trim() || undefined;

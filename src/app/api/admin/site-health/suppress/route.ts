@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { CHECK_KEYS } from "@/lib/health/checks";
 
 export const POST = withAdminAuth(async (req, user) => {
+  await requireCan({ entity: "individual", action: "update", scope: "tree" });
   const body = await req.json().catch(() => ({}));
   const { checkKey, recordId, reason } = body as Record<string, unknown>;
 

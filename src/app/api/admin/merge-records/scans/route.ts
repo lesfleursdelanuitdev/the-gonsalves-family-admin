@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import type { InternalDuplicatePair, InternalDuplicateScanSummary } from "@/lib/admin/gedcom-internal-scan";
 
 /** GET /api/admin/merge-records/scans — list scans for current tree */
 export const GET = withAdminAuth(async () => {
+  await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom" });
   const fileUuid = await getAdminFileUuid();
   const scans = await prisma.internalDuplicateScan.findMany({
     where: { fileUuid },

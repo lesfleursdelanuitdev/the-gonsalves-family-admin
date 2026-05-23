@@ -54,7 +54,9 @@ function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
     o.resolvedPlaceLink != null &&
     o.placeResolutionSuggestion != null &&
     // Health suppressions (20260523180000_site_health_suppressions)
-    o.siteHealthSuppression != null
+    o.siteHealthSuppression != null &&
+    // Backups (20260524120000_add_backups_table)
+    o.backup != null
   );
 }
 

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import type { CheckResult } from "@/lib/health/types";
 
 export const GET = withAdminAuth(async () => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const run = await prisma.siteHealthRun.findFirst({
     orderBy: { startedAt: "desc" },
     where: { completedAt: { not: null } },

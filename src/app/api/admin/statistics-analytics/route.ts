@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { AdminTreeResolutionError, getAdminTreeId } from "@/lib/infra/admin-tree";
 import type {
   GivenNamesAnalyticsResponse,
@@ -24,6 +25,7 @@ async function fetchJson<T>(url: string, userId: string): Promise<{ ok: boolean;
 }
 
 export const GET = withAdminAuth(async (_req, user) => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   let treeId: string;
   try {
     treeId = await getAdminTreeId();

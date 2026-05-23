@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getCheck, buildCheckContext } from "@/lib/health/checks";
 
 export const POST = withAdminAuth(async (req, _user, ctx) => {
+  // Destructive: batch actions delete or archive records. Requires delete permission.
+  await requireCan({ entity: "individual", action: "delete", scope: "tree" });
   const { checkKey } = await ctx.params;
   const check = checkKey ? getCheck(checkKey) : undefined;
   if (!check) return NextResponse.json({ error: "Unknown check" }, { status: 404 });

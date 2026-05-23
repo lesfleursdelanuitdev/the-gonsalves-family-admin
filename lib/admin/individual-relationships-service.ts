@@ -144,6 +144,35 @@ export async function updateIndividualRelationship(id: string, input: Omit<Creat
   });
 }
 
+/**
+ * Given a relationship type and one participant's role, returns the DB id of the
+ * reciprocal role for the other participant, using the `reciprocalRoleKey` stored on
+ * each `RelationshipTypeRole` row.
+ *
+ * Returns null when: the role has no reciprocal (symmetric types with one shared role
+ * point to themselves, which is valid), the role doesn't belong to the type, or the
+ * reciprocal key has no matching sibling role (custom types with missing data).
+ *
+ * GEDCOM export note: the reciprocal role corresponds to `gedcomRelaBtoA` on the
+ * relationship type — e.g., if A is "godparent" (gedcomRelaAtoB), B is "godchild"
+ * (gedcomRelaBtoA). This mapping is resolved by `reciprocalRoleKey` at runtime.
+ */
+export async function inferReciprocalRoleId(
+  relationshipTypeId: string,
+  selectedRoleId: string,
+): Promise<string | null> {
+  const role = await prisma.relationshipTypeRole.findFirst({
+    where: { id: selectedRoleId, relationshipTypeId },
+    select: { reciprocalRoleKey: true },
+  });
+  if (!role?.reciprocalRoleKey) return null;
+  const reciprocal = await prisma.relationshipTypeRole.findFirst({
+    where: { relationshipTypeId, key: role.reciprocalRoleKey },
+    select: { id: true },
+  });
+  return reciprocal?.id ?? null;
+}
+
 export async function listRelationshipsForIndividual(individualId: string) {
   const individual = await prisma.gedcomIndividual.findUnique({
     where: { id: individualId },

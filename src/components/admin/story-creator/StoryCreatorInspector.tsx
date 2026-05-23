@@ -3348,7 +3348,10 @@ export function MediaBlockInspector({
           <p className="mt-1 rounded-lg border border-base-content/10 bg-base-200/30 px-3 py-2 font-mono text-xs text-base-content/75">media</p>
         </div>
         <div className="mt-3">
-          <FieldLabel>Legacy layout snapshot</FieldLabel>
+          <FieldLabel>Legacy layout fields (read-only)</FieldLabel>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-base-content/40">
+            Deprecated fields kept for backward compatibility. Use Size &amp; alignment above to migrate.
+          </p>
           <p className="mt-1 break-all font-mono text-[10px] leading-relaxed text-base-content/50">
             widthPreset={block.widthPreset ?? "—"} · layoutAlign={block.layoutAlign ?? "—"} · textWrap=
             {String(block.textWrap ?? false)} · fullWidth={String(block.fullWidth ?? false)}

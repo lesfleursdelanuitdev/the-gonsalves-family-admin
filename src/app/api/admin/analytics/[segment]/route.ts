@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { AdminTreeResolutionError, getAdminTreeId } from "@/lib/infra/admin-tree";
 
 const PYTHON_API_URL = (process.env.PYTHON_API_URL ?? "http://127.0.0.1:5001").replace(/\/$/, "");
@@ -19,6 +20,7 @@ const ALLOWED_SEGMENTS = new Set([
 ]);
 
 export const GET = withAdminAuth(async (req: NextRequest, user, ctx) => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const params = await ctx.params;
   const segment = params.segment ?? "";
   if (!ALLOWED_SEGMENTS.has(segment)) {

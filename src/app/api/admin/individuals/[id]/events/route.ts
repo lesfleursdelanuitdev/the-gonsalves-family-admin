@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { buildIndividualDetailEvents } from "@/lib/detail/individual-detail-events";
 
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
+  await requireCan({ entity: "event", action: "read", scope: "tree" });
   const { id } = await ctx.params;
 
   const row = await prisma.gedcomIndividual.findUnique({

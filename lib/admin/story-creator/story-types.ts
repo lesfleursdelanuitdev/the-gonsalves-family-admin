@@ -223,13 +223,30 @@ export type StoryMediaBlock = {
   titlePlacement?: StoryBlockTextPlacement;
   /** Position of the caption relative to the media frame. Defaults to `below` when omitted. */
   captionPlacement?: StoryBlockTextPlacement;
+  /**
+   * @deprecated Use `rowLayout.alignment` instead.
+   * Kept for backward compatibility with saved stories; `rowLayout` is canonical.
+   * New blocks should not set this directly — see `mergeMediaEmbedRowLayoutPatch`.
+   */
   layoutAlign?: StoryEmbedLayoutAlign;
+  /**
+   * @deprecated Use `rowLayout.widthMode` instead.
+   * Kept for backward compatibility; `rowLayout` is canonical.
+   */
   widthPreset?: StoryEmbedWidthPreset;
   heightPreset?: StoryEmbedHeightPreset;
+  /**
+   * @deprecated Use `rowLayout.widthMode === "full"` instead.
+   * Wrapping behavior belongs to `splitContent` blocks, not standalone media.
+   */
   fullWidth?: boolean;
+  /**
+   * @deprecated Use `rowLayout.displayMode === "float"` (via `splitContent`) instead.
+   * Float-with-text wrapping is not a standalone media block concern.
+   */
   textWrap?: boolean;
   linkMode?: StoryEmbedLinkMode;
-  /** Row width, alignment, and optional float-with-text layout. */
+  /** Row width, alignment, and optional float-with-text layout. Canonical source of truth. */
   rowLayout?: StoryBlockRowLayout;
   /** Explicit crop height in px. When set, the image fills the frame with object-cover. Absent = natural aspect ratio. */
   heightPx?: number;

@@ -105,20 +105,16 @@ export function EmbedBlockShell({
         {helperContent ? <p className="max-w-prose text-xs leading-relaxed text-base-content/55">{helperContent}</p> : null}
         {isEditor && !unsetTitle ? (
           <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {/* Show rowLayout-derived alignment when present; fall back to legacy layoutAlign */}
             <span className="badge badge-ghost badge-sm h-6 border border-base-content/10 px-2 text-[10px] font-medium uppercase tracking-wide text-base-content/60">
-              {block.layoutAlign ?? "center"}
+              {block.rowLayout?.alignment ?? block.layoutAlign ?? "center"}
             </span>
             <span className="badge badge-ghost badge-sm h-6 border border-base-content/10 px-2 text-[10px] font-medium uppercase tracking-wide text-base-content/60">
-              {block.widthPreset ?? "medium"}
+              {block.rowLayout?.widthMode ?? block.widthPreset ?? "medium"}
             </span>
             <span className="badge badge-ghost badge-sm h-6 border border-base-content/10 px-2 text-[10px] font-medium uppercase tracking-wide text-base-content/60">
               {block.heightPreset ?? "default"}
             </span>
-            {block.fullWidth ? (
-              <span className="badge badge-sm h-6 border border-primary/35 bg-primary/10 px-2 text-[10px] font-medium uppercase tracking-wide text-primary">
-                Full width
-              </span>
-            ) : null}
           </div>
         ) : !isEditor && !unsetTitle ? (
           <p className="text-[11px] font-medium uppercase tracking-wide text-base-content/45">{EMBED_KIND_LABEL[block.embedKind]}</p>

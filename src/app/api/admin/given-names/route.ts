@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getAdminTreeId } from "@/lib/infra/admin-tree";
 import { parseListParams } from "@/lib/admin/admin-list-params";
 
 export const GET = withAdminAuth(async (req, _user, _ctx) => {
+  await requireCan({ entity: "givenName", action: "read", scope: "tree" });
   const PYTHON_API_URL = (process.env.PYTHON_API_URL ?? "http://127.0.0.1:5001").replace(/\/$/, "");
   const treeId = await getAdminTreeId();
   const { searchParams } = req.nextUrl;

@@ -138,8 +138,8 @@ const CHECKS: CheckDef[] = [
 
   {
     key: "gedcom_media_no_entity",
-    label: "Orphaned GEDCOM media",
-    description: "GEDCOM media objects not linked to any individual, family, event, source, story, or album.",
+    label: "Unlinked GEDCOM media",
+    description: "GEDCOM media objects not currently linked to any individual, family, event, source, story, or album. Review before deleting — media may be intentionally unlinked during import.",
     category: "media",
     batchAction: "delete",
     async count(ctx) {
@@ -227,8 +227,8 @@ const CHECKS: CheckDef[] = [
 
   {
     key: "gedcom_notes_no_entity",
-    label: "Orphaned notes",
-    description: "GEDCOM notes not attached to any individual, family, event, source, story, or open question.",
+    label: "Unlinked notes",
+    description: "GEDCOM notes not currently attached to any individual, family, event, source, story, or open question. May be import artifacts, but review before deleting.",
     category: "data_integrity",
     batchAction: "delete",
     async count(ctx) {
@@ -405,8 +405,8 @@ const CHECKS: CheckDef[] = [
 
   {
     key: "individuals_no_family_links",
-    label: "Isolated individuals",
-    description: "Individuals with no parents, no children, no spouse, and no associate relationships — possible import artifacts.",
+    label: "Unlinked individuals",
+    description: "Individuals with no parents, no children, no spouse, and no associate relationships. May be intentional lone entries or import artifacts — review before taking action.",
     category: "data_integrity",
     batchAction: null,
     async count(ctx) {
@@ -451,8 +451,8 @@ const CHECKS: CheckDef[] = [
 
   {
     key: "events_no_individuals",
-    label: "Orphaned events",
-    description: "Events not linked to any individual, family, story, open question, or note.",
+    label: "Unlinked events",
+    description: "Events not currently linked to any individual, family, story, open question, or note. May be import artifacts, but review before deleting.",
     category: "data_integrity",
     batchAction: "delete",
     async count(ctx) {

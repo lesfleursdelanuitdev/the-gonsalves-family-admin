@@ -1,3 +1,13 @@
+/**
+ * Migration bridge: standalone Media and Embed blocks use `rowLayout` as the canonical
+ * layout descriptor. The legacy `layoutAlign`, `widthPreset`, `fullWidth`, and `textWrap`
+ * fields are kept in sync for backward compatibility with existing saved stories and older
+ * renderers, but new inspector interactions should write through `mergeMediaEmbedRowLayoutPatch`
+ * (which updates both `rowLayout` and the legacy fields atomically).
+ *
+ * Float / wrap behavior (textWrap=true) is now semantically owned by `splitContent` blocks.
+ * Standalone media/embed blocks clear float semantics when the alignment picker is used.
+ */
 import {
   effectiveMediaEmbedInspectorRowLayout,
   effectiveRowLayout,

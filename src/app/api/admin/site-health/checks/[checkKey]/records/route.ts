@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { getCheck, buildCheckContext } from "@/lib/health/checks";
 
 const DEFAULT_LIMIT = 50;
 
 export const GET = withAdminAuth(async (req, _user, ctx) => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const { checkKey } = await ctx.params;
   const check = checkKey ? getCheck(checkKey) : undefined;
   if (!check) return NextResponse.json({ error: "Unknown check" }, { status: 404 });

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireCan } from "@/lib/authz/routeGuards";
 import { runAllChecks, buildCheckContext } from "@/lib/health/checks";
 import type { CheckResult } from "@/lib/health/types";
 
 export const POST = withAdminAuth(async () => {
+  await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const run = await prisma.siteHealthRun.create({
     data: { triggeredBy: "manual" },
   });

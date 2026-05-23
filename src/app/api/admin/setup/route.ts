@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
+import { requireWebsiteOwner } from "@/lib/authz/routeGuards";
 import { resolveAdminGedcomFileUuid } from "@/lib/infra/admin-tree";
 
 /**
@@ -8,6 +9,7 @@ import { resolveAdminGedcomFileUuid } from "@/lib/infra/admin-tree";
  * ADMIN_TREE_ID or ADMIN_TREE_FILE_ID from the database when not set.
  */
 export const GET = withAdminAuth(async (_req, _user, _ctx) => {
+  await requireWebsiteOwner();
   const treeId = process.env.ADMIN_TREE_ID;
   const fileId = process.env.ADMIN_TREE_FILE_ID;
 
