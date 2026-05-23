@@ -6,6 +6,7 @@ import {
   type ImportMergePlan,
   type ImportResolution,
 } from "@/lib/admin/gedcom-import-merge-plan";
+import { applyGedcomImport } from "@/lib/admin/gedcom-import-apply";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { requireCan } from "@/lib/authz/routeGuards";
@@ -49,8 +50,17 @@ export const POST = withAdminAuth(async (req, user, ctx) => {
     return NextResponse.json({ error: "Run compare first (no import merge plan)" }, { status: 400 });
   }
 
+  const rawJson = (row.resolutionsJson ?? {}) as Record<string, unknown>;
   const defaults = plan.defaultResolutions ?? {};
-  const overrides = asResolutions(row.resolutionsJson);
+  const overrides = asResolutions(rawJson);
+
+  const alternativeOverrides: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawJson)) {
+    if (k.startsWith("__alt__") && typeof v === "string") {
+      alternativeOverrides[k.slice(7)] = v;
+    }
+  }
+
   for (const c of plan.candidates) {
     const r = effectiveResolution(c.candidateId, defaults, overrides);
     if (r === "review_later") {
@@ -64,14 +74,22 @@ export const POST = withAdminAuth(async (req, user, ctx) => {
     }
   }
 
+  const applyStats = await applyGedcomImport(
+    fileUuid,
+    user.id,
+    plan,
+    overrides,
+    row.canonicalSnapshotJson,
+    Object.keys(alternativeOverrides).length > 0 ? alternativeOverrides : undefined,
+  );
+
   const auditPayload: Prisma.InputJsonValue = {
     at: new Date().toISOString(),
     filename: row.filename,
     note: note || null,
     appliedByUserId: user.id,
     resolutions: { ...defaults, ...overrides } as Record<string, string>,
-    persistenceNote:
-      "GEDCOM row creation and merge-into-existing persistence are not wired yet; this apply records your decisions for audit and downstream jobs.",
+    stats: applyStats,
   };
 
   const prevSnap =
@@ -98,7 +116,6 @@ export const POST = withAdminAuth(async (req, user, ctx) => {
   return NextResponse.json({
     import: updated,
     applied: true,
-    message:
-      "Decisions saved as applied. Creating or merging GedcomIndividual rows in the database will follow in a later release.",
+    stats: applyStats,
   });
 });

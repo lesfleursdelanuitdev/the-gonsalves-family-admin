@@ -5,7 +5,7 @@ import { getCheck, buildCheckContext } from "@/lib/health/checks";
 const DEFAULT_LIMIT = 50;
 
 export const GET = withAdminAuth(async (req, _user, ctx) => {
-  const checkKey = (ctx?.params as { checkKey?: string })?.checkKey;
+  const { checkKey } = await ctx.params;
   const check = checkKey ? getCheck(checkKey) : undefined;
   if (!check) return NextResponse.json({ error: "Unknown check" }, { status: 404 });
 

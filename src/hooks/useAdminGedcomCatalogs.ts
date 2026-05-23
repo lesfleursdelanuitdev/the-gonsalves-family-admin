@@ -6,6 +6,7 @@ export interface CatalogListOpts {
   q?: string;
   limit?: number;
   offset?: number;
+  unlinked?: boolean;
 }
 
 function buildCatalogParams(opts: CatalogListOpts): URLSearchParams {
@@ -13,6 +14,7 @@ function buildCatalogParams(opts: CatalogListOpts): URLSearchParams {
   if (opts.q) params.set("q", opts.q);
   if (opts.limit != null) params.set("limit", String(opts.limit));
   if (opts.offset != null) params.set("offset", String(opts.offset));
+  if (opts.unlinked) params.set("unlinked", "true");
   return params;
 }
 
@@ -26,6 +28,11 @@ export type AdminPlaceListItem = {
   country: string | null;
   latitude: unknown;
   longitude: unknown;
+  resolvedLink: {
+    id: string;
+    resolvedPlaceId: string;
+    resolvedPlace: { id: string; displayName: string };
+  } | null;
 };
 
 export interface AdminPlacesListResponse {

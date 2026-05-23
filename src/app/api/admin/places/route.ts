@@ -12,9 +12,11 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
   const q = searchParams.get("q")?.trim() || undefined;
   const { limit, offset } = parseListParams(searchParams);
 
+  const unlinked = searchParams.get("unlinked") === "true";
   const textSearch = q ? gedcomPlaceSearchWhereFromQuery(q) : undefined;
   const where: Prisma.GedcomPlaceWhereInput = {
     fileUuid,
+    ...(unlinked ? { resolvedLink: { is: null } } : {}),
     ...(textSearch ?? {}),
   };
 
@@ -24,6 +26,15 @@ export const GET = withAdminAuth(async (req, _user, _ctx) => {
       orderBy: { original: "asc" },
       take: limit,
       skip: offset,
+      include: {
+        resolvedLink: {
+          select: {
+            id: true,
+            resolvedPlaceId: true,
+            resolvedPlace: { select: { id: true, displayName: true } },
+          },
+        },
+      },
     }),
     prisma.gedcomPlace.count({ where }),
   ]);

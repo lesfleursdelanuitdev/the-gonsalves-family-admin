@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { HeartPulse, RefreshCw, ChevronDown, ChevronUp, Trash2, Archive, ExternalLink } from "lucide-react";
+import { HeartPulse, RefreshCw, ChevronDown, ChevronUp, Trash2, Archive, ExternalLink, EyeOff, Database } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import {
   useRunHealthCheck,
   useCheckRecords,
   useBatchAction,
+  useSuppress,
+  useIndividualReferences,
 } from "@/hooks/useAdminSiteHealth";
 import type { CheckResult, HealthRecord } from "@/lib/health/types";
 
@@ -24,27 +26,108 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ["data_integrity", "media", "community", "user_hygiene"];
 
+// ── Individual references inline ──────────────────────────────────────────────
+
+function IndividualRefsInline({ individualId }: { individualId: string }) {
+  const { data, isLoading } = useIndividualReferences(individualId);
+
+  if (isLoading) {
+    return <div className="skeleton mb-2 h-5 w-48 rounded" />;
+  }
+
+  if (!data) return null;
+
+  if (data.total === 0) {
+    return (
+      <p className="mb-2.5 text-xs text-green-600">No other references — safe to delete.</p>
+    );
+  }
+
+  const detailHref = `/admin/individuals/${individualId}`;
+
+  type RefEntry = { count: number; label: string; href: string };
+  const refs: RefEntry[] = [
+    { count: data.events, label: data.events !== 1 ? "events" : "event", href: detailHref },
+    { count: data.notes, label: data.notes !== 1 ? "notes" : "note", href: detailHref },
+    { count: data.sources, label: data.sources !== 1 ? "sources" : "source", href: detailHref },
+    { count: data.media, label: "media", href: detailHref },
+    { count: data.stories, label: data.stories !== 1 ? "stories" : "story", href: "/admin/stories" },
+    { count: data.openQuestions, label: data.openQuestions !== 1 ? "open questions" : "open question", href: "/admin/open-questions" },
+  ].filter((r) => r.count > 0);
+
+  return (
+    <p className="mb-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-amber-600">
+      <span>Referenced in:</span>
+      {refs.map((r, i) => (
+        <span key={r.label} className="inline-flex items-center gap-1">
+          <Link href={r.href} className="font-medium underline underline-offset-2 hover:text-amber-700">
+            {r.count} {r.label}
+          </Link>
+          {i < refs.length - 1 ? <span className="text-amber-400">·</span> : null}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 // ── Records panel ─────────────────────────────────────────────────────────────
 
-function RecordRow({ record }: { record: HealthRecord }) {
+function RecordRow({
+  record,
+  onSuppress,
+  suppressing,
+  onCheckRefs,
+  refsOpen,
+}: {
+  record: HealthRecord;
+  onSuppress: (id: string) => void;
+  suppressing: boolean;
+  onCheckRefs?: (id: string) => void;
+  refsOpen?: boolean;
+}) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-base-content/[0.06] py-2.5 last:border-0">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{record.label}</p>
-        {record.sublabel ? (
-          <p className="truncate text-xs text-muted-foreground">{record.sublabel}</p>
-        ) : null}
+    <div className="border-b border-base-content/[0.06] py-2.5 last:border-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{record.label}</p>
+          {record.sublabel ? (
+            <p className="truncate text-xs text-muted-foreground">{record.sublabel}</p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {record.meta ? (
+            <span className="text-xs text-muted-foreground">{record.meta}</span>
+          ) : null}
+          {onCheckRefs ? (
+            <button
+              type="button"
+              onClick={() => onCheckRefs(record.id)}
+              className={cn(
+                "text-muted-foreground hover:text-primary",
+                refsOpen && "text-primary",
+              )}
+              title="Check database references"
+            >
+              <Database className="size-3.5" />
+            </button>
+          ) : null}
+          {record.href ? (
+            <Link href={record.href} className="text-muted-foreground hover:text-primary">
+              <ExternalLink className="size-3.5" aria-label="Open" />
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onSuppress(record.id)}
+            disabled={suppressing}
+            className="text-muted-foreground hover:text-warning disabled:opacity-40"
+            title="Ignore this finding"
+          >
+            <EyeOff className="size-3.5" />
+          </button>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {record.meta ? (
-          <span className="text-xs text-muted-foreground">{record.meta}</span>
-        ) : null}
-        {record.href ? (
-          <Link href={record.href} className="text-muted-foreground hover:text-primary">
-            <ExternalLink className="size-3.5" aria-label="Open" />
-          </Link>
-        ) : null}
-      </div>
+      {refsOpen ? <IndividualRefsInline individualId={record.id} /> : null}
     </div>
   );
 }
@@ -59,8 +142,11 @@ function RecordsPanel({
   onBatchDone: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [openRefsId, setOpenRefsId] = useState<string | null>(null);
   const { data, isLoading } = useCheckRecords(checkKey, true);
   const batch = useBatchAction(checkKey);
+  const suppress = useSuppress(checkKey);
+  const showRefs = checkKey === "individuals_no_family_links";
 
   const records: HealthRecord[] = data?.records ?? [];
   const total = data?.total ?? 0;
@@ -137,9 +223,9 @@ function RecordsPanel({
         </div>
       ) : null}
 
-      <div className="rounded-md border border-base-content/[0.08] bg-background px-4">
+      <div className="overflow-hidden rounded-md border border-base-content/[0.08] bg-background px-4">
         {records.map((r) => (
-          <div key={r.id} className={cn("flex items-start gap-3", batchAction && "cursor-pointer")}
+          <div key={r.id} className={cn("flex min-w-0 items-start gap-3", batchAction && "cursor-pointer")}
             onClick={batchAction ? () => setSelected((prev) => {
               const next = new Set(prev);
               if (next.has(r.id)) next.delete(r.id);
@@ -157,7 +243,20 @@ function RecordsPanel({
               />
             ) : null}
             <div className="flex-1 min-w-0">
-              <RecordRow record={r} />
+              <RecordRow
+                record={r}
+                onSuppress={async (id) => {
+                  try {
+                    await suppress.mutateAsync({ recordId: id });
+                    toast.success("Finding ignored.");
+                  } catch {
+                    toast.error("Failed to ignore finding.");
+                  }
+                }}
+                suppressing={suppress.isPending}
+                onCheckRefs={showRefs ? (id) => setOpenRefsId((prev) => (prev === id ? null : id)) : undefined}
+                refsOpen={showRefs && openRefsId === r.id}
+              />
             </div>
           </div>
         ))}

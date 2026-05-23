@@ -15,6 +15,7 @@ function actionVerb(action: string): string {
   if (action === "update") return "Edit";
   if (action === "delete") return "Delete";
   if (action === "reply") return "Reply to";
+  if (action === "use") return "Use";
   if (action === "validate_external") return "Validate uploaded GEDCOM files";
   if (action === "validate_tree") return "Validate and repair this tree database";
   if (action === "merge_records") return "Merge records";

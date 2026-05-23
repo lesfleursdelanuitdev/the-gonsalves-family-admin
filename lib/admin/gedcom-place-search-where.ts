@@ -2,12 +2,25 @@ import type { Prisma } from "@ligneous/prisma";
 
 const PLACE_TEXT_FIELDS = ["original", "name", "county", "state", "country"] as const;
 
-/** One token must appear (substring, case-insensitive) in at least one text column. */
+/** One token must appear in at least one text column — or in the linked resolved place name/aliases. */
 function tokenMatchesAnyField(token: string): Prisma.GedcomPlaceWhereInput {
   return {
-    OR: PLACE_TEXT_FIELDS.map((field) => ({
-      [field]: { contains: token, mode: "insensitive" as const },
-    })),
+    OR: [
+      ...PLACE_TEXT_FIELDS.map((field) => ({
+        [field]: { contains: token, mode: "insensitive" as const },
+      })),
+      // Also match through the canonical resolved place (displayName or any alias)
+      {
+        resolvedLink: {
+          resolvedPlace: {
+            OR: [
+              { displayName: { contains: token, mode: "insensitive" as const } },
+              { aliases: { some: { alias: { contains: token, mode: "insensitive" as const } } } },
+            ],
+          },
+        },
+      },
+    ],
   };
 }
 

@@ -15,9 +15,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type {
   ImportMatchCandidate,
+  ImportMatchAlternative,
   ImportMergePlan,
   ImportResolution,
 } from "@/lib/admin/gedcom-import-merge-plan";
+import { useApplyStream } from "@/hooks/useApplyStream";
+import type { GedcomApplyStreamEvent } from "@/app/api/admin/imports/gedcom/[id]/apply-stream/route";
+import { InternalDuplicatesPanel } from "./InternalDuplicatesPanel";
+import { MergeHistoryPanel } from "./MergeHistoryPanel";
+import { ReviewQueuePanel } from "./ReviewQueuePanel";
 
 type Tab = "duplicates" | "gedcom" | "review" | "history" | "ignored";
 
@@ -56,8 +62,8 @@ export function MergeRecordsClient() {
           Merge Records
         </h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Compare a new GEDCOM against the configured admin tree before writing anything to production tables,
-          or (soon) scan for duplicates already in the tree.
+          Compare a new GEDCOM against the configured admin tree before writing to genealogy tables,
+          or scan for duplicates already in the tree.
         </p>
       </header>
 
@@ -86,23 +92,19 @@ export function MergeRecordsClient() {
         })}
       </div>
 
+      {activeTab === "duplicates" ? <InternalDuplicatesPanel /> : null}
       {activeTab === "gedcom" ? <GedcomComparisonPanel /> : null}
-      {activeTab === "duplicates" ? <PlaceholderPanel title="Internal Duplicates" body="Phase 3: scan the database tree for duplicate individuals and families." /> : null}
-      {activeTab === "review" ? <PlaceholderPanel title="Review Queue" body="Phase 2: unified queue of unresolved candidates across imports and internal scans." /> : null}
-      {activeTab === "history" ? <PlaceholderPanel title="Merge History" body="Phase 3: past import applications and merges with provenance." /> : null}
-      {activeTab === "ignored" ? <PlaceholderPanel title="Ignored" body="Phase 3: candidates marked as not relevant." /> : null}
+      {activeTab === "review" ? <ReviewQueuePanel /> : null}
+      {activeTab === "history" ? <MergeHistoryPanel /> : null}
+      {activeTab === "ignored" ? (
+        <Card className="border-base-content/10 bg-card/80">
+          <CardHeader>
+            <CardTitle>Ignored</CardTitle>
+            <CardDescription>Candidates marked as not relevant — coming soon.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
     </div>
-  );
-}
-
-function PlaceholderPanel({ title, body }: { title: string; body: string }) {
-  return (
-    <Card className="border-base-content/10 bg-card/80">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{body}</CardDescription>
-      </CardHeader>
-    </Card>
   );
 }
 
@@ -121,9 +123,14 @@ function GedcomComparisonPanel() {
   const [detail, setDetail] = useState<{
     import: Record<string, unknown>;
     effectiveResolutions?: Record<string, ImportResolution>;
+    alternativeSelections?: Record<string, string>;
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const applyStream = useApplyStream<GedcomApplyStreamEvent & { type: "done" }>(
+    activeId ? `/api/admin/imports/gedcom/${activeId}/apply-stream` : null,
+  );
 
   const loadImports = useCallback(async () => {
     const res = await fetch("/api/admin/imports/gedcom");
@@ -145,6 +152,7 @@ function GedcomComparisonPanel() {
     const j = (await res.json()) as {
       import: Record<string, unknown>;
       effectiveResolutions: Record<string, ImportResolution>;
+      alternativeSelections: Record<string, string>;
     };
     setDetail(j);
   }, []);
@@ -215,6 +223,28 @@ function GedcomComparisonPanel() {
     }
   };
 
+  const onPatchAlternative = async (candidateId: string, existingIndividualId: string) => {
+    if (!activeId) return;
+    setBusy(`alt-${candidateId}`);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/admin/imports/gedcom/${activeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resolutions: { [candidateId]: "merge_into_existing" },
+          alternativeOverrides: { [candidateId]: existingIndividualId },
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await loadDetail(activeId);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const onDiscard = async () => {
     if (!activeId) return;
     if (!window.confirm("Discard this import?")) return;
@@ -231,25 +261,10 @@ function GedcomComparisonPanel() {
     }
   };
 
-  const onApply = async () => {
+  const onApply = () => {
     if (!activeId) return;
-    if (!window.confirm("Apply decisions? New Gedcom rows are not created yet; this records the audit trail.")) return;
-    setBusy("apply");
-    try {
-      const res = await fetch(`/api/admin/imports/gedcom/${activeId}/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((j as { error?: string }).error || (await res.text()));
-      await loadDetail(activeId);
-      await loadImports();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(null);
-    }
+    if (!window.confirm("Apply all decisions? This will create and merge individuals in the genealogy database. This cannot be undone.")) return;
+    applyStream.start();
   };
 
   if (mode === "pick") {
@@ -261,8 +276,16 @@ function GedcomComparisonPanel() {
             <CardDescription>Scan existing records for possible duplicates.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button type="button" variant="secondary" disabled className="w-full">
-              Coming in phase 3
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                // Switch to duplicates tab
+                window.location.href = "/admin/merge-records?tab=duplicates";
+              }}
+            >
+              Go to Internal Duplicates →
             </Button>
           </CardContent>
         </Card>
@@ -270,8 +293,7 @@ function GedcomComparisonPanel() {
           <CardHeader>
             <CardTitle className="text-lg">Compare a new GEDCOM file</CardTitle>
             <CardDescription>
-              Upload a file and compare it against this tree before importing. Nothing is written to genealogy tables
-              until you run Apply (record-level persistence ships next).
+              Upload a file and compare it against this tree before importing.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -371,18 +393,59 @@ function GedcomComparisonPanel() {
                     </p>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" onClick={() => void onCompare()} disabled={Boolean(busy)}>
+                    <Button type="button" onClick={() => void onCompare()} disabled={Boolean(busy) || applyStream.state.phase === "running"}>
                       {busy === "compare" ? "Comparing…" : "Compare to tree"}
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => void onDiscard()} disabled={Boolean(busy)}>
+                    <Button type="button" variant="outline" onClick={() => void onDiscard()} disabled={Boolean(busy) || applyStream.state.phase === "running"}>
                       Discard import
                     </Button>
-                    {plan ? (
-                      <Button type="button" variant="secondary" onClick={() => void onApply()} disabled={Boolean(busy)}>
-                        {busy === "apply" ? "Applying…" : "Apply approved decisions"}
+                    {plan && applyStream.state.phase === "idle" ? (
+                      <Button type="button" variant="secondary" onClick={onApply} disabled={Boolean(busy)}>
+                        Apply approved decisions
                       </Button>
                     ) : null}
                   </div>
+
+                  {applyStream.state.phase === "running" && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{applyStream.state.label}</span>
+                        <span>{applyStream.state.processed}/{applyStream.state.total}</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-base-200">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-150"
+                          style={{
+                            width: applyStream.state.total > 0
+                              ? `${Math.round((applyStream.state.processed / applyStream.state.total) * 100)}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {applyStream.state.phase === "done" && (
+                    <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+                      Done —{" "}
+                      {(applyStream.state.result as { stats?: { created?: number } }).stats?.created ?? 0} created,{" "}
+                      {(applyStream.state.result as { stats?: { merged?: number } }).stats?.merged ?? 0} merged,{" "}
+                      {(applyStream.state.result as { stats?: { skipped?: number } }).stats?.skipped ?? 0} skipped.{" "}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => { applyStream.reset(); void loadDetail(activeId!); void loadImports(); }}
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  )}
+
+                  {applyStream.state.phase === "error" && (
+                    <div className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
+                      {applyStream.state.message}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -401,8 +464,10 @@ function GedcomComparisonPanel() {
                         key={c.candidateId}
                         c={c}
                         value={detail?.effectiveResolutions?.[c.candidateId] ?? "review_later"}
-                        disabled={Boolean(busy)}
+                        alternativeSelection={detail?.alternativeSelections?.[c.candidateId]}
+                        disabled={Boolean(busy) || applyStream.state.phase === "running" || applyStream.state.phase === "done"}
                         onChange={(v) => void onPatchResolution(c.candidateId, v)}
+                        onAlternativeChange={(existingId) => void onPatchAlternative(c.candidateId, existingId)}
                       />
                     ))}
                   </CardContent>
@@ -431,7 +496,7 @@ function SummaryBlock({ plan }: { plan: ImportMergePlan }) {
       </ul>
       <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Compared against</p>
       <p className="text-foreground">{plan.treeLabel}</p>
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results (individuals MVP)</p>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results (individuals)</p>
       <ul className="mt-1 list-inside list-disc text-muted-foreground">
         <li>{s.likelyExisting} likely existing</li>
         <li>{s.possibleMatches} possible matches need review</li>
@@ -446,13 +511,17 @@ function SummaryBlock({ plan }: { plan: ImportMergePlan }) {
 function CandidateRow({
   c,
   value,
+  alternativeSelection,
   disabled,
   onChange,
+  onAlternativeChange,
 }: {
   c: ImportMatchCandidate;
   value: ImportResolution;
+  alternativeSelection?: string;
   disabled: boolean;
   onChange: (v: ImportResolution) => void;
+  onAlternativeChange?: (existingIndividualId: string) => void;
 }) {
   const catLabel =
     c.category === "likely_existing"
@@ -464,6 +533,18 @@ function CandidateRow({
           : c.category === "conflict"
             ? "Conflict"
             : "Warning";
+
+  const showAlternativePicker =
+    value === "merge_into_existing" &&
+    c.alternatives &&
+    c.alternatives.length > 1 &&
+    onAlternativeChange;
+
+  const selectedAlt: string =
+    alternativeSelection ??
+    c.existingIndividualId ??
+    c.alternatives?.[0]?.existingIndividualId ??
+    "";
 
   return (
     <div className="rounded-lg border border-base-content/10 bg-base-100/50 p-3">
@@ -488,12 +569,7 @@ function CandidateRow({
         </div>
       </div>
       {c.detail ? <p className="mt-2 text-xs text-muted-foreground">{c.detail}</p> : null}
-      {c.alternatives && c.alternatives.length > 1 ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {c.alternatives.length} possible database matches — pick a resolution below; refine per-alternative UI in
-          phase 2.
-        </p>
-      ) : null}
+
       <label className="mt-3 block text-xs font-medium text-muted-foreground">
         Resolution
         <select
@@ -509,6 +585,24 @@ function CandidateRow({
           ))}
         </select>
       </label>
+
+      {showAlternativePicker ? (
+        <label className="mt-2 block text-xs font-medium text-muted-foreground">
+          Merge into which existing record?
+          <select
+            className="mt-1 flex h-9 w-full max-w-md rounded-md border border-input bg-background px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+            value={selectedAlt}
+            disabled={disabled}
+            onChange={(e) => onAlternativeChange?.(e.target.value)}
+          >
+            {(c.alternatives as ImportMatchAlternative[]).map((alt) => (
+              <option key={alt.existingIndividualId} value={alt.existingIndividualId}>
+                {alt.label}{alt.scorePct != null ? ` (~${alt.scorePct}%)` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
     </div>
   );
 }

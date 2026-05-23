@@ -48,7 +48,13 @@ function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
     o.relationshipTypeRole != null &&
     o.individualRelationship != null &&
     o.individualRelationshipParticipant != null &&
-    o.individualRelationshipSourceAssociation != null
+    o.individualRelationshipSourceAssociation != null &&
+    // Place resolution models (20260523170000_place_resolution)
+    o.resolvedPlace != null &&
+    o.resolvedPlaceLink != null &&
+    o.placeResolutionSuggestion != null &&
+    // Health suppressions (20260523180000_site_health_suppressions)
+    o.siteHealthSuppression != null
   );
 }
 

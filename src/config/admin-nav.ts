@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   UserPlus,
   HeartPulse,
+  ClipboardList,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -60,6 +61,9 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/individuals", label: "Individuals", icon: Users },
       { href: "/admin/families", label: "Families", icon: Heart },
       { href: "/admin/events", label: "Events", icon: CalendarDays },
+      { href: "/admin/attributes", label: "Attributes", icon: ClipboardList },
+      { href: "/admin/event-types", label: "Event types", icon: CalendarDays },
+      { href: "/admin/attribute-types", label: "Attribute types", icon: ClipboardList },
       { href: "/admin/places", label: "Places", icon: MapPin },
       { href: "/admin/notes", label: "Notes", icon: StickyNote },
       { href: "/admin/sources", label: "Sources", icon: BookOpen },
@@ -115,6 +119,12 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/permissions", label: "Permissions", icon: KeyRound },
       { href: "/admin/access-requests", label: "Access requests", icon: ShieldCheck },
       { href: "/admin/registration-requests", label: "Registration requests", icon: UserPlus },
+    ],
+  },
+  {
+    label: "Utilities",
+    items: [
+      { href: "/admin/place-resolution", label: "Place resolution", icon: Layers },
     ],
   },
   {

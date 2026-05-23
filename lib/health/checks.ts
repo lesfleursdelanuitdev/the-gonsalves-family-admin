@@ -1,6 +1,10 @@
 import fs from "node:fs";
-import path from "node:path";
 import { prisma } from "@/lib/database/prisma";
+import {
+  resolveFileRefToGedcomAdminDiskPath,
+  resolveFileRefToSiteMediaDiskPath,
+} from "@/lib/admin/resolve-file-ref-to-gedcom-disk-path";
+import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import type { CheckCategory, BatchAction, CheckResult, HealthRecord } from "./types";
 
 const STALE_DAYS = 30;
@@ -9,8 +13,12 @@ const INACTIVE_DAYS = 90;
 export type CheckContext = {
   treeId: string;
   fileUuid: string;
-  mediaRoot: string;
+  suppressed: Map<string, Set<string>>;
 };
+
+function suppressedFor(ctx: CheckContext, key: string): string[] {
+  return Array.from(ctx.suppressed.get(key) ?? []);
+}
 
 type CheckDef = {
   key: string;
@@ -23,9 +31,14 @@ type CheckDef = {
   batch(ctx: CheckContext, ids?: string[]): Promise<number>;
 };
 
-function fileExists(mediaRoot: string, fileRef: string): boolean {
-  const rel = fileRef.replace(/^\/+/, "");
-  return fs.existsSync(path.join(mediaRoot, rel));
+function gedcomFileExists(fileRef: string): boolean {
+  const diskPath = resolveFileRefToGedcomAdminDiskPath(fileRef);
+  return diskPath != null && fs.existsSync(diskPath);
+}
+
+function siteMediaFileExists(fileRef: string): boolean {
+  const diskPath = resolveFileRefToSiteMediaDiskPath(fileRef);
+  return diskPath != null && fs.existsSync(diskPath);
 }
 
 function staleCutoff(): Date {
@@ -53,18 +66,20 @@ const CHECKS: CheckDef[] = [
     category: "media",
     batchAction: "delete",
     async count(ctx) {
+      const sup = new Set(suppressedFor(ctx, "media_broken_files"));
       const rows = await prisma.gedcomMedia.findMany({
         where: { fileUuid: ctx.fileUuid, fileRef: { not: null } },
         select: { id: true, fileRef: true },
       });
-      return rows.filter((r) => !fileExists(ctx.mediaRoot, r.fileRef!)).length;
+      return rows.filter((r) => !gedcomFileExists(r.fileRef!) && !sup.has(r.id)).length;
     },
     async records(ctx, offset, limit) {
+      const sup = new Set(suppressedFor(ctx, "media_broken_files"));
       const rows = await prisma.gedcomMedia.findMany({
         where: { fileUuid: ctx.fileUuid, fileRef: { not: null } },
         select: { id: true, fileRef: true, title: true },
       });
-      const broken = rows.filter((r) => !fileExists(ctx.mediaRoot, r.fileRef!));
+      const broken = rows.filter((r) => !gedcomFileExists(r.fileRef!) && !sup.has(r.id));
       return broken.slice(offset, offset + limit).map((r) => ({
         id: r.id,
         label: r.title ?? r.fileRef!,
@@ -83,6 +98,45 @@ const CHECKS: CheckDef[] = [
   },
 
   {
+    key: "site_media_broken_files",
+    label: "Site media with missing files",
+    description: "Uploaded site media records whose file no longer exists on disk.",
+    category: "media",
+    batchAction: "delete",
+    async count(ctx) {
+      const sup = new Set(suppressedFor(ctx, "site_media_broken_files"));
+      const rows = await prisma.siteMedia.findMany({
+        where: { treeId: ctx.treeId, deletedAt: null, fileRef: { not: null } },
+        select: { id: true, fileRef: true },
+      });
+      return rows.filter((r) => !siteMediaFileExists(r.fileRef!) && !sup.has(r.id)).length;
+    },
+    async records(ctx, offset, limit) {
+      const sup = new Set(suppressedFor(ctx, "site_media_broken_files"));
+      const rows = await prisma.siteMedia.findMany({
+        where: { treeId: ctx.treeId, deletedAt: null, fileRef: { not: null } },
+        select: { id: true, fileRef: true, title: true, mimeType: true },
+      });
+      const broken = rows.filter((r) => !siteMediaFileExists(r.fileRef!) && !sup.has(r.id));
+      return broken.slice(offset, offset + limit).map((r) => ({
+        id: r.id,
+        label: r.title ?? r.fileRef!,
+        sublabel: r.fileRef ?? undefined,
+        meta: r.mimeType ?? undefined,
+      }));
+    },
+    async batch(ctx, ids) {
+      const where = ids?.length
+        ? { id: { in: ids } }
+        : (() => {
+            throw new Error("ids required for site_media_broken_files batch");
+          })();
+      const { count } = await prisma.siteMedia.deleteMany({ where });
+      return count;
+    },
+  },
+
+  {
     key: "gedcom_media_no_entity",
     label: "Orphaned GEDCOM media",
     description: "GEDCOM media objects not linked to any individual, family, event, source, story, or album.",
@@ -92,6 +146,7 @@ const CHECKS: CheckDef[] = [
       return prisma.gedcomMedia.count({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "gedcom_media_no_entity") },
           individualMedia: { none: {} },
           individualProfileFor: { none: {} },
           familyMedia: { none: {} },
@@ -114,6 +169,7 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.gedcomMedia.findMany({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "gedcom_media_no_entity") },
           individualMedia: { none: {} },
           individualProfileFor: { none: {} },
           familyMedia: { none: {} },
@@ -167,59 +223,6 @@ const CHECKS: CheckDef[] = [
     },
   },
 
-  {
-    key: "site_media_no_entity",
-    label: "Orphaned site media",
-    description: "Uploaded site media not linked to any story or album.",
-    category: "media",
-    batchAction: "delete",
-    async count(ctx) {
-      return prisma.siteMedia.count({
-        where: {
-          treeId: ctx.treeId,
-          deletedAt: null,
-          storySiteMedia: { none: {} },
-          albums: { none: {} },
-          compound: { none: {} },
-        },
-      });
-    },
-    async records(ctx, offset, limit) {
-      const rows = await prisma.siteMedia.findMany({
-        where: {
-          treeId: ctx.treeId,
-          deletedAt: null,
-          storySiteMedia: { none: {} },
-          albums: { none: {} },
-          compound: { none: {} },
-        },
-        select: { id: true, title: true, fileRef: true, mimeType: true, createdAt: true },
-        skip: offset,
-        take: limit,
-        orderBy: { createdAt: "asc" },
-      });
-      return rows.map((r) => ({
-        id: r.id,
-        label: r.title ?? r.fileRef ?? r.id,
-        sublabel: r.mimeType ?? undefined,
-        meta: r.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      }));
-    },
-    async batch(ctx, ids) {
-      const where = ids?.length
-        ? { id: { in: ids } }
-        : {
-            treeId: ctx.treeId,
-            deletedAt: null,
-            storySiteMedia: { none: {} },
-            albums: { none: {} },
-            compound: { none: {} },
-          };
-      const { count } = await prisma.siteMedia.deleteMany({ where });
-      return count;
-    },
-  },
-
   // ── Data integrity ───────────────────────────────────────────────────────────
 
   {
@@ -232,6 +235,7 @@ const CHECKS: CheckDef[] = [
       return prisma.gedcomNote.count({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "gedcom_notes_no_entity") },
           individualNotes: { none: {} },
           familyNotes: { none: {} },
           eventNotes: { none: {} },
@@ -245,6 +249,7 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.gedcomNote.findMany({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "gedcom_notes_no_entity") },
           individualNotes: { none: {} },
           familyNotes: { none: {} },
           eventNotes: { none: {} },
@@ -290,6 +295,7 @@ const CHECKS: CheckDef[] = [
       return prisma.gedcomSource.count({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "gedcom_sources_no_citations") },
           individualSources: { none: {} },
           familySources: { none: {} },
           eventSources: { none: {} },
@@ -302,6 +308,7 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.gedcomSource.findMany({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "gedcom_sources_no_citations") },
           individualSources: { none: {} },
           familySources: { none: {} },
           eventSources: { none: {} },
@@ -343,9 +350,10 @@ const CHECKS: CheckDef[] = [
     description: "Tags not applied to any entity.",
     category: "data_integrity",
     batchAction: "delete",
-    async count(_ctx) {
+    async count(ctx) {
       return prisma.tag.count({
         where: {
+          id: { notIn: suppressedFor(ctx, "tags_no_entities") },
           items: { none: {} },
           gedcomMediaAppTags: { none: {} },
           siteMediaTags: { none: {} },
@@ -355,9 +363,10 @@ const CHECKS: CheckDef[] = [
         },
       });
     },
-    async records(_ctx, offset, limit) {
+    async records(ctx, offset, limit) {
       const rows = await prisma.tag.findMany({
         where: {
+          id: { notIn: suppressedFor(ctx, "tags_no_entities") },
           items: { none: {} },
           gedcomMediaAppTags: { none: {} },
           siteMediaTags: { none: {} },
@@ -377,10 +386,11 @@ const CHECKS: CheckDef[] = [
         href: `/admin/tags`,
       }));
     },
-    async batch(_ctx, ids) {
+    async batch(ctx, ids) {
       const where = ids?.length
         ? { id: { in: ids } }
         : {
+            id: { notIn: suppressedFor(ctx, "tags_no_entities") },
             items: { none: {} },
             gedcomMediaAppTags: { none: {} },
             siteMediaTags: { none: {} },
@@ -396,16 +406,19 @@ const CHECKS: CheckDef[] = [
   {
     key: "individuals_no_family_links",
     label: "Isolated individuals",
-    description: "Individuals with no parents, no children, and no spouse — possible import artifacts.",
+    description: "Individuals with no parents, no children, no spouse, and no associate relationships — possible import artifacts.",
     category: "data_integrity",
     batchAction: null,
     async count(ctx) {
       return prisma.gedcomIndividual.count({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "individuals_no_family_links") },
           hasParents: false,
           hasChildren: false,
           hasSpouse: false,
+          associationsAsSubject: { none: {} },
+          associationsWhereAssociate: { none: {} },
         },
       });
     },
@@ -413,9 +426,12 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.gedcomIndividual.findMany({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "individuals_no_family_links") },
           hasParents: false,
           hasChildren: false,
           hasSpouse: false,
+          associationsAsSubject: { none: {} },
+          associationsWhereAssociate: { none: {} },
         },
         select: { id: true, xref: true, fullName: true, birthDateDisplay: true, deathDateDisplay: true },
         skip: offset,
@@ -424,7 +440,7 @@ const CHECKS: CheckDef[] = [
       });
       return rows.map((r) => ({
         id: r.id,
-        label: r.fullName ?? r.xref,
+        label: stripSlashesFromName(r.fullName) || r.xref,
         sublabel: r.xref,
         meta: [r.birthDateDisplay, r.deathDateDisplay].filter(Boolean).join(" – ") || undefined,
         href: `/admin/individuals/${r.id}/edit`,
@@ -436,15 +452,19 @@ const CHECKS: CheckDef[] = [
   {
     key: "events_no_individuals",
     label: "Orphaned events",
-    description: "Events not linked to any individual or family.",
+    description: "Events not linked to any individual, family, story, open question, or note.",
     category: "data_integrity",
     batchAction: "delete",
     async count(ctx) {
       return prisma.gedcomEvent.count({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "events_no_individuals") },
           individualEvents: { none: {} },
           familyEvents: { none: {} },
+          storyEvents: { none: {} },
+          openQuestionEvents: { none: {} },
+          eventNotes: { none: {} },
         },
       });
     },
@@ -452,8 +472,12 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.gedcomEvent.findMany({
         where: {
           fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "events_no_individuals") },
           individualEvents: { none: {} },
           familyEvents: { none: {} },
+          storyEvents: { none: {} },
+          openQuestionEvents: { none: {} },
+          eventNotes: { none: {} },
         },
         select: { id: true, eventType: true, customType: true, value: true },
         skip: offset,
@@ -473,6 +497,8 @@ const CHECKS: CheckDef[] = [
             fileUuid: ctx.fileUuid,
             individualEvents: { none: {} },
             familyEvents: { none: {} },
+            storyEvents: { none: {} },
+            openQuestionEvents: { none: {} },
           };
       const { count } = await prisma.gedcomEvent.deleteMany({ where });
       return count;
@@ -489,6 +515,7 @@ const CHECKS: CheckDef[] = [
       return prisma.story.count({
         where: {
           treeId: ctx.treeId,
+          id: { notIn: suppressedFor(ctx, "stories_no_subjects") },
           isPublished: true,
           deletedAt: null,
           subjects: { none: {} },
@@ -499,6 +526,7 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.story.findMany({
         where: {
           treeId: ctx.treeId,
+          id: { notIn: suppressedFor(ctx, "stories_no_subjects") },
           isPublished: true,
           deletedAt: null,
           subjects: { none: {} },
@@ -528,6 +556,7 @@ const CHECKS: CheckDef[] = [
       return prisma.album.count({
         where: {
           treeId: ctx.treeId,
+          id: { notIn: suppressedFor(ctx, "albums_no_media") },
           albumGedcomMedia: { none: {} },
           siteMedia: { none: {} },
           userMedia: { none: {} },
@@ -539,6 +568,7 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.album.findMany({
         where: {
           treeId: ctx.treeId,
+          id: { notIn: suppressedFor(ctx, "albums_no_media") },
           albumGedcomMedia: { none: {} },
           siteMedia: { none: {} },
           userMedia: { none: {} },
@@ -579,14 +609,14 @@ const CHECKS: CheckDef[] = [
     description: `Registration requests that have been pending for more than ${STALE_DAYS} days.`,
     category: "community",
     batchAction: "archive",
-    async count(_ctx) {
+    async count(ctx) {
       return prisma.registrationRequest.count({
-        where: { status: "pending", createdAt: { lt: staleCutoff() } },
+        where: { id: { notIn: suppressedFor(ctx, "pending_registrations_old") }, status: "pending", createdAt: { lt: staleCutoff() } },
       });
     },
-    async records(_ctx, offset, limit) {
+    async records(ctx, offset, limit) {
       const rows = await prisma.registrationRequest.findMany({
-        where: { status: "pending", createdAt: { lt: staleCutoff() } },
+        where: { id: { notIn: suppressedFor(ctx, "pending_registrations_old") }, status: "pending", createdAt: { lt: staleCutoff() } },
         select: { id: true, firstName: true, lastName: true, email: true, createdAt: true },
         skip: offset,
         take: limit,
@@ -600,10 +630,10 @@ const CHECKS: CheckDef[] = [
         href: `/admin/registration-requests/${r.id}`,
       }));
     },
-    async batch(_ctx, ids) {
+    async batch(ctx, ids) {
       const where = ids?.length
         ? { id: { in: ids } }
-        : { status: "pending" as const, createdAt: { lt: staleCutoff() } };
+        : { id: { notIn: suppressedFor(ctx, "pending_registrations_old") }, status: "pending" as const, createdAt: { lt: staleCutoff() } };
       const { count } = await prisma.registrationRequest.updateMany({
         where,
         data: { status: "archived" },
@@ -618,14 +648,14 @@ const CHECKS: CheckDef[] = [
     description: `Access requests that have been pending for more than ${STALE_DAYS} days.`,
     category: "community",
     batchAction: "archive",
-    async count(_ctx) {
+    async count(ctx) {
       return prisma.accessRequest.count({
-        where: { status: "pending", requestedAt: { lt: staleCutoff() } },
+        where: { id: { notIn: suppressedFor(ctx, "pending_access_requests_old") }, status: "pending", requestedAt: { lt: staleCutoff() } },
       });
     },
-    async records(_ctx, offset, limit) {
+    async records(ctx, offset, limit) {
       const rows = await prisma.accessRequest.findMany({
-        where: { status: "pending", requestedAt: { lt: staleCutoff() } },
+        where: { id: { notIn: suppressedFor(ctx, "pending_access_requests_old") }, status: "pending", requestedAt: { lt: staleCutoff() } },
         select: { id: true, requestType: true, requestedAt: true, user: { select: { name: true, username: true, email: true } } },
         skip: offset,
         take: limit,
@@ -639,10 +669,10 @@ const CHECKS: CheckDef[] = [
         href: `/admin/access-requests/${r.id}`,
       }));
     },
-    async batch(_ctx, ids) {
+    async batch(ctx, ids) {
       const where = ids?.length
         ? { id: { in: ids } }
-        : { status: "pending" as const, requestedAt: { lt: staleCutoff() } };
+        : { id: { notIn: suppressedFor(ctx, "pending_access_requests_old") }, status: "pending" as const, requestedAt: { lt: staleCutoff() } };
       const { count } = await prisma.accessRequest.updateMany({
         where,
         data: { status: "cancelled" },
@@ -661,6 +691,7 @@ const CHECKS: CheckDef[] = [
       return prisma.contactMessage.count({
         where: {
           treeId: ctx.treeId,
+          id: { notIn: suppressedFor(ctx, "contact_messages_unanswered") },
           status: { in: ["pending", "reviewed"] },
           createdAt: { lt: staleCutoff() },
           replies: { none: {} },
@@ -671,6 +702,7 @@ const CHECKS: CheckDef[] = [
       const rows = await prisma.contactMessage.findMany({
         where: {
           treeId: ctx.treeId,
+          id: { notIn: suppressedFor(ctx, "contact_messages_unanswered") },
           status: { in: ["pending", "reviewed"] },
           createdAt: { lt: staleCutoff() },
           replies: { none: {} },
@@ -691,7 +723,7 @@ const CHECKS: CheckDef[] = [
     async batch(ctx, ids) {
       const where = ids?.length
         ? { id: { in: ids } }
-        : { treeId: ctx.treeId, status: { in: ["pending" as const, "reviewed" as const] }, createdAt: { lt: staleCutoff() }, replies: { none: {} } };
+        : { treeId: ctx.treeId, id: { notIn: suppressedFor(ctx, "contact_messages_unanswered") }, status: { in: ["pending" as const, "reviewed" as const] }, createdAt: { lt: staleCutoff() }, replies: { none: {} } };
       const { count } = await prisma.contactMessage.updateMany({
         where,
         data: { status: "archived" },
@@ -708,12 +740,12 @@ const CHECKS: CheckDef[] = [
     batchAction: "archive",
     async count(ctx) {
       return prisma.contribution.count({
-        where: { treeId: ctx.treeId, status: "pending", createdAt: { lt: staleCutoff() } },
+        where: { treeId: ctx.treeId, id: { notIn: suppressedFor(ctx, "pending_contributions_old") }, status: "pending", createdAt: { lt: staleCutoff() } },
       });
     },
     async records(ctx, offset, limit) {
       const rows = await prisma.contribution.findMany({
-        where: { treeId: ctx.treeId, status: "pending", createdAt: { lt: staleCutoff() } },
+        where: { treeId: ctx.treeId, id: { notIn: suppressedFor(ctx, "pending_contributions_old") }, status: "pending", createdAt: { lt: staleCutoff() } },
         select: { id: true, type: true, contributorFirstName: true, contributorLastName: true, createdAt: true },
         skip: offset,
         take: limit,
@@ -729,7 +761,7 @@ const CHECKS: CheckDef[] = [
     async batch(ctx, ids) {
       const where = ids?.length
         ? { id: { in: ids } }
-        : { treeId: ctx.treeId, status: "pending" as const, createdAt: { lt: staleCutoff() } };
+        : { treeId: ctx.treeId, id: { notIn: suppressedFor(ctx, "pending_contributions_old") }, status: "pending" as const, createdAt: { lt: staleCutoff() } };
       const { count } = await prisma.contribution.updateMany({
         where,
         data: { status: "archived" },
@@ -746,14 +778,14 @@ const CHECKS: CheckDef[] = [
     description: "Registered users with no role assignment.",
     category: "user_hygiene",
     batchAction: null,
-    async count(_ctx) {
+    async count(ctx) {
       return prisma.user.count({
-        where: { isActive: true, userRoles: { none: {} } },
+        where: { id: { notIn: suppressedFor(ctx, "users_no_role") }, isActive: true, userRoles: { none: {} } },
       });
     },
-    async records(_ctx, offset, limit) {
+    async records(ctx, offset, limit) {
       const rows = await prisma.user.findMany({
-        where: { isActive: true, userRoles: { none: {} } },
+        where: { id: { notIn: suppressedFor(ctx, "users_no_role") }, isActive: true, userRoles: { none: {} } },
         select: { id: true, username: true, name: true, email: true, createdAt: true },
         skip: offset,
         take: limit,
@@ -776,18 +808,20 @@ const CHECKS: CheckDef[] = [
     description: `Accounts created more than ${INACTIVE_DAYS} days ago that have never logged in.`,
     category: "user_hygiene",
     batchAction: null,
-    async count(_ctx) {
+    async count(ctx) {
       return prisma.user.count({
         where: {
+          id: { notIn: suppressedFor(ctx, "users_never_logged_in") },
           isActive: true,
           lastLoginAt: null,
           createdAt: { lt: inactiveCutoff() },
         },
       });
     },
-    async records(_ctx, offset, limit) {
+    async records(ctx, offset, limit) {
       const rows = await prisma.user.findMany({
         where: {
+          id: { notIn: suppressedFor(ctx, "users_never_logged_in") },
           isActive: true,
           lastLoginAt: null,
           createdAt: { lt: inactiveCutoff() },
@@ -832,7 +866,15 @@ export async function runAllChecks(ctx: CheckContext): Promise<CheckResult[]> {
 
 export async function buildCheckContext(): Promise<CheckContext> {
   const { getAdminFileUuid, getAdminTreeId } = await import("../infra/admin-tree.ts");
-  const [treeId, fileUuid] = await Promise.all([getAdminTreeId(), getAdminFileUuid()]);
-  const mediaRoot = process.env.ADMIN_MEDIA_FILES_ROOT ?? "/mnt/storage/uploads";
-  return { treeId, fileUuid, mediaRoot };
+  const [treeId, fileUuid, suppressionRows] = await Promise.all([
+    getAdminTreeId(),
+    getAdminFileUuid(),
+    prisma.siteHealthSuppression.findMany({ select: { checkKey: true, recordId: true } }),
+  ]);
+  const suppressed = new Map<string, Set<string>>();
+  for (const { checkKey, recordId } of suppressionRows) {
+    if (!suppressed.has(checkKey)) suppressed.set(checkKey, new Set());
+    suppressed.get(checkKey)!.add(recordId);
+  }
+  return { treeId, fileUuid, suppressed };
 }

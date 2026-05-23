@@ -27,6 +27,17 @@ function asResolutions(v: unknown): Record<string, ImportResolution> {
   return out;
 }
 
+function extractAltSelections(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (k.startsWith("__alt__") && typeof v === "string") {
+      out[k.slice(7)] = v;
+    }
+  }
+  return out;
+}
+
 export const GET = withAdminAuth(async (_req, _user, ctx) => {
   await requireCan({ entity: "gedcom", action: "merge_records", scope: "gedcom", treeId: process.env.ADMIN_TREE_ID ?? null });
   const { id } = await ctx.params;
@@ -40,13 +51,14 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
   const plan = row.importMergePlanJson as unknown as ImportMergePlan | null;
   const defaults = plan?.defaultResolutions ?? {};
   const overrides = asResolutions(row.resolutionsJson);
+  const alternativeSelections = extractAltSelections(row.resolutionsJson);
   const effective: Record<string, ImportResolution> = {};
   if (plan?.candidates) {
     for (const c of plan.candidates) {
       effective[c.candidateId] = effectiveResolution(c.candidateId, defaults, overrides);
     }
   }
-  return NextResponse.json({ import: row, effectiveResolutions: effective });
+  return NextResponse.json({ import: row, effectiveResolutions: effective, alternativeSelections });
 });
 
 export const PATCH = withAdminAuth(async (req, _user, ctx) => {
@@ -67,9 +79,25 @@ export const PATCH = withAdminAuth(async (req, _user, ctx) => {
     return NextResponse.json({ error: "Import is closed" }, { status: 409 });
   }
 
-  const prev = asResolutions(row.resolutionsJson);
+  const rawPrev = (row.resolutionsJson ?? {}) as Record<string, unknown>;
+  const prevAlt = extractAltSelections(rawPrev);
   const patch = asResolutions(resolutions);
-  const merged = { ...prev, ...patch };
+
+  // Accept alternativeOverrides: { [candidateId]: existingIndividualId }
+  const altOverrides = body.alternativeOverrides;
+  const newAlt: Record<string, string> = {};
+  if (altOverrides && typeof altOverrides === "object") {
+    for (const [candidateId, existingId] of Object.entries(altOverrides as Record<string, unknown>)) {
+      if (typeof existingId === "string" && existingId.trim()) {
+        newAlt[`__alt__${candidateId}`] = existingId.trim();
+      }
+    }
+  }
+
+  const prevResolutions = asResolutions(rawPrev);
+  const merged: Record<string, string> = { ...prevResolutions, ...patch };
+  for (const [k, v] of Object.entries(prevAlt)) merged[`__alt__${k}`] = v;
+  for (const [k, v] of Object.entries(newAlt)) merged[k] = v;
 
   const updated = await prisma.pendingGedcomImport.update({
     where: { id: row.id },

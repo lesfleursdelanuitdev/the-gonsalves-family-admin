@@ -117,6 +117,7 @@ export type AdminDashboardSnapshot = {
   heatmap: DashboardHeatmapDay[];
   insights: DashboardInsightsPayload;
   discoveries: DashboardDiscoveryItem[];
+  pendingPlaceGroups: number;
 };
 
 function truncate(s: string, max: number): string {
@@ -318,6 +319,7 @@ export async function buildAdminDashboardSnapshot(
     heatmapRows,
     duplicateCandidates,
     peopleInStoriesRow,
+    pendingPlaceGroups,
   ] = await Promise.all([
     prisma.gedcomFile.findUnique({
       where: { id: fileUuid },
@@ -426,6 +428,7 @@ export async function buildAdminDashboardSnapshot(
           WHERE s.tree_id = ${treeRow.id}::uuid AND s.deleted_at IS NULL
         `
       : Promise.resolve([{ c: BigInt(0) }]),
+    prisma.placeResolutionSuggestion.count({ where: { fileUuid, status: "pending" } }),
   ]);
 
   const messageRows = treeId ? await loadRecentMessages(userId, treeId, 14) : [];
@@ -508,6 +511,13 @@ export async function buildAdminDashboardSnapshot(
       count: draftStoriesCount,
       href: "/admin/stories",
       description: "Publish when you are ready to share narrative work.",
+    },
+    {
+      id: "place-resolution",
+      label: "Place groups needing resolution",
+      count: pendingPlaceGroups,
+      href: "/admin/place-resolution",
+      description: "Possible duplicate or related place entries found by the scanner.",
     },
   ];
 
@@ -667,5 +677,6 @@ export async function buildAdminDashboardSnapshot(
     heatmap,
     insights,
     discoveries: discoveriesTrimmed,
+    pendingPlaceGroups,
   };
 }

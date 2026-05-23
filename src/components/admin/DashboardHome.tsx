@@ -5,9 +5,10 @@ import { useMemo } from "react";
 import {
   ChevronRight,
   History,
+  MapPin,
   MessageSquare,
 } from "lucide-react";
-import { DashboardArchiveHealthPanel } from "@/components/admin/dashboard/DashboardArchiveHealthPanel";
+import { DashboardSiteHealthPanel } from "@/components/admin/dashboard/DashboardSiteHealthPanel";
 import { DashboardContinueWorking } from "@/components/admin/dashboard/DashboardContinueWorking";
 import { DashboardDiscoverySection } from "@/components/admin/dashboard/DashboardDiscoverySection";
 import { DashboardHeroSection } from "@/components/admin/dashboard/DashboardHeroSection";
@@ -39,6 +40,7 @@ export function DashboardHome() {
       "/admin/gedcom/validator",
       "/admin/merge-records",
       "/admin/merge-records?tab=review",
+      "/admin/place-resolution",
     ],
     [],
   );
@@ -53,11 +55,11 @@ export function DashboardHome() {
       ? (data.needsAttention.find((r) => r.id === "duplicates")?.count ?? 0)
       : 0;
 
+  const pendingPlaceGroups = data?.configured ? (data.pendingPlaceGroups ?? 0) : 0;
   const snap = data && data.configured ? data : null;
   const totals = snap?.totals ?? null;
   const lastImportAt = snap?.lastImportAt ?? data?.lastImportAt ?? null;
   const newThisWeek = snap?.newThisWeek ?? data?.newThisWeek ?? { individuals: 0, media: 0, events: 0 };
-  const archiveHealth = snap?.archiveHealth ?? null;
   const heatmap = data?.heatmap ?? [];
   const insights = snap?.insights ?? null;
   const discoveries = snap?.discoveries ?? [];
@@ -116,6 +118,38 @@ export function DashboardHome() {
             <ChevronRight className="size-4 shrink-0 text-base-content/35 transition group-hover:text-primary" aria-hidden />
           </Link>
         ) : null}
+        {dashboardPermissions.canAccessHref("/admin/place-resolution") ? (
+          <Link
+            href="/admin/place-resolution"
+            className={cn(
+              "group flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-colors",
+              !isLoading && pendingPlaceGroups > 0
+                ? "border-warning/30 bg-warning/[0.06] hover:border-warning/50 hover:bg-warning/[0.10]"
+                : "border-base-content/[0.08] bg-base-200/25 hover:border-primary/30 hover:bg-base-200/40",
+            )}
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                !isLoading && pendingPlaceGroups > 0 ? "bg-warning/15 text-warning" : "bg-primary/12 text-primary",
+              )}>
+                <MapPin className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Place resolution</p>
+                <p className="truncate text-sm font-medium text-base-content">
+                  {isLoading ? "…" : configured ? `${pendingPlaceGroups} group${pendingPlaceGroups === 1 ? "" : "s"} pending` : "—"}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className={cn(
+              "size-4 shrink-0 transition",
+              !isLoading && pendingPlaceGroups > 0
+                ? "text-warning/50 group-hover:text-warning"
+                : "text-base-content/35 group-hover:text-primary",
+            )} aria-hidden />
+          </Link>
+        ) : null}
       </section>
 
       <div
@@ -150,7 +184,7 @@ export function DashboardHome() {
         </div>
 
         <aside className="flex min-w-0 flex-col gap-6 xl:sticky xl:top-4">
-          <DashboardArchiveHealthPanel health={archiveHealth} isLoading={isLoading} />
+          <DashboardSiteHealthPanel />
         </aside>
       </div>
 

@@ -1,8 +1,9 @@
 import path from "node:path";
 import { normalizeSiteMediaPath } from "@/lib/admin/normalize-site-media-path";
-import { resolveGedcomAdminDiskPath } from "@/lib/admin/media-upload-storage";
+import { resolveGedcomAdminDiskPath, resolveSiteMediaDiskPath } from "@/lib/admin/media-upload-storage";
 
 const GEDCOM_ADMIN_URL_PREFIX = "/uploads/gedcom-admin/";
+const SITE_MEDIA_URL_PREFIX = "/uploads/site-media/";
 
 /**
  * Maps a DB `file_ref` (site path) to an absolute file under the gedcom-admin upload root.
@@ -18,6 +19,22 @@ export function resolveFileRefToGedcomAdminDiskPath(fileRef: string | null | und
   const tail = p.slice(GEDCOM_ADMIN_URL_PREFIX.length);
   const segments = tail.split("/").filter(Boolean);
   return resolveGedcomAdminDiskPath(segments);
+}
+
+/**
+ * Maps a DB `file_ref` (site path) to an absolute file under the site-media upload root.
+ * Returns null for empty values, http(s) URLs, or paths outside `/uploads/site-media/…`.
+ */
+export function resolveFileRefToSiteMediaDiskPath(fileRef: string | null | undefined): string | null {
+  if (fileRef == null) return null;
+  let p = normalizeSiteMediaPath(String(fileRef)).trim();
+  if (!p) return null;
+  if (p.startsWith("http://") || p.startsWith("https://")) return null;
+  if (!p.startsWith("/")) p = `/${p}`;
+  if (!p.startsWith(SITE_MEDIA_URL_PREFIX)) return null;
+  const tail = p.slice(SITE_MEDIA_URL_PREFIX.length);
+  const segments = tail.split("/").filter(Boolean);
+  return resolveSiteMediaDiskPath(segments);
 }
 
 /** Safe filename for a zip entry under `media/` (no path segments). */

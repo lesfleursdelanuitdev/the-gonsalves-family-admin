@@ -22,25 +22,80 @@ function BirthsSparkline({ points }: { points: { decade: number; count: number }
   if (list.length === 0) {
     return <p className="py-8 text-center text-xs text-muted-foreground">No birth years yet.</p>;
   }
-  const max = Math.max(1, ...list.map((p) => p.count));
-  const w = 280;
-  const h = 120;
-  const pad = 8;
-  const xs = list.map((_, i) => pad + (i * (w - pad * 2)) / Math.max(1, list.length - 1));
-  const ys = list.map((p) => h - pad - ((h - pad * 2) * p.count) / max);
-  const line = list
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${xs[i]!.toFixed(1)} ${ys[i]!.toFixed(1)}`)
-    .join(" ");
-  const area = `${line} L ${xs[xs.length - 1]!.toFixed(1)} ${h - pad} L ${xs[0]!.toFixed(1)} ${h - pad} Z`;
+
+  const W = 320;
+  const H = 160;
+  const lPad = 32; // room for Y labels
+  const rPad = 8;
+  const tPad = 10;
+  const bPad = 22; // room for X labels
+  const plotW = W - lPad - rPad;
+  const plotH = H - tPad - bPad;
+
+  const rawMax = Math.max(1, ...list.map((p) => p.count));
+  // Round up to a "nice" ceiling for the Y axis
+  const niceMax = (() => {
+    if (rawMax <= 10) return 10;
+    if (rawMax <= 20) return 20;
+    if (rawMax <= 50) return 50;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawMax)));
+    return Math.ceil(rawMax / mag) * mag;
+  })();
+  const yTicks = [0, Math.round(niceMax / 2), niceMax];
+
+  const minDecade = list[0]!.decade;
+  const maxDecade = list[list.length - 1]!.decade;
+  const decadeSpan = Math.max(10, maxDecade - minDecade);
+
+  const toX = (d: number) => lPad + ((d - minDecade) / decadeSpan) * plotW;
+  const toY = (c: number) => tPad + plotH - (c / niceMax) * plotH;
+
+  const xs = list.map((p) => toX(p.decade));
+  const ys = list.map((p) => toY(p.count));
+  const line = list.map((_, i) => `${i === 0 ? "M" : "L"} ${xs[i]!.toFixed(1)} ${ys[i]!.toFixed(1)}`).join(" ");
+  const area = `${line} L ${xs[xs.length - 1]!.toFixed(1)} ${tPad + plotH} L ${xs[0]!.toFixed(1)} ${tPad + plotH} Z`;
+
+  // X labels every 50 years that fall within the data range
+  const xTicks = list
+    .filter((p) => p.decade % 50 === 0)
+    .map((p) => ({ decade: p.decade, x: toX(p.decade) }));
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-h-32 text-primary" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full text-primary" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
           <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
+
+      {/* Y gridlines + labels */}
+      {yTicks.map((tick) => {
+        const y = toY(tick);
+        return (
+          <g key={tick}>
+            <line x1={lPad} y1={y} x2={W - rPad} y2={y} stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+            <text x={lPad - 4} y={y} textAnchor="end" dominantBaseline="middle" fontSize="9" fill="currentColor" opacity="0.45">
+              {tick}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* X baseline */}
+      <line x1={lPad} y1={tPad + plotH} x2={W - rPad} y2={tPad + plotH} stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
+
+      {/* X tick labels */}
+      {xTicks.map(({ decade, x }) => (
+        <g key={decade}>
+          <line x1={x} y1={tPad + plotH} x2={x} y2={tPad + plotH + 3} stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
+          <text x={x} y={tPad + plotH + 5} textAnchor="middle" dominantBaseline="hanging" fontSize="9" fill="currentColor" opacity="0.45">
+            {decade}
+          </text>
+        </g>
+      ))}
+
+      {/* Area + line */}
       <path d={area} fill={`url(#${gradId})`} className="text-primary" />
       <path
         d={line}

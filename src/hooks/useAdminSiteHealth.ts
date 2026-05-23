@@ -45,3 +45,34 @@ export function useBatchAction(checkKey: string) {
     },
   });
 }
+
+export type IndividualRefsPayload = {
+  events: number;
+  notes: number;
+  sources: number;
+  media: number;
+  stories: number;
+  openQuestions: number;
+  total: number;
+};
+
+export function useIndividualReferences(id: string | null) {
+  return useQuery({
+    queryKey: ["admin", "individuals", id, "references"] as const,
+    queryFn: () => fetchJson<IndividualRefsPayload>(`/api/admin/individuals/${id}/references`),
+    enabled: id != null,
+    staleTime: 60_000,
+  });
+}
+
+export function useSuppress(checkKey: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ recordId, reason }: { recordId: string; reason?: string }) =>
+      postJson("/api/admin/site-health/suppress", { checkKey, recordId, reason }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: LATEST_KEY });
+      void qc.invalidateQueries({ queryKey: checkRecordsKey(checkKey) });
+    },
+  });
+}
