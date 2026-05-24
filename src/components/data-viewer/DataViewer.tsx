@@ -42,6 +42,8 @@ const DATA_VIEWER_ENTITY_MAP: Record<string, { entity: string; scope: "tree" | "
   recipes: { entity: "recipe", scope: "tree" },
   glossary: { entity: "glossaryEntry", scope: "tree" },
   changelog: { entity: "changelog", scope: "tree" },
+  branches: { entity: "individual", scope: "tree" },
+  lineages: { entity: "individual", scope: "tree" },
 };
 
 function readStoredViewMode(key: string): ViewMode | null {

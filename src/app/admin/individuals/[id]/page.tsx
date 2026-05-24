@@ -8,6 +8,7 @@ import { useAdminIndividual, useAdminIndividualEvents, useAdminIndividualUserLin
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
 import { SURNAME_PIECE_TYPE_OPTIONS } from "@/lib/forms/individual-editor-form";
 import { buttonVariants } from "@/components/ui/button";
+import { Dna } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataViewerPagination } from "@/components/data-viewer/DataViewerPagination";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
@@ -302,12 +303,21 @@ export default function AdminIndividualViewPage() {
             <span className="min-w-0">{fullName}</span>
           </h1>
           {id ? (
-            <Link
-              href={`/admin/individuals/${id}/edit`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
-            >
-              Edit individual
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/admin/relationship-calculator?sourceId=${encodeURIComponent(id)}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 gap-1.5")}
+              >
+                <Dna className="size-3.5" />
+                Find relationship
+              </Link>
+              <Link
+                href={`/admin/individuals/${id}/edit`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+              >
+                Edit individual
+              </Link>
+            </div>
           ) : null}
         </div>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">

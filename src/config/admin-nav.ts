@@ -24,6 +24,7 @@ import {
   Download,
   FileCheck,
   GitBranch,
+  TreePine,
   GitMerge,
   ScrollText,
   CircleHelp,
@@ -39,6 +40,7 @@ import {
   UserPlus,
   HeartPulse,
   ClipboardList,
+  Dna,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -63,6 +65,7 @@ export const adminNavSections: AdminNavSection[] = [
     items: [
       { href: "/admin/individuals", label: "Individuals", icon: Users },
       { href: "/admin/branches", label: "Branches", icon: GitBranch },
+      { href: "/admin/lineages", label: "Lineages", icon: TreePine },
       { href: "/admin/families", label: "Families", icon: Heart },
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/attributes", label: "Attributes", icon: ClipboardList },
@@ -85,7 +88,10 @@ export const adminNavSections: AdminNavSection[] = [
   },
   {
     label: "Research",
-    items: [{ href: "/admin/open-questions", label: "Open Questions", icon: CircleHelp }],
+    items: [
+      { href: "/admin/open-questions", label: "Open Questions", icon: CircleHelp },
+      { href: "/admin/relationship-calculator", label: "Relationship calculator", icon: Dna },
+    ],
   },
   {
     label: "Media & archive",

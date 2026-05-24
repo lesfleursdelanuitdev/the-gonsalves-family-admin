@@ -54,6 +54,12 @@ const INDIVIDUAL_SELECT = {
   },
 } as const;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function parseUuidParam(raw: string | null): string | null {
+  if (!raw) return null;
+  return UUID_RE.test(raw) ? raw : null;
+}
+
 function parseStructuredFilters(
   searchParams: URLSearchParams
 ): AdminIndividualsStructuredFilters {
@@ -68,6 +74,8 @@ function parseStructuredFilters(
     birthYearMax: parseYearParam(searchParams.get("birthYearMax")),
     deathYearMin: parseYearParam(searchParams.get("deathYearMin")),
     deathYearMax: parseYearParam(searchParams.get("deathYearMax")),
+    branchId: parseUuidParam(searchParams.get("branchId")),
+    lineageId: parseUuidParam(searchParams.get("lineageId")),
   };
 }
 

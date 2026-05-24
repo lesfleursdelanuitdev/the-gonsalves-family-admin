@@ -47,6 +47,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  webpack(config) {
+    config.resolve.alias = {
+      ...(config.resolve.alias as Record<string, string>),
+      "lucide-react": path.resolve(projectRoot, "node_modules/lucide-react"),
+    };
+    return config;
+  },
   outputFileTracingRoot: projectRoot,
   images: { remotePatterns },
   async headers() {

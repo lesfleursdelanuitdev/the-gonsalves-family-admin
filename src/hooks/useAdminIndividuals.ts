@@ -44,6 +44,8 @@ export interface UseAdminIndividualsOpts {
   birthYearMax?: string;
   deathYearMin?: string;
   deathYearMax?: string;
+  branchId?: string;
+  lineageId?: string;
 }
 
 export interface IndividualUserLinkRow {
@@ -72,6 +74,8 @@ export function buildIndividualsParams(opts: UseAdminIndividualsOpts): URLSearch
   if (opts.birthYearMax) params.set("birthYearMax", opts.birthYearMax);
   if (opts.deathYearMin) params.set("deathYearMin", opts.deathYearMin);
   if (opts.deathYearMax) params.set("deathYearMax", opts.deathYearMax);
+  if (opts.branchId) params.set("branchId", opts.branchId);
+  if (opts.lineageId) params.set("lineageId", opts.lineageId);
   return params;
 }
 

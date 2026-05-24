@@ -18,6 +18,9 @@ vi.mock("../database/prisma.ts", () => ({
     gedcomBranchRun: {
       findFirst: vi.fn().mockResolvedValue(null),
     },
+    lineageRun: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 
@@ -34,6 +37,10 @@ vi.mock("./branch-detection.ts", () => ({
   runBranchDetection: vi.fn().mockResolvedValue({ type: "branch-detection" }),
 }));
 
+vi.mock("./lineage-detection.ts", () => ({
+  runLineageDetection: vi.fn().mockResolvedValue({ type: "lineage-detection" }),
+}));
+
 vi.mock("../infra/admin-tree.ts", () => ({
   getAdminFileUuid: vi.fn().mockResolvedValue("file-uuid-test"),
   _resetAdminFileUuidCache: vi.fn(),
@@ -47,6 +54,8 @@ let checksMock: any;
 let backupServiceMock: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let branchDetectionMock: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let lineageDetectionMock: any;
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -55,6 +64,7 @@ beforeEach(async () => {
   prismaMock.siteHealthRun.findFirst.mockResolvedValue(null);
   prismaMock.backup.findFirst.mockResolvedValue(null);
   prismaMock.gedcomBranchRun.findFirst.mockResolvedValue(null);
+  prismaMock.lineageRun.findFirst.mockResolvedValue(null);
 
   const checksModule = await import("../health/checks.ts");
   checksMock = checksModule;
@@ -68,13 +78,17 @@ beforeEach(async () => {
   const branchModule = await import("./branch-detection.ts");
   branchDetectionMock = branchModule;
   branchDetectionMock.runBranchDetection.mockResolvedValue({ type: "branch-detection" });
+
+  const lineageModule = await import("./lineage-detection.ts");
+  lineageDetectionMock = lineageModule;
+  lineageDetectionMock.runLineageDetection.mockResolvedValue({ type: "lineage-detection" });
 });
 
 // ── CRON_JOBS registry ────────────────────────────────────────────────────────
 
 describe("CRON_JOBS registry", () => {
-  it("contains exactly three jobs", () => {
-    expect(CRON_JOBS).toHaveLength(3);
+  it("contains exactly four jobs", () => {
+    expect(CRON_JOBS).toHaveLength(4);
   });
 
   it("contains all required job IDs", () => {
@@ -82,6 +96,7 @@ describe("CRON_JOBS registry", () => {
     expect(ids).toContain("site-health");
     expect(ids).toContain("backup");
     expect(ids).toContain("branch-detection");
+    expect(ids).toContain("lineage-detection");
   });
 
   it("every job has label, description, schedule, and humanSchedule", () => {
@@ -468,8 +483,125 @@ describe("triggerCronJob dispatch", () => {
     expect(branchDetectionMock.runBranchDetection).toHaveBeenCalledWith("file-uuid-test", "manual");
   });
 
+  it("lineage-detection: resolves fileUuid and delegates to runLineageDetection", async () => {
+    const { getAdminFileUuid } = await import("../infra/admin-tree.ts");
+    vi.mocked(getAdminFileUuid).mockResolvedValue("file-uuid-test");
+
+    prismaMock.lineageRun.findFirst.mockResolvedValue({
+      id: "lineage-run-new",
+      startedAt: new Date(),
+      completedAt: new Date(),
+      triggeredBy: "manual",
+      errorMessage: null,
+      totalLineages: 5,
+      newLineages: 5,
+      mergedLineages: 0,
+      updatedLineages: 0,
+      bridgeChildren: 12,
+    });
+
+    await triggerCronJob("lineage-detection");
+
+    expect(getAdminFileUuid).toHaveBeenCalledOnce();
+    expect(lineageDetectionMock.runLineageDetection).toHaveBeenCalledWith("file-uuid-test", "manual");
+  });
+
   it("throws for an unknown job ID", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await expect(triggerCronJob("unknown-job" as any)).rejects.toThrow("Unknown cron job");
+  });
+});
+
+// ── getLineageDetectionLastRun shape ──────────────────────────────────────────
+
+describe("getAllCronJobStatuses — lineage-detection last-run shape", () => {
+  const startedAt = new Date("2026-05-04T04:00:00.000Z");
+  const completedAt = new Date("2026-05-04T04:02:30.000Z"); // 150s later
+
+  function makeLineageRun(overrides = {}) {
+    return {
+      id: "lineage-run-1",
+      fileUuid: "file-uuid-1",
+      startedAt,
+      completedAt,
+      triggeredBy: "scheduled",
+      totalLineages: 253,
+      newLineages: 253,
+      mergedLineages: 0,
+      updatedLineages: 0,
+      bridgeChildren: 1246,
+      errorMessage: null,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    prismaMock.lineageRun.findFirst.mockResolvedValue(makeLineageRun());
+  });
+
+  it("returns the correct CronLastRun shape", async () => {
+    const statuses = await getAllCronJobStatuses();
+    const job = statuses.find((s) => s.id === "lineage-detection")!;
+    expect(job.lastRun).not.toBeNull();
+    const run = job.lastRun!;
+    expect(run.id).toBe("lineage-run-1");
+    expect(run.startedAt).toBe(startedAt.toISOString());
+    expect(run.completedAt).toBe(completedAt.toISOString());
+  });
+
+  it("calculates durationMs correctly", async () => {
+    const statuses = await getAllCronJobStatuses();
+    expect(statuses.find((s) => s.id === "lineage-detection")!.lastRun!.durationMs).toBe(150_000);
+  });
+
+  it("ok is true when completed with no error", async () => {
+    const statuses = await getAllCronJobStatuses();
+    expect(statuses.find((s) => s.id === "lineage-detection")!.lastRun!.ok).toBe(true);
+  });
+
+  it("ok is false when errorMessage is set", async () => {
+    prismaMock.lineageRun.findFirst.mockResolvedValue(
+      makeLineageRun({ errorMessage: "graph error" }),
+    );
+    const statuses = await getAllCronJobStatuses();
+    expect(statuses.find((s) => s.id === "lineage-detection")!.lastRun!.ok).toBe(false);
+  });
+
+  it("ok is false when completedAt is null", async () => {
+    prismaMock.lineageRun.findFirst.mockResolvedValue(
+      makeLineageRun({ completedAt: null }),
+    );
+    const statuses = await getAllCronJobStatuses();
+    expect(statuses.find((s) => s.id === "lineage-detection")!.lastRun!.ok).toBe(false);
+  });
+
+  it("null numeric fields default to 0 in summary", async () => {
+    prismaMock.lineageRun.findFirst.mockResolvedValue(
+      makeLineageRun({
+        totalLineages: null,
+        newLineages: null,
+        mergedLineages: null,
+        updatedLineages: null,
+        bridgeChildren: null,
+      }),
+    );
+    const statuses = await getAllCronJobStatuses();
+    const summary = statuses.find((s) => s.id === "lineage-detection")!.lastRun!.summary;
+    if (summary.type === "lineage-detection") {
+      expect(summary.totalLineages).toBe(0);
+      expect(summary.newLineages).toBe(0);
+      expect(summary.mergedLineages).toBe(0);
+      expect(summary.updatedLineages).toBe(0);
+      expect(summary.bridgeChildren).toBe(0);
+    }
+  });
+
+  it("propagates errorMessage into summary", async () => {
+    prismaMock.lineageRun.findFirst.mockResolvedValue(
+      makeLineageRun({ errorMessage: "network timeout" }),
+    );
+    const statuses = await getAllCronJobStatuses();
+    const summary = statuses.find((s) => s.id === "lineage-detection")!.lastRun!.summary;
+    if (summary.type === "lineage-detection") expect(summary.errorMessage).toBe("network timeout");
   });
 });

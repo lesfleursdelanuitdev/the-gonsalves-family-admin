@@ -132,7 +132,7 @@ export async function runBranchDetection(
 
 async function _detect(fileUuid: string, _runId: string): Promise<BranchDetectionSummary> {
   // 1. Load all individuals + edges in parallel
-  const [individuals, edges] = await Promise.all([
+  const [individuals, edges, families] = await Promise.all([
     prisma.gedcomIndividual.findMany({
       where: { fileUuid },
       select: {
@@ -147,6 +147,10 @@ async function _detect(fileUuid: string, _runId: string): Promise<BranchDetectio
     prisma.gedcomParentChild.findMany({
       where: { fileUuid },
       select: { parentId: true, childId: true },
+    }),
+    prisma.gedcomFamily.findMany({
+      where: { fileUuid },
+      select: { husbandId: true, wifeId: true },
     }),
   ]);
 
@@ -168,6 +172,10 @@ async function _detect(fileUuid: string, _runId: string): Promise<BranchDetectio
   for (const ind of individuals) uf.find(ind.id); // register all nodes
   for (const e of edges) {
     if (e.parentId && e.childId) uf.union(e.parentId, e.childId);
+  }
+  // Union spouses so childless couples aren't isolated from the graph
+  for (const f of families) {
+    if (f.husbandId && f.wifeId) uf.union(f.husbandId, f.wifeId);
   }
 
   // 3. Group into components

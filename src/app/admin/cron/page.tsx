@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdminCron, useTriggerCronJob } from "@/hooks/useAdminCron";
 import { ApiError } from "@/lib/infra/api";
-import type { CronJobStatus, CronLastRun, SiteHealthSummary, BackupSummary, BranchDetectionSummary } from "@/hooks/useAdminCron";
+import type { CronJobStatus, CronLastRun, SiteHealthSummary, BackupSummary, BranchDetectionSummary, LineageDetectionSummary } from "@/hooks/useAdminCron";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +124,29 @@ function BranchDetectionSummaryPanel({ summary }: { summary: BranchDetectionSumm
   );
 }
 
+function LineageDetectionSummaryPanel({ summary }: { summary: LineageDetectionSummary }) {
+  if (summary.errorMessage) {
+    return <p className="text-xs text-destructive line-clamp-3">{summary.errorMessage}</p>;
+  }
+  const rows: { label: string; value: string | number }[] = [
+    { label: "Lineages found", value: summary.totalLineages },
+    { label: "Bridge children", value: summary.bridgeChildren },
+    { label: "New lineages", value: summary.newLineages },
+    { label: "Merged lineages", value: summary.mergedLineages },
+    { label: "Updated lineages", value: summary.updatedLineages },
+  ];
+  return (
+    <div className="space-y-1 text-sm">
+      {rows.map(({ label, value }) => (
+        <div key={label} className="flex items-center justify-between">
+          <span className="text-muted-foreground">{label}</span>
+          <span className="font-medium tabular-nums">{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BackupSummaryPanel({ summary }: { summary: BackupSummary }) {
   return (
     <div className="space-y-1 text-sm">
@@ -166,6 +189,8 @@ function LastRunPanel({ lastRun }: { lastRun: CronLastRun }) {
           <SiteHealthSummaryPanel summary={lastRun.summary} />
         ) : lastRun.summary.type === "branch-detection" ? (
           <BranchDetectionSummaryPanel summary={lastRun.summary} />
+        ) : lastRun.summary.type === "lineage-detection" ? (
+          <LineageDetectionSummaryPanel summary={lastRun.summary} />
         ) : (
           <BackupSummaryPanel summary={lastRun.summary} />
         )}

@@ -2,12 +2,13 @@ import { prisma } from "../database/prisma.ts";
 import { runAllChecks, buildCheckContext } from "../health/checks.ts";
 import { runBackup } from "./backup-service.ts";
 import { runBranchDetection } from "./branch-detection.ts";
+import { runLineageDetection } from "./lineage-detection.ts";
 import { getAdminFileUuid } from "../infra/admin-tree.ts";
 import type { CheckResult } from "../health/types.ts";
 
 // ── Types ─────────��───────────────────────────────────────────────────────────
 
-export type CronJobId = "site-health" | "backup" | "branch-detection";
+export type CronJobId = "site-health" | "backup" | "branch-detection" | "lineage-detection";
 
 export type CronJobMeta = {
   id: CronJobId;
@@ -45,6 +46,16 @@ export type BranchDetectionSummary = {
   errorMessage: string | null;
 };
 
+export type LineageDetectionSummary = {
+  type: "lineage-detection";
+  totalLineages: number;
+  newLineages: number;
+  mergedLineages: number;
+  updatedLineages: number;
+  bridgeChildren: number;
+  errorMessage: string | null;
+};
+
 export type CronLastRun = {
   id: string;
   startedAt: string;
@@ -52,7 +63,7 @@ export type CronLastRun = {
   durationMs: number | null;
   triggeredBy: string;
   ok: boolean;
-  summary: SiteHealthSummary | BackupSummary | BranchDetectionSummary;
+  summary: SiteHealthSummary | BackupSummary | BranchDetectionSummary | LineageDetectionSummary;
 };
 
 export type CronJobStatus = CronJobMeta & { lastRun: CronLastRun | null };
@@ -87,6 +98,13 @@ export const CRON_JOBS: CronJobMeta[] = [
     description: "Scans the pedigree graph to discover connected family branches and persists assignments to the database.",
     schedule: "0 3 * * 0",
     humanSchedule: "Every Sunday at 3:00 AM",
+  },
+  {
+    id: "lineage-detection",
+    label: "Lineage detection",
+    description: "Traces directed pedigree lines from founding ancestors by surname and persists lineage memberships to the database.",
+    schedule: "0 4 * * 0",
+    humanSchedule: "Every Sunday at 4:00 AM",
   },
 ];
 
@@ -196,16 +214,48 @@ async function getBranchDetectionLastRun(): Promise<CronLastRun | null> {
   };
 }
 
+async function getLineageDetectionLastRun(): Promise<CronLastRun | null> {
+  const row = await prisma.lineageRun.findFirst({
+    orderBy: { startedAt: "desc" },
+  });
+  if (!row) return null;
+
+  const durationMs =
+    row.completedAt && row.startedAt
+      ? row.completedAt.getTime() - row.startedAt.getTime()
+      : null;
+
+  return {
+    id: row.id,
+    startedAt: row.startedAt.toISOString(),
+    completedAt: row.completedAt?.toISOString() ?? null,
+    durationMs,
+    triggeredBy: row.triggeredBy,
+    ok: row.completedAt != null && row.errorMessage == null,
+    summary: {
+      type: "lineage-detection",
+      totalLineages: row.totalLineages ?? 0,
+      newLineages: row.newLineages ?? 0,
+      mergedLineages: row.mergedLineages ?? 0,
+      updatedLineages: row.updatedLineages ?? 0,
+      bridgeChildren: row.bridgeChildren ?? 0,
+      errorMessage: row.errorMessage ?? null,
+    },
+  };
+}
+
 export async function getAllCronJobStatuses(): Promise<CronJobStatus[]> {
-  const [healthRun, backupRun, branchRun] = await Promise.all([
+  const [healthRun, backupRun, branchRun, lineageRun] = await Promise.all([
     getSiteHealthLastRun(),
     getBackupLastRun(),
     getBranchDetectionLastRun(),
+    getLineageDetectionLastRun(),
   ]);
   const runMap: Record<CronJobId, CronLastRun | null> = {
     "site-health": healthRun,
     backup: backupRun,
     "branch-detection": branchRun,
+    "lineage-detection": lineageRun,
   };
   return CRON_JOBS.map((job) => ({ ...job, lastRun: runMap[job.id] }));
 }
@@ -248,6 +298,13 @@ async function triggerBranchDetection(): Promise<CronLastRun> {
   return lastRun!;
 }
 
+async function triggerLineageDetection(): Promise<CronLastRun> {
+  const fileUuid = await getAdminFileUuid();
+  await runLineageDetection(fileUuid, "manual");
+  const lastRun = await getLineageDetectionLastRun();
+  return lastRun!;
+}
+
 export async function triggerCronJob(id: CronJobId): Promise<CronLastRun> {
   switch (id) {
     case "site-health":
@@ -256,6 +313,8 @@ export async function triggerCronJob(id: CronJobId): Promise<CronLastRun> {
       return triggerBackup();
     case "branch-detection":
       return triggerBranchDetection();
+    case "lineage-detection":
+      return triggerLineageDetection();
     default:
       throw new Error(`Unknown cron job: ${String(id)}`);
   }

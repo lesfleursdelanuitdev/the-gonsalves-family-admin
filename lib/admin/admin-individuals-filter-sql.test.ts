@@ -58,6 +58,8 @@ const emptyFilters: AdminIndividualsStructuredFilters = {
   birthYearMax: null,
   deathYearMin: null,
   deathYearMax: null,
+  branchId: null,
+  lineageId: null,
 };
 
 describe("hasStructuredFilters", () => {

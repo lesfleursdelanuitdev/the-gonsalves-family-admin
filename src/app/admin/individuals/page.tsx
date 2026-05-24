@@ -42,7 +42,7 @@ import {
   parseAdminIndividualsFiltersFromSearchParams,
   type AdminIndividualsUrlFilterState,
 } from "@/lib/admin/admin-individuals-url-filters";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, X, GitBranch, TreePine } from "lucide-react";
 import { deleteJson } from "@/lib/infra/api";
 import { cn } from "@/lib/utils";
 import {
@@ -315,17 +315,35 @@ function AdminIndividualsPageInner() {
     );
   }, [qs, replace, searchParams]);
 
+  const branchId = searchParams.get("branchId") ?? undefined;
+  const lineageId = searchParams.get("lineageId") ?? undefined;
+
   const applyFilters = useCallback(() => {
     apply();
-    router.replace(adminIndividualsPathWithFilters(filterDraft), { scroll: false });
-  }, [apply, filterDraft, router]);
+    const base = adminIndividualsPathWithFilters(filterDraft);
+    const suffix = branchId
+      ? `${base.includes("?") ? "&" : "?"}branchId=${branchId}`
+      : lineageId
+        ? `${base.includes("?") ? "&" : "?"}lineageId=${lineageId}`
+        : "";
+    router.replace(base + suffix, { scroll: false });
+  }, [apply, filterDraft, router, branchId, lineageId]);
 
   const clearFilters = useCallback(() => {
     clear();
-    router.replace("/admin/individuals", { scroll: false });
-  }, [clear, router]);
+    const suffix = branchId
+      ? `?branchId=${branchId}`
+      : lineageId
+        ? `?lineageId=${lineageId}`
+        : "";
+    router.replace("/admin/individuals" + suffix, { scroll: false });
+  }, [clear, router, branchId, lineageId]);
 
-  const { data, isLoading } = useAdminIndividuals(queryOpts);
+  const finalOpts = useMemo(
+    () => ({ ...queryOpts, ...(branchId ? { branchId } : {}), ...(lineageId ? { lineageId } : {}) }),
+    [queryOpts, branchId, lineageId],
+  );
+  const { data, isLoading } = useAdminIndividuals(finalOpts);
 
   const handleDelete = useCallback(
     async (r: IndividualRow) => {
@@ -377,6 +395,37 @@ function AdminIndividualsPageInner() {
           views can be bookmarked or opened from Given names.
         </p>
       </div>
+
+      {(branchId || lineageId) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {branchId && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              <GitBranch className="size-3.5 shrink-0" />
+              Filtered by branch
+              <button
+                onClick={() => router.replace("/admin/individuals", { scroll: false })}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-primary/20"
+                aria-label="Clear branch filter"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          )}
+          {lineageId && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              <TreePine className="size-3.5 shrink-0" />
+              Filtered by lineage
+              <button
+                onClick={() => router.replace("/admin/individuals", { scroll: false })}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-primary/20"
+                aria-label="Clear lineage filter"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       <FilterPanel onApply={applyFilters} onClear={clearFilters}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -499,7 +548,7 @@ function AdminIndividualsPageInner() {
         data={rows}
         isLoading={isLoading}
         viewModeKey="admin-individuals-view"
-        paginationResetKey={JSON.stringify(queryOpts)}
+        paginationResetKey={JSON.stringify(finalOpts)}
         totalCount={data?.total}
         batchApplyKey={batchApplyKey}
         onBulkDeleteFinished={handleBulkDeleteFinished}

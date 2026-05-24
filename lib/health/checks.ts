@@ -450,6 +450,56 @@ const CHECKS: CheckDef[] = [
   },
 
   {
+    key: "spouses_in_childless_families",
+    label: "Spouses in childless families",
+    description: "Individuals who appear as a spouse in at least one family record with no children. May represent incomplete data or genuinely childless couples — useful to know for archive completeness.",
+    category: "data_integrity",
+    batchAction: null,
+    async count(ctx) {
+      return prisma.gedcomIndividual.count({
+        where: {
+          fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "spouses_in_childless_families") },
+          OR: [
+            { husbandInFamilies: { some: { childrenCount: 0 } } },
+            { wifeInFamilies: { some: { childrenCount: 0 } } },
+          ],
+        },
+      });
+    },
+    async records(ctx, offset, limit) {
+      const rows = await prisma.gedcomIndividual.findMany({
+        where: {
+          fileUuid: ctx.fileUuid,
+          id: { notIn: suppressedFor(ctx, "spouses_in_childless_families") },
+          OR: [
+            { husbandInFamilies: { some: { childrenCount: 0 } } },
+            { wifeInFamilies: { some: { childrenCount: 0 } } },
+          ],
+        },
+        select: {
+          id: true,
+          xref: true,
+          fullName: true,
+          birthDateDisplay: true,
+          deathDateDisplay: true,
+        },
+        skip: offset,
+        take: limit,
+        orderBy: { fullName: "asc" },
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        label: stripSlashesFromName(r.fullName) || r.xref,
+        sublabel: r.xref,
+        meta: [r.birthDateDisplay, r.deathDateDisplay].filter(Boolean).join(" – ") || undefined,
+        href: `/admin/individuals/${r.id}/edit`,
+      }));
+    },
+    async batch() { return 0; },
+  },
+
+  {
     key: "events_no_individuals",
     label: "Unlinked events",
     description: "Events not currently linked to any individual, family, story, open question, or note. May be import artifacts, but review before deleting.",

@@ -102,3 +102,42 @@ export function verticalBarChart(
     },
   };
 }
+
+/**
+ * Gantt-style chart showing the date span of each lineage as a horizontal bar.
+ * Lineages without both year bounds are omitted.
+ */
+export function lineageDateSpansChart(
+  lineages: { name: string; earliestYear: number; latestYear: number }[],
+): { data: Data[]; layout: Partial<Layout> } {
+  // Sort by earliest year so oldest lineages appear at the bottom
+  const sorted = [...lineages].sort((a, b) => a.earliestYear - b.earliestYear);
+  return {
+    data: [
+      {
+        type: "bar",
+        orientation: "h",
+        x: sorted.map((l) => l.latestYear - l.earliestYear + 1),
+        y: sorted.map((l) => l.name),
+        // base is valid Plotly but missing from TS types
+        ...(({ base: sorted.map((l) => l.earliestYear) }) as object),
+        marker: { color: ANALYTICS_BAR, opacity: 0.85 },
+        hovertemplate: "%{y}: %{base}–%{customdata}<extra></extra>",
+        customdata: sorted.map((l) => l.latestYear),
+      } as Data,
+    ],
+    layout: {
+      title: { text: "Date span by lineage", font: { size: 14 } },
+      margin: { l: 12, r: 16, t: 44, b: 48 },
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)",
+      font: { color: ANALYTICS_MUTED_AXIS, size: 11 },
+      xaxis: {
+        title: { text: "Year" },
+        gridcolor: "rgba(255,255,255,0.06)",
+      },
+      yaxis: { automargin: true },
+      height: Math.min(480, 120 + sorted.length * 24),
+    },
+  };
+}

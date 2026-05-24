@@ -8,6 +8,8 @@ import { AdminIndividualsAnalyticsPanel } from "@/components/admin/AdminIndividu
 import { AdminMediaAnalyticsPanel } from "@/components/admin/AdminMediaAnalyticsPanel";
 import { AdminNotesAnalyticsPanel } from "@/components/admin/AdminNotesAnalyticsPanel";
 import { AdminOpenQuestionsAnalyticsPanel } from "@/components/admin/AdminOpenQuestionsAnalyticsPanel";
+import { AdminBranchesAnalyticsPanel } from "@/components/admin/AdminBranchesAnalyticsPanel";
+import { AdminLineagesAnalyticsPanel } from "@/components/admin/AdminLineagesAnalyticsPanel";
 import { AdminGivenNamesAnalyticsPanel } from "@/components/admin/AdminGivenNamesAnalyticsPanel";
 import { AdminPlacesAnalyticsPanel } from "@/components/admin/AdminPlacesAnalyticsPanel";
 import { AdminSurnamesAnalyticsPanel } from "@/components/admin/AdminSurnamesAnalyticsPanel";
@@ -105,7 +107,7 @@ export function AdminListAnalyticsPanel({ segment, entityPlural }: Props) {
                       ? ANALYTICS_OPEN_QUESTIONS_QUERY
                       : segment === "notes"
                         ? ANALYTICS_NOTES_QUERY
-                        : undefined;
+                        : undefined; // branches + lineages: no extra query params needed
   const { data, isLoading, isError, error } = useAdminListAnalytics(segment, true, analyticsQuery);
 
   if (isLoading) {
@@ -200,6 +202,14 @@ export function AdminListAnalyticsPanel({ segment, entityPlural }: Props) {
                 GEDCOM note coverage, orphan detection, junction-row totals, and ranked notes / individuals / families / events / sources from the
                 research API. Switch back to list or card view to edit records.
               </>
+            ) : segment === "branches" ? (
+              <>
+                Connected family branches discovered from the pedigree graph. Switch back to list or card view to browse branches.
+              </>
+            ) : segment === "lineages" ? (
+              <>
+                Directed lineages traced from surname-grouped founding ancestors. Switch back to list or card view to browse lineages.
+              </>
             ) : (
               <>Data from the research API for this admin tree. Switch back to list or card view to edit records.</>
             )}
@@ -226,6 +236,10 @@ export function AdminListAnalyticsPanel({ segment, entityPlural }: Props) {
             <AdminOpenQuestionsAnalyticsPanel data={data} />
           ) : segment === "notes" ? (
             <AdminNotesAnalyticsPanel data={data} />
+          ) : segment === "branches" ? (
+            <AdminBranchesAnalyticsPanel data={data} />
+          ) : segment === "lineages" ? (
+            <AdminLineagesAnalyticsPanel data={data} />
           ) : (
             <GenericJsonPanel data={data} />
           )}

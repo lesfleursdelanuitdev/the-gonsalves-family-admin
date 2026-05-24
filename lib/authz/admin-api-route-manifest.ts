@@ -619,6 +619,13 @@ export const ADMIN_API_ROUTE_MANIFEST: RouteManifestEntry[] = [
     permission: { kind: "requireCan", entity: "individual", action: "read", scope: "tree" },
   },
 
+  // ── Relationship calculator ──────────────────────────────────────────────────
+  {
+    pattern: "relationship-between",
+    methods: ["POST"],
+    permission: { kind: "requireCan", entity: "individual", action: "read", scope: "tree" },
+  },
+
   // ── Individual relationships ─────────────────────────────────────────────────
   {
     pattern: "individual-relationships",

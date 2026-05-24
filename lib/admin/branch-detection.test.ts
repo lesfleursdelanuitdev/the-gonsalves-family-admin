@@ -209,6 +209,13 @@ describe("branchName", () => {
 
 // ── runBranchDetection (integration with mocked Prisma) ───────────────────────
 
+// ── runBranchDetection — spouse unioning ──────────────────────────────────────
+
+// NOTE: these tests live above the full Prisma mock so they can control
+// gedcomFamily.findMany independently.
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 vi.mock("../database/prisma.ts", () => {
   const upsertedIds: string[] = [];
 
@@ -237,6 +244,9 @@ vi.mock("../database/prisma.ts", () => {
     gedcomParentChild: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    gedcomFamily: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   };
 
   return { prisma };
@@ -260,6 +270,7 @@ describe("runBranchDetection (mocked Prisma)", () => {
     prismaMock.gedcomBranch.update.mockResolvedValue({});
     prismaMock.gedcomIndividual.findMany.mockResolvedValue([]);
     prismaMock.gedcomParentChild.findMany.mockResolvedValue([]);
+    prismaMock.gedcomFamily.findMany.mockResolvedValue([]);
   });
 
   it("returns zero summary when there are no individuals", async () => {
@@ -376,6 +387,41 @@ describe("runBranchDetection (mocked Prisma)", () => {
         data: expect.objectContaining({ errorMessage: "DB gone" }),
       }),
     );
+  });
+
+  it("childless couple is joined via family spouse edge, not isolated", async () => {
+    prismaMock.gedcomIndividual.findMany.mockResolvedValue([
+      makeIndividual({ id: "h1", hasParents: false, primarySurnameLower: "smith" }),
+      makeIndividual({ id: "w1", hasParents: false, primarySurnameLower: "smith" }),
+    ]);
+    prismaMock.gedcomParentChild.findMany.mockResolvedValue([]); // no parent-child edges
+    prismaMock.gedcomFamily.findMany.mockResolvedValue([{ husbandId: "h1", wifeId: "w1" }]);
+    prismaMock.gedcomBranch.count.mockResolvedValue(1);
+    prismaMock.gedcomBranch.findFirst.mockResolvedValue({ id: "branch-1" });
+
+    const { runBranchDetection } = await import("./branch-detection.ts");
+    const result = await runBranchDetection("file-uuid", "manual");
+
+    expect(result.isolatedIndividuals).toBe(0);
+    expect(result.totalBranches).toBe(1);
+    expect(prismaMock.gedcomBranch.upsert).toHaveBeenCalledOnce();
+  });
+
+  it("spouse with no partner id listed does not crash and remains isolated", async () => {
+    prismaMock.gedcomIndividual.findMany.mockResolvedValue([
+      makeIndividual({ id: "h1", hasParents: false }),
+    ]);
+    prismaMock.gedcomParentChild.findMany.mockResolvedValue([]);
+    // Family with only one spouse resolved (wifeId is null)
+    prismaMock.gedcomFamily.findMany.mockResolvedValue([{ husbandId: "h1", wifeId: null }]);
+    prismaMock.gedcomBranch.count.mockResolvedValue(0);
+    prismaMock.gedcomBranch.findFirst.mockResolvedValue(null);
+
+    const { runBranchDetection } = await import("./branch-detection.ts");
+    const result = await runBranchDetection("file-uuid", "manual");
+
+    expect(result.isolatedIndividuals).toBe(1);
+    expect(prismaMock.gedcomBranch.upsert).not.toHaveBeenCalled();
   });
 
   it("two disjoint pairs each become a branch, larger becomes isMain", async () => {

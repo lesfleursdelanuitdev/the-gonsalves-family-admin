@@ -8,12 +8,13 @@ import type {
   SiteHealthSummary,
   BackupSummary,
   BranchDetectionSummary,
+  LineageDetectionSummary,
 } from "@/lib/admin/cron-jobs";
 
 const BASE = "/api/admin/cron";
 const KEY = ["admin", "cron"] as const;
 
-export type { CronJobStatus, CronLastRun, SiteHealthSummary, BackupSummary, BranchDetectionSummary };
+export type { CronJobStatus, CronLastRun, SiteHealthSummary, BackupSummary, BranchDetectionSummary, LineageDetectionSummary };
 
 export function useAdminCron() {
   return useQuery({

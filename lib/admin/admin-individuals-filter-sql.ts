@@ -23,6 +23,10 @@ export interface AdminIndividualsStructuredFilters {
   birthYearMax: number | null;
   deathYearMin: number | null;
   deathYearMax: number | null;
+  /** Filter to individuals assigned to this branch (UUID). */
+  branchId: string | null;
+  /** Filter to individuals who are members of this lineage (UUID). */
+  lineageId: string | null;
 }
 
 export function parseSexParam(raw: string | null): string | null {
@@ -50,7 +54,9 @@ export function hasStructuredFilters(f: AdminIndividualsStructuredFilters): bool
     f.birthYearMin != null ||
     f.birthYearMax != null ||
     f.deathYearMin != null ||
-    f.deathYearMax != null
+    f.deathYearMax != null ||
+    f.branchId ||
+    f.lineageId
   );
 }
 
@@ -96,6 +102,19 @@ export function adminIndividualsFilterConditions(
 
   if (structured.givenContains) {
     parts.push(givenNameExistsSql(Prisma.raw("i.id"), structured.givenContains));
+  }
+
+  if (structured.branchId) {
+    parts.push(Prisma.sql`i.branch_id = ${structured.branchId}::uuid`);
+  }
+
+  if (structured.lineageId) {
+    parts.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM individual_lineages il
+        WHERE il.individual_id = i.id AND il.lineage_id = ${structured.lineageId}::uuid
+      )`,
+    );
   }
 
   const qTrim = q?.trim() || "";

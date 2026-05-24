@@ -1,53 +1,46 @@
 "use client";
 
 import { useMemo } from "react";
-import { GitBranch, Users, CalendarRange, Clock } from "lucide-react";
+import { TreePine, Users, CalendarRange, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
-import { useAdminBranches, type AdminBranch } from "@/hooks/useAdminBranches";
+import { useAdminLineages, type AdminLineage } from "@/hooks/useAdminLineages";
 import Link from "next/link";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function dateRange(branch: AdminBranch): string {
-  if (branch.earliestYear && branch.latestYear) return `${branch.earliestYear} – ${branch.latestYear}`;
-  if (branch.earliestYear) return `from ${branch.earliestYear}`;
-  if (branch.latestYear) return `to ${branch.latestYear}`;
+function dateRange(lineage: AdminLineage): string {
+  if (lineage.earliestYear && lineage.latestYear) return `${lineage.earliestYear} – ${lineage.latestYear}`;
+  if (lineage.earliestYear) return `from ${lineage.earliestYear}`;
+  if (lineage.latestYear) return `to ${lineage.latestYear}`;
   return "—";
 }
 
 // ── Card renderer ─────────────────────────────────────────────────────────────
 
-function BranchCard({ branch }: { branch: AdminBranch }) {
+function LineageCard({ lineage }: { lineage: AdminLineage }) {
   return (
-    <Card className={branch.isMain ? "border-primary/30" : undefined}>
+    <Card>
       <CardContent className="space-y-3 pt-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <GitBranch className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{branch.name}</span>
-          </div>
-          {branch.isMain && (
-            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-              Main
-            </span>
-          )}
+        <div className="flex min-w-0 items-center gap-2">
+          <TreePine className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium">{lineage.name}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Users className="size-3.5 shrink-0" />
-            <span>{branch.size.toLocaleString()} individuals</span>
+            <span>{lineage.size.toLocaleString()} members</span>
           </div>
           <div className="flex items-center gap-1.5">
             <CalendarRange className="size-3.5 shrink-0" />
-            <span>{dateRange(branch)}</span>
+            <span>{dateRange(lineage)}</span>
           </div>
         </div>
 
-        {branch.topSurnames.length > 0 && (
+        {lineage.topSurnames.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {branch.topSurnames.map((s) => (
+            {lineage.topSurnames.map((s) => (
               <span
                 key={s}
                 className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize"
@@ -59,7 +52,7 @@ function BranchCard({ branch }: { branch: AdminBranch }) {
         )}
 
         <Link
-          href={`/admin/individuals?branchId=${branch.id}`}
+          href={`/admin/individuals?lineageId=${lineage.id}`}
           className="inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
         >
           View members
@@ -71,11 +64,11 @@ function BranchCard({ branch }: { branch: AdminBranch }) {
 
 // ── DataViewer config ─────────────────────────────────────────────────────────
 
-function buildBranchesConfig(): DataViewerConfig<AdminBranch> {
+function buildLineagesConfig(): DataViewerConfig<AdminLineage> {
   return {
-    id: "branches",
-    labels: { singular: "Branch", plural: "Branches" },
-    getRowId: (b) => b.id,
+    id: "lineages",
+    labels: { singular: "Lineage", plural: "Lineages" },
+    getRowId: (l) => l.id,
     columns: [
       {
         accessorKey: "name",
@@ -83,19 +76,14 @@ function buildBranchesConfig(): DataViewerConfig<AdminBranch> {
         enableSorting: true,
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+            <TreePine className="size-3.5 shrink-0 text-muted-foreground" />
             <span>{row.getValue("name") as string}</span>
-            {row.original.isMain && (
-              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                Main
-              </span>
-            )}
           </div>
         ),
       },
       {
         accessorKey: "size",
-        header: "Size",
+        header: "Members",
         enableSorting: true,
         cell: ({ row }) => (row.getValue("size") as number).toLocaleString(),
       },
@@ -123,12 +111,12 @@ function buildBranchesConfig(): DataViewerConfig<AdminBranch> {
         ),
       },
     ],
-    renderCard: ({ record }) => <BranchCard branch={record} />,
+    renderCard: ({ record }) => <LineageCard lineage={record} />,
     actions: {
       view: {
         label: "View members",
-        handler: (b) => {
-          window.location.href = `/admin/individuals?branchId=${b.id}`;
+        handler: (l) => {
+          window.location.href = `/admin/individuals?lineageId=${l.id}`;
         },
       },
     },
@@ -137,18 +125,18 @@ function buildBranchesConfig(): DataViewerConfig<AdminBranch> {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function AdminBranchesPage() {
-  const { data, isLoading } = useAdminBranches();
-  const config = useMemo(() => buildBranchesConfig(), []);
-  const rows = useMemo(() => data?.branches ?? [], [data]);
+export default function AdminLineagesPage() {
+  const { data, isLoading } = useAdminLineages();
+  const config = useMemo(() => buildLineagesConfig(), []);
+  const rows = useMemo(() => data?.lineages ?? [], [data]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Branches</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Lineages</h1>
           <p className="mt-1 text-muted-foreground">
-            Connected family branches discovered from the pedigree graph.
+            Directed family lineages traced from founding ancestors by surname.
           </p>
         </div>
         <Link
@@ -175,9 +163,9 @@ export default function AdminBranchesPage() {
         data={rows}
         isLoading={isLoading}
         defaultViewMode="cards"
-        viewModeKey="admin-branches-view"
-        totalCount={data?.stats.totalBranches}
-        statisticsAnalyticsSegment="branches"
+        viewModeKey="admin-lineages-view"
+        totalCount={data?.stats.totalLineages}
+        statisticsAnalyticsSegment="lineages"
       />
     </div>
   );
