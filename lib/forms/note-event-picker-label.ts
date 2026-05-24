@@ -1,5 +1,5 @@
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { formatNoteLinkedEventLabel, labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel, labelGedcomEventType } from "@ligneous/gedcom-events";
 import type { AdminEventListItem } from "@/hooks/useAdminEvents";
 
 const INDIVIDUAL_OF_TYPES = new Set([

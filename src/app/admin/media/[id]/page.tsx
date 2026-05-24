@@ -32,7 +32,7 @@ import {
 import { inferAdminMediaCategory, type AdminMediaCategory as MediaKind } from "@/lib/admin/infer-admin-media-category";
 import { displayTagName } from "@/lib/admin/display-tag-name";
 import { cn } from "@/lib/utils";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 import { formatDateSuggestionLabel } from "@/lib/forms/admin-date-suggestions";
 import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions";
 

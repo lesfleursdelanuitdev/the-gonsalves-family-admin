@@ -48,6 +48,7 @@
     "@ligneous/story-creator": "file:../packages/ligneous-story-creator",
     "@ligneous/album-view": "file:../packages/ligneous-album-view",
     "@ligneous/auth": "file:../packages/auth",
+    "@ligneous/gedcom-dates": "file:../packages/ligneous-gedcom-dates",
     "@ligneous/gedcom-events": "file:../packages/ligneous-gedcom-events",
     "@ligneous/prisma": "file:../packages/ligneous-prisma",
     "@ligneous/relationship-calculator": "file:../packages/relationship-calculator",

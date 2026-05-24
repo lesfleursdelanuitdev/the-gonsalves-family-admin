@@ -25,6 +25,7 @@ import {
 } from "@/hooks/useAdminAttributes";
 import type { GedcomDateFormSlice, GedcomPlaceFormSlice } from "@/lib/forms/individual-editor-form";
 import { gedcomDateSpecifierNeedsRange } from "@/lib/gedcom/gedcom-date-specifiers";
+import { EntityCitationPanel } from "@/components/admin/EntityCitationPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -379,6 +380,19 @@ export function AttributeEditForm({ mode, attributeId, initialAttribute }: Attri
         <p className="text-xs text-muted-foreground">
           Paste the individual's UUID (visible on their profile page).
         </p>
+      </section>
+
+      {/* ── Source citations ──────────────────────────────────────────── */}
+      <section className="space-y-3 rounded-lg border border-border bg-card p-5">
+        <div>
+          <p className="font-medium">Source citations</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Evidence backing up this attribute.</p>
+        </div>
+        <EntityCitationPanel
+          targetType="attribute"
+          targetId={attributeId ?? ""}
+          mode={mode}
+        />
       </section>
 
       {/* ── Submit ──────────────────────────────────────────────────────── */}

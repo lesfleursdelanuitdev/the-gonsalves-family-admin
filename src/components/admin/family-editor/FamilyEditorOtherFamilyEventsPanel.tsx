@@ -8,7 +8,7 @@ import { DataViewerPagination } from "@/components/data-viewer/DataViewerPaginat
 import { FAMILY_DETAIL_EVENTS_PAGE_SIZE } from "@/constants/admin";
 import type { AdminFamilyEventRow } from "@/hooks/useAdminFamilyEvents";
 import { formatEventDate } from "@/lib/gedcom/format-event-date";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 const EVENT_SOURCE_LABELS: Record<string, string> = {
   familyRecord: "Family record",
   member: "Member",

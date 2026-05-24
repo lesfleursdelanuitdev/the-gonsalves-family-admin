@@ -43,4 +43,5 @@ const repositoriesHooks = createAdminCrudHooks<
 });
 
 export const useAdminRepositories = repositoriesHooks.useList;
+export const useAdminRepository = (id: string) => repositoriesHooks.useDetail<{ repository: unknown }>(id);
 export const useDeleteRepository = repositoriesHooks.useDelete;

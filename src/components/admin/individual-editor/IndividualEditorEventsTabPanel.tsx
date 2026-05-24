@@ -16,7 +16,7 @@ import type { LivingMode } from "@/lib/admin/admin-individual-living";
 import type { IndividualDetailEvent } from "@ligneous/gedcom-events";
 import type { KeyFactFormState } from "@/lib/forms/individual-editor-form";
 import { formatEventDate } from "@/lib/gedcom/format-event-date";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 import { cn } from "@/lib/utils";
 
 const EVENT_SOURCE_LABELS: Record<string, string> = {

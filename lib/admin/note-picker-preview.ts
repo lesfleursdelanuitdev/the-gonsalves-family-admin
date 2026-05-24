@@ -1,4 +1,4 @@
-import { markdownToPlainPreview } from "@/lib/utils/markdown-preview";
+import { markdownToPlainPreview } from "@ligneous/gedcom-events";
 
 /** First few non-empty lines as plain text (short), for picker cards — not full note bodies. */
 export function notePickerContentPreviewLines(

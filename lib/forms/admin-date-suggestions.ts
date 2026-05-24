@@ -1,5 +1,5 @@
 import type { GedcomDateFormSlice } from "@/lib/forms/individual-editor-form";
-import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
+import { formatGedcomDateDisplayLabel } from "@ligneous/gedcom-dates";
 
 /** Row shape returned by GET `/api/admin/dates` (fields used to fill the date form). */
 export type AdminDateSuggestionRow = {

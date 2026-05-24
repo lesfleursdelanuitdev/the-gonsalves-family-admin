@@ -21,7 +21,7 @@ import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestio
 import { IndividualEditorNotesTabPanel } from "@/components/admin/individual-editor/IndividualEditorNotesTabPanel";
 import type { ProfileMediaSelectionShape } from "@/components/admin/EntityGedcomProfileMediaSection";
 import { IndividualEditorMediaTabPanel } from "@/components/admin/individual-editor/IndividualEditorMediaTabPanel";
-import { IndividualEditorSourcesTabPanel } from "@/components/admin/individual-editor/IndividualEditorSourcesTabPanel";
+import { EntityCitationPanel } from "@/components/admin/EntityCitationPanel";
 import { IndividualEditorNamesTabPanel } from "@/components/admin/individual-editor/IndividualEditorNamesTabPanel";
 import { IndividualEditorEventsTabPanel } from "@/components/admin/individual-editor/IndividualEditorEventsTabPanel";
 import { IndividualEditorSpouseTabPanel } from "@/components/admin/individual-editor/IndividualEditorSpouseTabPanel";
@@ -429,11 +429,11 @@ export function IndividualEditForm(props: Props) {
   );
 
   const sourcesBody = (
-    <IndividualEditorSourcesTabPanel
-      hidden={false}
-      noCardShell
+    <EntityCitationPanel
+      targetType="individual"
+      targetId={individualId}
       mode={mode}
-      individualSources={individualSources}
+      onChange={() => router.refresh()}
     />
   );
 

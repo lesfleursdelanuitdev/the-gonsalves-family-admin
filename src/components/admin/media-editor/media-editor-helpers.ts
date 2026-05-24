@@ -7,7 +7,7 @@ import {
 } from "@/lib/forms/individual-editor-form";
 import { formatDateSuggestionLabel } from "@/lib/forms/admin-date-suggestions";
 import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
 import type { MediaEditorInitial } from "@/components/admin/media-editor/media-editor-types";
 

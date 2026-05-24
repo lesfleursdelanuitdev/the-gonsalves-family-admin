@@ -18,7 +18,28 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
   const repository = await prisma.gedcomRepository.findFirst({
     where: { id, fileUuid },
     include: {
-      _count: { select: { sourceRepositories: true } },
+      sourceRepositories: {
+        include: {
+          source: {
+            select: {
+              id: true,
+              xref: true,
+              title: true,
+              author: true,
+              abbreviation: true,
+              _count: {
+                select: {
+                  individualSources: true,
+                  familySources: true,
+                  eventSources: true,
+                  attributeSources: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 

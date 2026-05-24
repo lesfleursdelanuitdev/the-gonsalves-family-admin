@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   isAboutDateType,
+  isExactDateType,
   formatGedcomDateDisplayLabel,
   type GedcomDateDisplayInput,
-} from "@/lib/gedcom/format-gedcom-date-display";
+} from "@ligneous/gedcom-dates";
 
 // ── isAboutDateType ───────────────────────────────────────────────────────────
 
@@ -18,6 +19,17 @@ describe("isAboutDateType", () => {
   it("returns false for null", () => expect(isAboutDateType(null)).toBe(false));
   it("returns false for undefined", () => expect(isAboutDateType(undefined)).toBe(false));
   it("returns false for empty string", () => expect(isAboutDateType("")).toBe(false));
+});
+
+// ── isExactDateType ───────────────────────────────────────────────────────────
+
+describe("isExactDateType", () => {
+  it("returns true for 'EXACT'", () => expect(isExactDateType("EXACT")).toBe(true));
+  it("returns true for empty string", () => expect(isExactDateType("")).toBe(true));
+  it("returns true for null (defaults to EXACT)", () => expect(isExactDateType(null)).toBe(true));
+  it("returns true for undefined", () => expect(isExactDateType(undefined)).toBe(true));
+  it("returns false for 'ABOUT'", () => expect(isExactDateType("ABOUT")).toBe(false));
+  it("returns false for 'BEFORE'", () => expect(isExactDateType("BEFORE")).toBe(false));
 });
 
 // ── formatGedcomDateDisplayLabel ──────────────────────────────────────────────
@@ -38,27 +50,41 @@ describe("formatGedcomDateDisplayLabel — prefers original", () => {
     };
     expect(formatGedcomDateDisplayLabel(row)).toBe("27 MAR 1920");
   });
+
+  it("strips leading EXACT: prefix from original string", () => {
+    const row: GedcomDateDisplayInput = { original: "EXACT: 27 MAR 1920" };
+    expect(formatGedcomDateDisplayLabel(row)).toBe("27 MAR 1920");
+  });
+
+  it("strips EXACT: prefix case-insensitively", () => {
+    const row: GedcomDateDisplayInput = { original: "exact:1945" };
+    expect(formatGedcomDateDisplayLabel(row)).toBe("1945");
+  });
 });
 
 describe("formatGedcomDateDisplayLabel — structured EXACT dates", () => {
-  it("year only → EXACT: 1990", () => {
-    expect(formatGedcomDateDisplayLabel({ year: 1990 })).toBe("EXACT: 1990");
+  it("year only → bare value (no EXACT prefix)", () => {
+    expect(formatGedcomDateDisplayLabel({ year: 1990 })).toBe("1990");
   });
 
-  it("year+month → EXACT: 1990-3", () => {
-    expect(formatGedcomDateDisplayLabel({ year: 1990, month: 3 })).toBe("EXACT: 1990-3");
+  it("year+month → bare value", () => {
+    expect(formatGedcomDateDisplayLabel({ year: 1990, month: 3 })).toBe("1990-3");
   });
 
-  it("year+month+day → EXACT: 1990-3-15", () => {
-    expect(formatGedcomDateDisplayLabel({ year: 1990, month: 3, day: 15 })).toBe("EXACT: 1990-3-15");
+  it("year+month+day → bare value", () => {
+    expect(formatGedcomDateDisplayLabel({ year: 1990, month: 3, day: 15 })).toBe("1990-3-15");
   });
 
-  it("no parts at all → EXACT: (no structured date)", () => {
-    expect(formatGedcomDateDisplayLabel({})).toBe("EXACT: (no structured date)");
+  it("no parts at all → (no structured date)", () => {
+    expect(formatGedcomDateDisplayLabel({})).toBe("(no structured date)");
   });
 
-  it("explicit dateType EXACT renders as prefix", () => {
-    expect(formatGedcomDateDisplayLabel({ dateType: "EXACT", year: 1900 })).toBe("EXACT: 1900");
+  it("explicit dateType EXACT renders bare (no prefix)", () => {
+    expect(formatGedcomDateDisplayLabel({ dateType: "EXACT", year: 1900 })).toBe("1900");
+  });
+
+  it("EXACT range renders as start … end without prefix", () => {
+    expect(formatGedcomDateDisplayLabel({ dateType: "EXACT", year: 1900, endYear: 1910 })).toBe("1900 … 1910");
   });
 });
 

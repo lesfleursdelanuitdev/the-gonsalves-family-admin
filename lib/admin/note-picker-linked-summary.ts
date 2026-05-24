@@ -1,7 +1,7 @@
 import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
-import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@ligneous/gedcom-events";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel } from "@ligneous/gedcom-events";
 
 export type NotePickerLinkedBlock = { heading: string; lines: string[]; overflow?: number };
 

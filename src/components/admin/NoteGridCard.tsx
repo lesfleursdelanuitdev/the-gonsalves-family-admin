@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BookOpen, CalendarDays, Eye, FileText, Link2, Pencil, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@ligneous/gedcom-events";
 
 export type NoteLinkedKind = "individual" | "family" | "event" | "source";
 

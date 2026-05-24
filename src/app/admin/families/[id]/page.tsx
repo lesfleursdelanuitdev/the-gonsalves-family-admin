@@ -24,7 +24,7 @@ import { FamilyAdminEventContext } from "@/components/admin/AdminEventContextLin
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import { SexIcon } from "@/components/admin/SexIcon";
 import { formatEventDate } from "@/lib/gedcom/format-event-date";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 import { EmbeddedNoteCard } from "@/components/admin/EmbeddedNoteCard";
 import { routeDynamicId } from "@/lib/navigation/route-dynamic-segment";
 import { cn } from "@/lib/utils";

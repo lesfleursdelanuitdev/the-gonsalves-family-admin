@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@ligneous/gedcom-events";
 import { cn } from "@/lib/utils";
 
 type PaginatedNoteLinkListProps<T> = {

@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, deleteJson, postJson } from "@/lib/infra/api";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
+import { QUAY_OPTIONS, quayBadgeClass, quayLabel } from "@/lib/gedcom/citation-quality";
 
 export type SourceCitationsPanelProps = {
   isCreate: boolean;
@@ -24,14 +25,18 @@ export type SourceCitationsPanelProps = {
 function CitationFields({
   idPrefix,
   page,
+  quality,
   citationText,
   onPage,
+  onQuality,
   onCitationText,
 }: {
   idPrefix: string;
   page: string;
+  quality: string;
   citationText: string;
   onPage: (v: string) => void;
+  onQuality: (v: string) => void;
   onCitationText: (v: string) => void;
 }) {
   return (
@@ -41,6 +46,22 @@ function CitationFields({
           Page / film frame (optional)
         </Label>
         <Input id={`${idPrefix}-page`} value={page} onChange={(e) => onPage(e.target.value)} placeholder="e.g. p. 42" className="text-sm" />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-quality`} className="text-xs">
+          Evidence quality (optional)
+        </Label>
+        <select
+          id={`${idPrefix}-quality`}
+          value={quality}
+          onChange={(e) => onQuality(e.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="">— Not set —</option>
+          {QUAY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
       </div>
       <div className="space-y-1 sm:col-span-2">
         <Label htmlFor={`${idPrefix}-cite`} className="text-xs">
@@ -59,15 +80,28 @@ function CitationFields({
   );
 }
 
+function QualityBadge({ quality }: { quality: number | null | undefined }) {
+  const ql = quayLabel(quality);
+  if (!ql) return null;
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${quayBadgeClass(quality)}`}>
+      {ql}
+    </span>
+  );
+}
+
 export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitationsPanelProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   const [indPage, setIndPage] = useState("");
+  const [indQuality, setIndQuality] = useState("");
   const [indCite, setIndCite] = useState("");
   const [famPage, setFamPage] = useState("");
+  const [famQuality, setFamQuality] = useState("");
   const [famCite, setFamCite] = useState("");
   const [evPage, setEvPage] = useState("");
+  const [evQuality, setEvQuality] = useState("");
   const [evCite, setEvCite] = useState("");
 
   const [evType, setEvType] = useState("");
@@ -86,6 +120,8 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
   const individualSources = Array.isArray(source.individualSources) ? source.individualSources : [];
   const familySources = Array.isArray(source.familySources) ? source.familySources : [];
   const eventSources = Array.isArray(source.eventSources) ? source.eventSources : [];
+  const attributeSources = Array.isArray(source.attributeSources) ? source.attributeSources : [];
+  const residenceSources = Array.isArray(source.residenceSources) ? source.residenceSources : [];
   const sourceNotes = Array.isArray(source.sourceNotes) ? source.sourceNotes : [];
   const sourceMedia = Array.isArray(source.sourceMedia) ? source.sourceMedia : [];
 
@@ -147,10 +183,12 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
       await postJson(`/api/admin/sources/${sourceId}/individual-sources`, {
         individualId,
         page: indPage.trim() || undefined,
+        quality: indQuality !== "" ? Number(indQuality) : undefined,
         citationText: indCite.trim() || undefined,
       });
       toast.success("Linked to person.");
       setIndPage("");
+      setIndQuality("");
       setIndCite("");
       refresh();
     } catch (e) {
@@ -167,10 +205,12 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
       await postJson(`/api/admin/sources/${sourceId}/family-sources`, {
         familyId,
         page: famPage.trim() || undefined,
+        quality: famQuality !== "" ? Number(famQuality) : undefined,
         citationText: famCite.trim() || undefined,
       });
       toast.success("Linked to family.");
       setFamPage("");
+      setFamQuality("");
       setFamCite("");
       refresh();
     } catch (e) {
@@ -187,10 +227,12 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
       await postJson(`/api/admin/sources/${sourceId}/event-sources`, {
         eventId,
         page: evPage.trim() || undefined,
+        quality: evQuality !== "" ? Number(evQuality) : undefined,
         citationText: evCite.trim() || undefined,
       });
       toast.success("Linked to event.");
       setEvPage("");
+      setEvQuality("");
       setEvCite("");
       refresh();
     } catch (e) {
@@ -269,6 +311,8 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
     individualSources.length > 0 ||
     familySources.length > 0 ||
     eventSources.length > 0 ||
+    attributeSources.length > 0 ||
+    residenceSources.length > 0 ||
     sourceNotes.length > 0 ||
     sourceMedia.length > 0;
 
@@ -287,8 +331,10 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
           <CitationFields
             idPrefix="src-cite-ind"
             page={indPage}
+            quality={indQuality}
             citationText={indCite}
             onPage={setIndPage}
+            onQuality={setIndQuality}
             onCitationText={setIndCite}
           />
           <IndividualSearchPicker
@@ -307,8 +353,10 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
           <CitationFields
             idPrefix="src-cite-fam"
             page={famPage}
+            quality={famQuality}
             citationText={famCite}
             onPage={setFamPage}
+            onQuality={setFamQuality}
             onCitationText={setFamCite}
           />
           <FamilySearchPicker
@@ -327,8 +375,10 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
           <CitationFields
             idPrefix="src-cite-ev"
             page={evPage}
+            quality={evQuality}
             citationText={evCite}
             onPage={setEvPage}
+            onQuality={setEvQuality}
             onCitationText={setEvCite}
           />
           <EventPicker
@@ -387,17 +437,21 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
                   const name = stripSlashesFromName(typeof ind?.fullName === "string" ? ind.fullName : null) || "—";
                   const page = typeof row.page === "string" ? row.page.trim() : "";
                   const cite = typeof row.citationText === "string" ? row.citationText.trim() : "";
+                  const quality = typeof row.quality === "number" ? row.quality : null;
                   const linkId = String(row.id ?? "");
                   return (
                     <li key={linkId || `${id}-ind`} className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
-                        {id ? (
-                          <Link href={`/admin/individuals/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                            {name}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">{name}</span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {id ? (
+                            <Link href={`/admin/individuals/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
+                              {name}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{name}</span>
+                          )}
+                          <QualityBadge quality={quality} />
+                        </div>
                         {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
                         {cite ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{cite}</p> : null}
                       </div>
@@ -423,17 +477,21 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
                   const w = stripSlashesFromName((fam?.wife as Record<string, unknown> | undefined)?.fullName as string | undefined);
                   const label = [h, w].filter(Boolean).join(" · ") || "Family";
                   const page = typeof row.page === "string" ? row.page.trim() : "";
+                  const quality = typeof row.quality === "number" ? row.quality : null;
                   const linkId = String(row.id ?? "");
                   return (
                     <li key={linkId || `${id}-fam`} className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
-                        {id ? (
-                          <Link href={`/admin/families/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                            {label}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">{label}</span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {id ? (
+                            <Link href={`/admin/families/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
+                              {label}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{label}</span>
+                          )}
+                          <QualityBadge quality={quality} />
+                        </div>
                         {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
                       </div>
                       {linkId ? (
@@ -457,17 +515,21 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
                   const et = typeof ev?.eventType === "string" ? ev.eventType : "";
                   const eventLabel = labelGedcomEventType(et) || et || "Event";
                   const page = typeof row.page === "string" ? row.page.trim() : "";
+                  const quality = typeof row.quality === "number" ? row.quality : null;
                   const linkId = String(row.id ?? "");
                   return (
                     <li key={linkId || `${id}-ev`} className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
-                        {id ? (
-                          <Link href={`/admin/events/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                            {eventLabel}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">{eventLabel}</span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {id ? (
+                            <Link href={`/admin/events/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
+                              {eventLabel}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{eventLabel}</span>
+                          )}
+                          <QualityBadge quality={quality} />
+                        </div>
                         {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
                       </div>
                       {linkId ? (
@@ -475,6 +537,90 @@ export function SourceCitationsPanel({ isCreate, sourceId, source }: SourceCitat
                           Unlink
                         </Button>
                       ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+          {attributeSources.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Attributes</p>
+              <ul className="mt-2 space-y-2 text-sm">
+                {attributeSources.map((row: Record<string, unknown>) => {
+                  const attr = row.attribute as Record<string, unknown> | undefined;
+                  const id = typeof attr?.id === "string" ? attr.id : "";
+                  const attrType = typeof attr?.attributeType === "string" ? attr.attributeType : "";
+                  const attrValue = typeof attr?.value === "string" ? attr.value.trim() : "";
+                  const attrLabel = [attrType, attrValue].filter(Boolean).join(": ") || "Attribute";
+                  const page = typeof row.page === "string" ? row.page.trim() : "";
+                  const quality = typeof row.quality === "number" ? row.quality : null;
+                  const linkId = String(row.id ?? "");
+                  return (
+                    <li key={linkId || `${id}-attr`} className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {id ? (
+                            <Link href={`/admin/attributes/${id}`} className="font-medium text-primary underline-offset-2 hover:underline">
+                              {attrLabel}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{attrLabel}</span>
+                          )}
+                          <QualityBadge quality={quality} />
+                        </div>
+                        {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
+                      </div>
+                      {linkId ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={busy}
+                          onClick={async () => {
+                            setBusy(true);
+                            try {
+                              await deleteJson(`/api/admin/sources/${sourceId}/attribute-sources/${linkId}`);
+                              toast.success("Citation removed.");
+                              refresh();
+                            } catch (e) {
+                              toast.error(e instanceof ApiError ? e.message : "Unlink failed");
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        >
+                          Unlink
+                        </Button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+          {residenceSources.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Residences</p>
+              <ul className="mt-2 space-y-2 text-sm">
+                {residenceSources.map((row: Record<string, unknown>) => {
+                  const res = row.residence as Record<string, unknown> | undefined;
+                  const id = typeof res?.id === "string" ? res.id : "";
+                  const addr = typeof res?.address === "string" ? res.address.trim() : "";
+                  const resLabel = addr || "Residence";
+                  const page = typeof row.page === "string" ? row.page.trim() : "";
+                  const quality = typeof row.quality === "number" ? row.quality : null;
+                  const linkId = String(row.id ?? "");
+                  return (
+                    <li key={linkId || `${id}-res`} className="flex flex-col gap-2 rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{resLabel}</span>
+                          <QualityBadge quality={quality} />
+                        </div>
+                        {page ? <p className="mt-1 text-xs text-muted-foreground">Page: {page}</p> : null}
+                      </div>
                     </li>
                   );
                 })}

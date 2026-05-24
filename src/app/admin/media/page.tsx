@@ -71,7 +71,7 @@ import { useAdminMediaPageFilters } from "@/hooks/useAdminMediaPageFilters";
 import { useAdminTags } from "@/hooks/useAdminTags";
 import { useAdminAlbums } from "@/hooks/useAdminAlbums";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { GEDCOM_EVENT_TYPE_LABELS, labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { GEDCOM_EVENT_TYPE_LABELS, labelGedcomEventType } from "@ligneous/gedcom-events";
 import { titleFromUploadedFilename } from "@/lib/admin/media-upload-title";
 import { fetchJson, ApiError, deleteJson, postJson, postFormDataWithUploadProgress } from "@/lib/infra/api";
 import { MediaUploadProgressInline } from "@/components/admin/MediaUploadProgressInline";

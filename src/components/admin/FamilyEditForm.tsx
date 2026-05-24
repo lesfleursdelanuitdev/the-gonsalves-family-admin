@@ -31,7 +31,7 @@ import {
 import type { FamilyEditorAccordionKey } from "@/components/admin/family-editor/FamilyEditorResponsiveSection";
 import { FamilyEditorResponsiveSection } from "@/components/admin/family-editor/FamilyEditorResponsiveSection";
 import { FamilyEditorSidebarNav } from "@/components/admin/family-editor/FamilyEditorSidebarNav";
-import { FamilyEditorSourcesTabPanel } from "@/components/admin/family-editor/FamilyEditorSourcesTabPanel";
+import { EntityCitationPanel } from "@/components/admin/EntityCitationPanel";
 import { FamilyEditorStickySaveBar } from "@/components/admin/family-editor/FamilyEditorStickySaveBar";
 import { PersonEditorLayout } from "@/components/admin/individual-editor/PersonEditorLayout";
 import { PersonEditorMobileFormHeader } from "@/components/admin/individual-editor/PersonEditorMobileFormHeader";
@@ -303,7 +303,14 @@ export function FamilyEditForm({
     />
   );
 
-  const sourcesBody = <FamilyEditorSourcesTabPanel mode={e.mode} familySources={e.familySources} />;
+  const sourcesBody = (
+    <EntityCitationPanel
+      targetType="family"
+      targetId={e.familyId}
+      mode={e.mode}
+      onChange={() => router.refresh()}
+    />
+  );
 
   const openQuestionsBody = (
     <EntityOpenQuestionsSection

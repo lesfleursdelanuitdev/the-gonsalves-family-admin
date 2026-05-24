@@ -1,6 +1,6 @@
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "./display-name";
-import { labelGedcomEventType } from "./gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 
 /** GEDCOM tag line for headings (matches list / media picker). */
 export function eventTypeHeadline(eventType: string, customType: string | null | undefined): string {

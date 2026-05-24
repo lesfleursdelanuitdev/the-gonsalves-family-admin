@@ -29,7 +29,7 @@ import { deleteJson } from "@/lib/infra/api";
 import { useFilterState } from "@/hooks/useFilterState";
 import { ADMIN_LIST_MAX_LIMIT } from "@/constants/admin";
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType, GEDCOM_EVENT_TYPE_LABELS } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType, GEDCOM_EVENT_TYPE_LABELS } from "@ligneous/gedcom-events";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
 import {
   ADMIN_EVENTS_FILTER_DEFAULTS,

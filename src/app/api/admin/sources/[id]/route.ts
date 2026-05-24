@@ -37,6 +37,16 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
         },
       },
       eventSources: { include: { event: { select: { id: true, eventType: true } } } },
+      attributeSources: {
+        include: {
+          attribute: { select: { id: true, attributeType: true, value: true } },
+        },
+      },
+      residenceSources: {
+        include: {
+          residence: { select: { id: true, address: true } },
+        },
+      },
       sourceNotes: { include: { note: { select: { id: true, xref: true, content: true } } } },
       sourceMedia: { include: { media: { select: { id: true, title: true, fileRef: true } } } },
     },

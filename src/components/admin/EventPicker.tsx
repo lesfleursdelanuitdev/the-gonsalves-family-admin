@@ -12,7 +12,7 @@ import {
   type AdminEventsListResponse,
   type UseAdminEventsOpts,
 } from "@/hooks/useAdminEvents";
-import { GEDCOM_EVENT_TYPE_LABELS } from "@/lib/gedcom/gedcom-event-labels";
+import { GEDCOM_EVENT_TYPE_LABELS } from "@ligneous/gedcom-events";
 import { formatNoteEventPickerLabel } from "@/lib/forms/note-event-picker-label";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { IndividualNameSearchFields } from "@/components/admin/IndividualNameSearchFields";

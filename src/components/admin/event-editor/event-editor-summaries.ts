@@ -1,5 +1,5 @@
 import { formatKeyFactSummaryLine } from "@/components/admin/individual-editor/person-editor-mobile-summaries";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 import type { KeyFactFormState } from "@/lib/forms/individual-editor-form";
 import { EVENT_FORM_CUSTOM_TAG } from "@/lib/forms/event-form-initial";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";

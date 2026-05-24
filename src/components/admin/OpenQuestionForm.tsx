@@ -17,7 +17,7 @@ import { formatNoteEventPickerLabel } from "@/lib/forms/note-event-picker-label"
 import { NOTE_FULLTEXT_DEBOUNCE_MS, useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAdminSources, type AdminSourceListItem } from "@/hooks/useAdminSources";
 import type { AdminNoteListItem } from "@/hooks/useAdminNotes";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 import {
   useAdminOpenQuestion,
   useCreateOpenQuestion,

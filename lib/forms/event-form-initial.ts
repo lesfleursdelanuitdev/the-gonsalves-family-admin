@@ -1,4 +1,4 @@
-import { GEDCOM_EVENT_TYPE_LABELS } from "@/lib/gedcom/gedcom-event-labels";
+import { GEDCOM_EVENT_TYPE_LABELS } from "@ligneous/gedcom-events";
 import { eventDetailToSelectedLinks } from "@/lib/forms/event-form-links";
 import type { KeyFactFormState } from "@/lib/forms/individual-editor-form";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";

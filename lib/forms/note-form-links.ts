@@ -1,5 +1,5 @@
 import { formatDisplayNameFromNameForms, stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel } from "@ligneous/gedcom-events";
 
 export type NoteLinkKind = "individual" | "family" | "event" | "source";
 

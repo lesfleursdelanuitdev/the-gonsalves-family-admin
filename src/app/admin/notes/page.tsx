@@ -19,9 +19,9 @@ import { useAdminNotes, useDeleteNote, type AdminNotesListResponse } from "@/hoo
 import { deleteJson } from "@/lib/infra/api";
 import { useAdminNotesPageFilters } from "@/hooks/useAdminNotesPageFilters";
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
-import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@/lib/admin/note-linked-limits";
-import { markdownToPlainPreview } from "@/lib/utils/markdown-preview";
+import { formatNoteLinkedEventLabel } from "@ligneous/gedcom-events";
+import { NOTE_LINKED_LIST_VISIBLE_MAX } from "@ligneous/gedcom-events";
+import { markdownToPlainPreview } from "@ligneous/gedcom-events";
 
 interface NoteRow {
   id: string;

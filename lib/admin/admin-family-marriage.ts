@@ -7,7 +7,7 @@ import {
   parsePlaceInput,
 } from "@/lib/admin/admin-event-create";
 import type { ChangeCtx } from "@/lib/admin/changelog";
-import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
+import { formatGedcomDateDisplayLabel } from "@ligneous/gedcom-dates";
 
 type Tx = Prisma.TransactionClient;
 

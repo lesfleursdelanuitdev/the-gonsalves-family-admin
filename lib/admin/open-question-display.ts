@@ -1,5 +1,5 @@
 import { stripSlashesFromName } from "@/lib/gedcom/display-name";
-import { labelGedcomEventType } from "@/lib/gedcom/gedcom-event-labels";
+import { labelGedcomEventType } from "@ligneous/gedcom-events";
 
 /** One navigable link for the open-question detail “Linked records” card. */
 export type OpenQuestionLinkedRecordRow = { href: string; label: string };

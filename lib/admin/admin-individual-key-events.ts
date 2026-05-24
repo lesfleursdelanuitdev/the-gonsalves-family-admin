@@ -7,7 +7,7 @@ import {
 } from "@/lib/admin/admin-event-create";
 import type { ChangeCtx } from "@/lib/admin/changelog";
 import { syncIndividualNlDenormFields } from "@/lib/admin/sync-gedcom-nl-denorm";
-import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
+import { formatGedcomDateDisplayLabel } from "@ligneous/gedcom-dates";
 import { eventLabelFor } from "@/lib/gedcom/event-catalog-label";
 
 type Tx = Prisma.TransactionClient;

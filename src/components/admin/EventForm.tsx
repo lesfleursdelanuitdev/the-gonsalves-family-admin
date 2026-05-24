@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { GEDCOM_EVENT_TYPE_LABELS } from "@/lib/gedcom/gedcom-event-labels";
+import { GEDCOM_EVENT_TYPE_LABELS } from "@ligneous/gedcom-events";
 import {
   EVENT_FORM_CUSTOM_TAG,
   EVENT_TYPE_TAG_LIST,
@@ -62,6 +62,7 @@ import {
 } from "@/components/admin/event-editor/event-editor-summaries";
 import { EventEditorNotesPanel, type EventEditorNoteJoin } from "@/components/admin/event-editor/EventEditorNotesPanel";
 import { EntityOpenQuestionsSection } from "@/components/admin/EntityOpenQuestionsSection";
+import { EntityCitationPanel } from "@/components/admin/EntityCitationPanel";
 
 const FORM_ID = "admin-event-editor-form";
 
@@ -691,6 +692,14 @@ export function EventForm({
     />
   );
 
+  const sourcesBody = (
+    <EntityCitationPanel
+      targetType="event"
+      targetId={eventId ?? ""}
+      mode={mode}
+    />
+  );
+
   const profileMediaSelection = (initialEvent?.profileMediaSelection ?? null) as ProfileMediaSelectionShape;
 
   const mediaBody = (
@@ -943,9 +952,22 @@ export function EventForm({
         {notesBody}
       </EventEditorResponsiveSection>
       <EventEditorResponsiveSection
+        id="event-sources"
+        sectionKey="event-sources"
+        title="7. Sources"
+        description="Citation sources for this event."
+        icon={eventNavIcon("event-sources")}
+        summary={mode === "edit" ? "Citations for this event" : "Save first"}
+        isDesktop={desktop}
+        mobileExpanded={mobileExpanded}
+        onMobileToggle={onMobileToggle}
+      >
+        {sourcesBody}
+      </EventEditorResponsiveSection>
+      <EventEditorResponsiveSection
         id="event-media"
         sectionKey="event-media"
-        title="7. Media"
+        title="8. Media"
         description="Photos or documents for this event."
         icon={eventNavIcon("event-media")}
         summary={mediaSumm}
@@ -958,7 +980,7 @@ export function EventForm({
       <EventEditorResponsiveSection
         id="event-open-questions"
         sectionKey="event-open-questions"
-        title="8. Open questions"
+        title="9. Open questions"
         description="Track research, attribution, or verification for this event."
         icon={eventNavIcon("event-open-questions")}
         summary={openQuestionsSummary}
@@ -977,7 +999,7 @@ export function EventForm({
       <EventEditorResponsiveSection
         id="event-advanced"
         sectionKey="event-advanced"
-        title="9. Advanced details"
+        title="10. Advanced details"
         description="GEDCOM and technical fields."
         icon={eventNavIcon("event-advanced")}
         summary={advancedSumm}

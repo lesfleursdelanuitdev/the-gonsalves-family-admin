@@ -1,4 +1,4 @@
-import { formatGedcomDateDisplayLabel } from "@/lib/gedcom/format-gedcom-date-display";
+import { formatGedcomDateDisplayLabel } from "@ligneous/gedcom-dates";
 
 function numField(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;

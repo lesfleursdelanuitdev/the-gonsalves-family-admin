@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Library, MapPin, Phone } from "lucide-react";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
@@ -46,6 +48,7 @@ function mapApiToRows(api: AdminRepositoriesListResponse): RepositoryRow[] {
 function buildRepositoriesConfig(
   onDelete: (r: RepositoryRow) => void,
   bulkDeleteOne: (id: string) => Promise<void>,
+  onView: (r: RepositoryRow) => void,
 ): DataViewerConfig<RepositoryRow> {
   return {
     id: "repositories",
@@ -53,8 +56,26 @@ function buildRepositoriesConfig(
     getRowId: (row) => row.id,
     enableRowSelection: true,
     columns: [
-      { accessorKey: "xref", header: "XREF", enableSorting: true },
-      { accessorKey: "name", header: "Name", enableSorting: true },
+      {
+        accessorKey: "xref",
+        header: "XREF",
+        enableSorting: true,
+        cell: ({ row }) => (
+          <Link href={`/admin/repositories/${row.original.id}`} className="font-mono text-primary underline-offset-2 hover:underline">
+            {row.getValue<string>("xref")}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "name",
+        header: "Name",
+        enableSorting: true,
+        cell: ({ row }) => (
+          <Link href={`/admin/repositories/${row.original.id}`} className="underline-offset-2 hover:underline">
+            {row.getValue<string>("name")}
+          </Link>
+        ),
+      },
       { accessorKey: "location", header: "Location", enableSorting: true },
       { accessorKey: "contact", header: "Contact", enableSorting: true },
       {
@@ -72,7 +93,11 @@ function buildRepositoriesConfig(
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <Library className="size-5 text-muted-foreground" />
-            <CardTitle className="text-base">{record.name}</CardTitle>
+            <CardTitle className="text-base">
+              <Link href={`/admin/repositories/${record.id}`} className="hover:underline underline-offset-2">
+                {record.name}
+              </Link>
+            </CardTitle>
           </div>
           <p className="font-mono text-xs text-muted-foreground">{record.xref}</p>
         </CardHeader>
@@ -93,22 +118,28 @@ function buildRepositoriesConfig(
             <p className="text-xs">{record.sourceCount} source{record.sourceCount !== 1 ? "s" : ""}</p>
           )}
         </CardContent>
-        <CardActionFooter onDelete={() => onDelete(record)} />
+        <CardActionFooter onView={() => onView(record)} onDelete={() => onDelete(record)} />
       </Card>
     ),
     actions: {
+      view: { label: "View", handler: onView },
       delete: { label: "Delete", handler: onDelete, bulkDeleteOne },
     },
   };
 }
 
 export default function AdminRepositoriesPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const deleteRepository = useDeleteRepository();
   const { draft, applied, queryOpts, updateDraft, apply: applyFilters, clear: clearFilters } =
     useAdminListQFilters();
   const { data, isLoading } = useAdminRepositories(queryOpts);
   const rows = useMemo(() => (data ? mapApiToRows(data) : []), [data]);
+
+  const handleView = useCallback((r: RepositoryRow) => {
+    router.push(`/admin/repositories/${r.id}`);
+  }, [router]);
 
   const handleDelete = useCallback(
     async (r: RepositoryRow) => {
@@ -139,8 +170,8 @@ export default function AdminRepositoriesPage() {
   }, [queryClient]);
 
   const config = useMemo(
-    () => buildRepositoriesConfig(handleDelete, bulkDeleteOne),
-    [handleDelete, bulkDeleteOne],
+    () => buildRepositoriesConfig(handleDelete, bulkDeleteOne, handleView),
+    [handleDelete, bulkDeleteOne, handleView],
   );
 
   return (

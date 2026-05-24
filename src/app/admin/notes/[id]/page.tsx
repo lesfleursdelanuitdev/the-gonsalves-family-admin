@@ -7,7 +7,7 @@ import { Pencil, StickyNote } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminNote } from "@/hooks/useAdminNotes";
-import { formatNoteLinkedEventLabel } from "@/lib/gedcom/gedcom-event-labels";
+import { formatNoteLinkedEventLabel } from "@ligneous/gedcom-events";
 import { DetailPageShell } from "@/components/admin/DetailPageShell";
 import { PaginatedNoteLinkList } from "@/components/admin/PaginatedNoteLinkList";
 import { GedcomEventTypeIcon } from "@/components/admin/GedcomEventTypeIcon";
