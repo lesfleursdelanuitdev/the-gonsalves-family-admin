@@ -31,9 +31,12 @@ const projectRoot = path.resolve(__dirname);
 const nextConfig: NextConfig = {
   transpilePackages: [
     "@ligneous/auth",
+    "@ligneous/authz",
     "@ligneous/prisma",
+    "@ligneous/story-creator",
     "@ligneous/album-view",
     "@ligneous/album-generated-queries",
+    "@ligneous/relationship-calculator",
     "@deck.gl/core",
     "@deck.gl/layers",
     "@deck.gl/mapbox",

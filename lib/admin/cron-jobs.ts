@@ -1,11 +1,13 @@
 import { prisma } from "../database/prisma.ts";
 import { runAllChecks, buildCheckContext } from "../health/checks.ts";
 import { runBackup } from "./backup-service.ts";
+import { runBranchDetection } from "./branch-detection.ts";
+import { getAdminFileUuid } from "../infra/admin-tree.ts";
 import type { CheckResult } from "../health/types.ts";
 
 // ── Types ─────────��───────────────────────────────────────────────────────────
 
-export type CronJobId = "site-health" | "backup";
+export type CronJobId = "site-health" | "backup" | "branch-detection";
 
 export type CronJobMeta = {
   id: CronJobId;
@@ -31,6 +33,18 @@ export type BackupSummary = {
   errorMessage: string | null;
 };
 
+export type BranchDetectionSummary = {
+  type: "branch-detection";
+  totalBranches: number;
+  mainBranchSize: number;
+  mainBranchCoverage: number;
+  isolatedIndividuals: number;
+  newBranches: number;
+  mergedBranches: number;
+  updatedBranches: number;
+  errorMessage: string | null;
+};
+
 export type CronLastRun = {
   id: string;
   startedAt: string;
@@ -38,7 +52,7 @@ export type CronLastRun = {
   durationMs: number | null;
   triggeredBy: string;
   ok: boolean;
-  summary: SiteHealthSummary | BackupSummary;
+  summary: SiteHealthSummary | BackupSummary | BranchDetectionSummary;
 };
 
 export type CronJobStatus = CronJobMeta & { lastRun: CronLastRun | null };
@@ -66,6 +80,13 @@ export const CRON_JOBS: CronJobMeta[] = [
     description: "Creates a full archive ZIP: pg_dump, GEDCOM export, JSON export, extras, and all media files.",
     schedule: "0 2 1 * *",
     humanSchedule: "1st of every month at 2:00 AM",
+  },
+  {
+    id: "branch-detection",
+    label: "Branch detection",
+    description: "Scans the pedigree graph to discover connected family branches and persists assignments to the database.",
+    schedule: "0 3 * * 0",
+    humanSchedule: "Every Sunday at 3:00 AM",
   },
 ];
 
@@ -143,14 +164,48 @@ async function getBackupLastRun(): Promise<CronLastRun | null> {
   };
 }
 
+async function getBranchDetectionLastRun(): Promise<CronLastRun | null> {
+  const row = await prisma.gedcomBranchRun.findFirst({
+    orderBy: { startedAt: "desc" },
+  });
+  if (!row) return null;
+
+  const durationMs =
+    row.completedAt && row.startedAt
+      ? row.completedAt.getTime() - row.startedAt.getTime()
+      : null;
+
+  return {
+    id: row.id,
+    startedAt: row.startedAt.toISOString(),
+    completedAt: row.completedAt?.toISOString() ?? null,
+    durationMs,
+    triggeredBy: row.triggeredBy,
+    ok: row.completedAt != null && row.errorMessage == null,
+    summary: {
+      type: "branch-detection",
+      totalBranches: row.totalBranches ?? 0,
+      mainBranchSize: row.mainBranchSize ?? 0,
+      mainBranchCoverage: 0,
+      isolatedIndividuals: row.isolatedIndividuals ?? 0,
+      newBranches: row.newBranches ?? 0,
+      mergedBranches: row.mergedBranches ?? 0,
+      updatedBranches: row.updatedBranches ?? 0,
+      errorMessage: row.errorMessage ?? null,
+    },
+  };
+}
+
 export async function getAllCronJobStatuses(): Promise<CronJobStatus[]> {
-  const [healthRun, backupRun] = await Promise.all([
+  const [healthRun, backupRun, branchRun] = await Promise.all([
     getSiteHealthLastRun(),
     getBackupLastRun(),
+    getBranchDetectionLastRun(),
   ]);
   const runMap: Record<CronJobId, CronLastRun | null> = {
     "site-health": healthRun,
     backup: backupRun,
+    "branch-detection": branchRun,
   };
   return CRON_JOBS.map((job) => ({ ...job, lastRun: runMap[job.id] }));
 }
@@ -186,12 +241,21 @@ async function triggerBackup(): Promise<CronLastRun> {
   return lastRun!;
 }
 
+async function triggerBranchDetection(): Promise<CronLastRun> {
+  const fileUuid = await getAdminFileUuid();
+  await runBranchDetection(fileUuid, "manual");
+  const lastRun = await getBranchDetectionLastRun();
+  return lastRun!;
+}
+
 export async function triggerCronJob(id: CronJobId): Promise<CronLastRun> {
   switch (id) {
     case "site-health":
       return triggerSiteHealth();
     case "backup":
       return triggerBackup();
+    case "branch-detection":
+      return triggerBranchDetection();
     default:
       throw new Error(`Unknown cron job: ${String(id)}`);
   }

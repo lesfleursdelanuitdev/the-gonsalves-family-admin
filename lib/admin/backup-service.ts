@@ -82,7 +82,7 @@ async function isReadable(p: string): Promise<boolean> {
 }
 
 /** Delete backups beyond the retention window (keeps the N most recent COMPLETE ones). */
-async function applyRetentionPolicy(keepBackupId: string): Promise<void> {
+export async function applyRetentionPolicy(keepBackupId: string): Promise<void> {
   const old = await prisma.backup.findMany({
     where: {
       status: "COMPLETE",

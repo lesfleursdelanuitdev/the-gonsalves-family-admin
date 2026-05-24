@@ -54,8 +54,10 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   family_surname: "gedcomFamilySurname",
   individual_occupation: "gedcomIndividualOccupation",
   individual_nationality: "gedcomIndividualNationality",
+  individual_association: "gedcomIndividualAssociation",
   given_name: "gedcomGivenName",
   surname: "gedcomSurname",
+  resolved_place_link: "resolvedPlaceLink",
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/database/prisma";
 import type { Prisma } from "@ligneous/prisma";
 import { recomputeIndividualFamilyFlags, syncFamilySpouseXrefs } from "./admin-individual-families";
 import type { ChangeCtx } from "./changelog";
-import { newBatchId } from "./changelog";
+import { logDelete, logUpdate, newBatchId, setBatchSummary } from "./changelog";
 
 type Tx = Prisma.TransactionClient;
 
@@ -40,10 +40,10 @@ async function mergeInTx(
 
   if (primaryId === secondaryId) throw new Error("Primary and secondary must be different individuals");
 
-  // Validate both exist in this tree
+  // Validate both exist in this tree; fetch names for the batch summary.
   const [primary, secondary] = await Promise.all([
-    tx.gedcomIndividual.findFirst({ where: { id: primaryId, fileUuid }, select: { id: true, xref: true } }),
-    tx.gedcomIndividual.findFirst({ where: { id: secondaryId, fileUuid }, select: { id: true, xref: true } }),
+    tx.gedcomIndividual.findFirst({ where: { id: primaryId, fileUuid }, select: { id: true, xref: true, fullName: true } }),
+    tx.gedcomIndividual.findFirst({ where: { id: secondaryId, fileUuid }, select: { id: true, xref: true, fullName: true } }),
   ]);
   if (!primary) throw new Error(`Primary individual ${primaryId} not found in this tree`);
   if (!secondary) throw new Error(`Secondary individual ${secondaryId} not found in this tree`);
@@ -69,12 +69,10 @@ async function mergeInTx(
 
   for (const link of secondaryEventLinks) {
     const k = eventKey(link.event.eventType, link.event.dateId, link.event.placeId);
-    if (primaryEventKeys.has(k)) continue;
-    // Retarget the junction row to primary
-    await tx.gedcomIndividualEvent.update({
-      where: { id: link.id },
-      data: { individualId: primaryId },
-    });
+    if (primaryEventKeys.has(k)) continue; // duplicate — will be swept before secondary deletion
+    await logUpdate(ctx, "individual_event", link.id, null,
+      { individualId: secondaryId }, { individualId: primaryId });
+    await tx.gedcomIndividualEvent.update({ where: { id: link.id }, data: { individualId: primaryId } });
     primaryEventKeys.add(k);
     eventsTransferred++;
   }
@@ -87,13 +85,15 @@ async function mergeInTx(
 
   const secondaryNoteLinks = await tx.gedcomIndividualNote.findMany({
     where: { fileUuid, individualId: secondaryId },
-    select: { id: true, noteId: true },
   });
   for (const link of secondaryNoteLinks) {
     if (primaryNoteIds.has(link.noteId)) {
+      await logDelete(ctx, "individual_note", link.id, null, link as Record<string, unknown>);
       await tx.gedcomIndividualNote.delete({ where: { id: link.id } });
       continue;
     }
+    await logUpdate(ctx, "individual_note", link.id, null,
+      { individualId: secondaryId }, { individualId: primaryId });
     await tx.gedcomIndividualNote.update({ where: { id: link.id }, data: { individualId: primaryId } });
     primaryNoteIds.add(link.noteId);
     notesTransferred++;
@@ -107,13 +107,15 @@ async function mergeInTx(
 
   const secondarySourceLinks = await tx.gedcomIndividualSource.findMany({
     where: { fileUuid, individualId: secondaryId },
-    select: { id: true, sourceId: true },
   });
   for (const link of secondarySourceLinks) {
     if (primarySourceIds.has(link.sourceId)) {
+      await logDelete(ctx, "individual_source", link.id, null, link as Record<string, unknown>);
       await tx.gedcomIndividualSource.delete({ where: { id: link.id } });
       continue;
     }
+    await logUpdate(ctx, "individual_source", link.id, null,
+      { individualId: secondaryId }, { individualId: primaryId });
     await tx.gedcomIndividualSource.update({ where: { id: link.id }, data: { individualId: primaryId } });
     primarySourceIds.add(link.sourceId);
     sourcesTransferred++;
@@ -127,13 +129,15 @@ async function mergeInTx(
 
   const secondaryMediaLinks = await tx.gedcomIndividualMedia.findMany({
     where: { fileUuid, individualId: secondaryId },
-    select: { id: true, mediaId: true },
   });
   for (const link of secondaryMediaLinks) {
     if (primaryMediaIds.has(link.mediaId)) {
+      await logDelete(ctx, "individual_media", link.id, null, link as Record<string, unknown>);
       await tx.gedcomIndividualMedia.delete({ where: { id: link.id } });
       continue;
     }
+    await logUpdate(ctx, "individual_media", link.id, null,
+      { individualId: secondaryId }, { individualId: primaryId });
     await tx.gedcomIndividualMedia.update({ where: { id: link.id }, data: { individualId: primaryId } });
     primaryMediaIds.add(link.mediaId);
   }
@@ -148,12 +152,14 @@ async function mergeInTx(
   });
   for (const nf of secondaryNameForms) {
     if (nf.nameType && primaryNameTypes.has(nf.nameType) && nf.nameType !== "birth") {
-      // Drop duplicate alias type — delete cascades junction rows
+      await logDelete(ctx, "individual_name_form", nf.id, null, nf as Record<string, unknown>);
       await tx.gedcomIndividualNameForm.delete({ where: { id: nf.id } });
       continue;
     }
-    // Move to primary as alias (never replace primary birth name)
     const newType = nf.nameType === "birth" ? "aka" : (nf.nameType ?? "aka");
+    await logUpdate(ctx, "individual_name_form", nf.id, null,
+      { individualId: secondaryId, nameType: nf.nameType, isPrimary: nf.isPrimary },
+      { individualId: primaryId, nameType: newType, isPrimary: false });
     await tx.gedcomIndividualNameForm.update({
       where: { id: nf.id },
       data: { individualId: primaryId, nameType: newType, isPrimary: false },
@@ -163,9 +169,11 @@ async function mergeInTx(
   // ── 6. Update family spouse slots ──────────────────────────────────────────
   const famAsHusband = await tx.gedcomFamily.findMany({
     where: { fileUuid, husbandId: secondaryId },
-    select: { id: true },
+    select: { id: true, xref: true },
   });
   for (const fam of famAsHusband) {
+    await logUpdate(ctx, "family", fam.id, fam.xref,
+      { husbandId: secondaryId }, { husbandId: primaryId });
     await tx.gedcomFamily.update({ where: { id: fam.id }, data: { husbandId: primaryId } });
     await syncFamilySpouseXrefs(tx, fam.id);
     familiesUpdated++;
@@ -173,9 +181,11 @@ async function mergeInTx(
 
   const famAsWife = await tx.gedcomFamily.findMany({
     where: { fileUuid, wifeId: secondaryId },
-    select: { id: true },
+    select: { id: true, xref: true },
   });
   for (const fam of famAsWife) {
+    await logUpdate(ctx, "family", fam.id, fam.xref,
+      { wifeId: secondaryId }, { wifeId: primaryId });
     await tx.gedcomFamily.update({ where: { id: fam.id }, data: { wifeId: primaryId } });
     await syncFamilySpouseXrefs(tx, fam.id);
     familiesUpdated++;
@@ -184,86 +194,137 @@ async function mergeInTx(
   // ── 7. Update FamilyChild (child slot) ────────────────────────────────────
   const famAsChild = await tx.gedcomFamilyChild.findMany({
     where: { fileUuid, childId: secondaryId },
-    select: { id: true, familyId: true },
   });
   for (const fc of famAsChild) {
     const alreadyChild = await tx.gedcomFamilyChild.findFirst({
       where: { fileUuid, familyId: fc.familyId, childId: primaryId },
     });
     if (alreadyChild) {
+      await logDelete(ctx, "family_child", fc.id, null, fc as Record<string, unknown>);
       await tx.gedcomFamilyChild.delete({ where: { id: fc.id } });
     } else {
+      await logUpdate(ctx, "family_child", fc.id, null,
+        { childId: secondaryId }, { childId: primaryId });
       await tx.gedcomFamilyChild.update({ where: { id: fc.id }, data: { childId: primaryId } });
     }
   }
 
   // ── 8. Update ParentChild ─────────────────────────────────────────────────
-  await tx.gedcomParentChild.updateMany({
+  const pcAsParent = await tx.gedcomParentChild.findMany({
     where: { fileUuid, parentId: secondaryId },
-    data: { parentId: primaryId },
+    select: { id: true },
   });
-  // For child rows, skip duplicates (upsert would be ideal but updateMany is safe here
-  // because the unique constraint catches conflicts — delete secondary first)
+  for (const pc of pcAsParent) {
+    await logUpdate(ctx, "parent_child", pc.id, null,
+      { parentId: secondaryId }, { parentId: primaryId });
+    await tx.gedcomParentChild.update({ where: { id: pc.id }, data: { parentId: primaryId } });
+  }
+
   const pcAsChild = await tx.gedcomParentChild.findMany({
     where: { fileUuid, childId: secondaryId },
-    select: { id: true, parentId: true },
   });
   for (const pc of pcAsChild) {
     const exists = await tx.gedcomParentChild.findFirst({
       where: { fileUuid, parentId: pc.parentId, childId: primaryId },
     });
     if (exists) {
+      await logDelete(ctx, "parent_child", pc.id, null, pc as Record<string, unknown>);
       await tx.gedcomParentChild.delete({ where: { id: pc.id } });
     } else {
+      await logUpdate(ctx, "parent_child", pc.id, null,
+        { childId: secondaryId }, { childId: primaryId });
       await tx.gedcomParentChild.update({ where: { id: pc.id }, data: { childId: primaryId } });
     }
   }
 
   // ── 9. Update Spouse rows ─────────────────────────────────────────────────
-  await tx.gedcomSpouse.updateMany({ where: { fileUuid, individualId: secondaryId }, data: { individualId: primaryId } });
-  await tx.gedcomSpouse.updateMany({ where: { fileUuid, spouseId: secondaryId }, data: { spouseId: primaryId } });
+  const spouseAsIndividual = await tx.gedcomSpouse.findMany({
+    where: { fileUuid, individualId: secondaryId },
+    select: { id: true },
+  });
+  for (const s of spouseAsIndividual) {
+    await logUpdate(ctx, "spouse", s.id, null,
+      { individualId: secondaryId }, { individualId: primaryId });
+    await tx.gedcomSpouse.update({ where: { id: s.id }, data: { individualId: primaryId } });
+  }
+
+  const spouseAsSpouse = await tx.gedcomSpouse.findMany({
+    where: { fileUuid, spouseId: secondaryId },
+    select: { id: true },
+  });
+  for (const s of spouseAsSpouse) {
+    await logUpdate(ctx, "spouse", s.id, null,
+      { spouseId: secondaryId }, { spouseId: primaryId });
+    await tx.gedcomSpouse.update({ where: { id: s.id }, data: { spouseId: primaryId } });
+  }
 
   // ── 10. Update Associations ───────────────────────────────────────────────
   const assoAsSubject = await tx.gedcomIndividualAssociation.findMany({
     where: { fileUuid, subjectIndividualId: secondaryId },
-    select: { id: true, associateIndividualId: true },
   });
   for (const a of assoAsSubject) {
     const exists = await tx.gedcomIndividualAssociation.findFirst({
       where: { fileUuid, subjectIndividualId: primaryId, associateIndividualId: a.associateIndividualId },
     });
     if (exists) {
+      await logDelete(ctx, "individual_association", a.id, null, a as Record<string, unknown>);
       await tx.gedcomIndividualAssociation.delete({ where: { id: a.id } });
     } else {
+      await logUpdate(ctx, "individual_association", a.id, null,
+        { subjectIndividualId: secondaryId }, { subjectIndividualId: primaryId });
       await tx.gedcomIndividualAssociation.update({ where: { id: a.id }, data: { subjectIndividualId: primaryId } });
     }
   }
+
   const assoAsAssociate = await tx.gedcomIndividualAssociation.findMany({
     where: { fileUuid, associateIndividualId: secondaryId },
-    select: { id: true, subjectIndividualId: true },
   });
   for (const a of assoAsAssociate) {
     const exists = await tx.gedcomIndividualAssociation.findFirst({
       where: { fileUuid, subjectIndividualId: a.subjectIndividualId, associateIndividualId: primaryId },
     });
     if (exists) {
+      await logDelete(ctx, "individual_association", a.id, null, a as Record<string, unknown>);
       await tx.gedcomIndividualAssociation.delete({ where: { id: a.id } });
     } else {
+      await logUpdate(ctx, "individual_association", a.id, null,
+        { associateIndividualId: secondaryId }, { associateIndividualId: primaryId });
       await tx.gedcomIndividualAssociation.update({ where: { id: a.id }, data: { associateIndividualId: primaryId } });
     }
   }
 
   // ── 11. Update gedcom_file_objects xref pointer ───────────────────────────
-  await tx.gedcomFileObject.updateMany({
+  const fileObjects = await tx.gedcomFileObject.findMany({
     where: { fileUuid, objectUuid: secondaryId, objectType: "INDI" },
-    data: { objectUuid: primaryId },
+    select: { id: true },
   });
+  for (const fo of fileObjects) {
+    await logUpdate(ctx, "file_object", fo.id, null,
+      { objectUuid: secondaryId }, { objectUuid: primaryId });
+    await tx.gedcomFileObject.update({ where: { id: fo.id }, data: { objectUuid: primaryId } });
+  }
 
-  // ── 12. Delete the secondary individual ───────────────────────────────────
+  // ── 12. Sweep cascade victims: event junctions that were skipped as ────────
+  //        duplicates still point to secondary and will be lost on deletion.
+  const remainingEventLinks = await tx.gedcomIndividualEvent.findMany({
+    where: { fileUuid, individualId: secondaryId },
+    select: { id: true, fileUuid: true, individualId: true, eventId: true },
+  });
+  for (const link of remainingEventLinks) {
+    await logDelete(ctx, "individual_event", link.id, null, link as Record<string, unknown>);
+  }
+
+  // ── 13. Snapshot + delete the secondary individual (must be last) ──────────
+  const secondarySnapshot = await tx.gedcomIndividual.findUniqueOrThrow({ where: { id: secondaryId } });
+  await logDelete(ctx, "individual", secondaryId, secondary.xref, secondarySnapshot as Record<string, unknown>);
   await tx.gedcomIndividual.delete({ where: { id: secondaryId } });
 
-  // ── 13. Recompute family flags for primary ────────────────────────────────
+  // ── 14. Recompute family flags for primary ────────────────────────────────
   await recomputeIndividualFamilyFlags(ctx, primaryId);
+
+  const primaryName = primary.fullName?.replace(/\//g, "").trim() ?? primary.xref ?? primaryId;
+  const secondaryName = secondary.fullName?.replace(/\//g, "").trim() ?? secondary.xref ?? secondaryId;
+  await setBatchSummary(ctx, `Merge ${secondaryName} into ${primaryName}`);
 
   return { primaryId, secondaryId, eventsTransferred, notesTransferred, sourcesTransferred, familiesUpdated };
 }

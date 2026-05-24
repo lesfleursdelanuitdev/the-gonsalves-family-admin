@@ -75,6 +75,10 @@ export async function resolveAdminGedcomFileUuid(): Promise<AdminGedcomFileResol
 
 let cachedFileUuid: string | null = null;
 
+export function _resetAdminFileUuidCache(): void {
+  cachedFileUuid = null;
+}
+
 export async function getAdminFileUuid(): Promise<string> {
   if (cachedFileUuid) return cachedFileUuid;
 

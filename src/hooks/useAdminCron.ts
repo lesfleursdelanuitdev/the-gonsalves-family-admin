@@ -7,12 +7,13 @@ import type {
   CronLastRun,
   SiteHealthSummary,
   BackupSummary,
+  BranchDetectionSummary,
 } from "@/lib/admin/cron-jobs";
 
 const BASE = "/api/admin/cron";
 const KEY = ["admin", "cron"] as const;
 
-export type { CronJobStatus, CronLastRun, SiteHealthSummary, BackupSummary };
+export type { CronJobStatus, CronLastRun, SiteHealthSummary, BackupSummary, BranchDetectionSummary };
 
 export function useAdminCron() {
   return useQuery({

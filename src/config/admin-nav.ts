@@ -23,6 +23,7 @@ import {
   FolderOpen,
   Download,
   FileCheck,
+  GitBranch,
   GitMerge,
   ScrollText,
   CircleHelp,
@@ -61,6 +62,7 @@ export const adminNavSections: AdminNavSection[] = [
     label: "Tree",
     items: [
       { href: "/admin/individuals", label: "Individuals", icon: Users },
+      { href: "/admin/branches", label: "Branches", icon: GitBranch },
       { href: "/admin/families", label: "Families", icon: Heart },
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/attributes", label: "Attributes", icon: ClipboardList },

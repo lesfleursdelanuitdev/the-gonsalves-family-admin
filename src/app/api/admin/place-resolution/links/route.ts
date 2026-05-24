@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { requireCan } from "@/lib/authz/routeGuards";
-import { syncSuggestionStatus } from "@/lib/admin/place-resolution-sync";
+import { createPlaceLink } from "@/lib/admin/place-resolution-links";
 
 type CreateLinkBody = {
   gedcomPlaceId: string;
@@ -26,36 +25,21 @@ export const POST = withAdminAuth(async (req, user) => {
     );
   }
 
-  const [gedcomPlace, resolvedPlace] = await Promise.all([
-    prisma.gedcomPlace.findFirst({ where: { id: body.gedcomPlaceId, fileUuid } }),
-    prisma.resolvedPlace.findFirst({ where: { id: body.resolvedPlaceId, fileUuid } }),
-  ]);
-  if (!gedcomPlace) return NextResponse.json({ error: "GedcomPlace not found" }, { status: 404 });
-  if (!resolvedPlace) return NextResponse.json({ error: "ResolvedPlace not found" }, { status: 404 });
-
-  const existing = await prisma.resolvedPlaceLink.findUnique({
-    where: { gedcomPlaceId: body.gedcomPlaceId },
-  });
-  if (existing) {
-    return NextResponse.json(
-      { error: "GedcomPlace is already linked to a ResolvedPlace" },
-      { status: 409 },
-    );
-  }
-
-  const link = await prisma.resolvedPlaceLink.create({
-    data: {
+  try {
+    const link = await createPlaceLink({
+      fileUuid,
+      userId: user.id,
       gedcomPlaceId: body.gedcomPlaceId,
       resolvedPlaceId: body.resolvedPlaceId,
       matchMethod: body.matchMethod,
-      confidence: body.confidence ?? 100,
-      notes: body.notes ?? null,
-      reviewedByUserId: user.id,
-      reviewedAt: new Date(),
-    },
-  });
-
-  await syncSuggestionStatus(body.gedcomPlaceId);
-
-  return NextResponse.json({ link }, { status: 201 });
+      confidence: body.confidence,
+      notes: body.notes,
+    });
+    return NextResponse.json({ link }, { status: 201 });
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    const msg = err instanceof Error ? err.message : String(err);
+    if (status === 404 || status === 409) return NextResponse.json({ error: msg }, { status });
+    throw err;
+  }
 });
