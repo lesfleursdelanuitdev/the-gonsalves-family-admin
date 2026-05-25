@@ -10,7 +10,6 @@ import {
   Cog,
   Image,
   Lightbulb,
-  Link2,
   StickyNote,
   TriangleAlert,
   User,
@@ -40,7 +39,6 @@ import { PersonEditorSidebarNav } from "@/components/admin/individual-editor/Per
 import { PersonEditorStickySaveBar } from "@/components/admin/individual-editor/PersonEditorStickySaveBar";
 import { Button } from "@/components/ui/button";
 import {
-  personEditorAssociatesSummary,
   personEditorBasicSummary,
   personEditorLifeEventsSummary,
   personEditorMediaSummary,
@@ -50,7 +48,6 @@ import {
   personEditorRelationshipsSummary,
   personEditorSourcesSummary,
 } from "@/components/admin/individual-editor/person-editor-mobile-summaries";
-import { IndividualEditorAssociatesSection } from "@/components/admin/individual-editor/IndividualEditorAssociatesSection";
 import { IndividualEditorRelationshipsSection } from "@/components/admin/individual-editor/IndividualEditorRelationshipsSection";
 import { useMediaQueryMinLg } from "@/hooks/useMediaQueryMinLg";
 import { useIndividualEditorFormState } from "@/hooks/useIndividualEditorFormState";
@@ -221,11 +218,6 @@ export function IndividualEditForm(props: Props) {
     );
   }, [editor.seed.familiesAsChild.length, editor.seed.familiesAsSpouse, individualId]);
 
-  const assocSummary = useMemo(
-    () => personEditorAssociatesSummary(editor.seed.associates.filter((a) => a.associateIndividualId.trim()).length),
-    [editor.seed.associates],
-  );
-
   const advancedSummary = "GEDCOM and technical fields";
   const openQuestionsSummary = "Add new or link existing";
 
@@ -375,26 +367,6 @@ export function IndividualEditForm(props: Props) {
     </div>
   );
 
-  const associatesBody = (
-    <div className="space-y-6">
-      <IndividualEditorAssociatesSection
-        mode={mode}
-        associates={editor.seed.associates}
-        subjectIndividualId={individualId}
-        onAddRow={editor.addAssociateRow}
-        onRemoveRow={editor.removeAssociateRow}
-        onChangeRela={editor.setAssociateRela}
-        onPickAssociate={editor.pickAssociateForRow}
-      />
-      {mode === "edit" && individualId ? (
-        <div className="rounded-lg border border-border p-4">
-          <h4 className="text-sm font-semibold mb-2">Rich relationships</h4>
-          <IndividualEditorRelationshipsSection individualId={individualId} individualLabel={openQuestionEntityLabel} />
-        </div>
-      ) : null}
-    </div>
-  );
-
   const notesBody = (
     <IndividualEditorNotesTabPanel
       hidden={false}
@@ -500,19 +472,6 @@ export function IndividualEditForm(props: Props) {
         onMobileToggle={onMobileToggle}
       >
         {relationshipsBody}
-      </PersonEditorResponsiveSection>
-      <PersonEditorResponsiveSection
-        id="person-associates"
-        sectionKey="person-associates"
-        title="Associates"
-        description="Non-lineage GEDCOM links: godparents, neighbors, witnesses, and similar roles."
-        icon={Link2}
-        summary={assocSummary}
-        isDesktop={desktop}
-        mobileExpanded={mobileExpanded}
-        onMobileToggle={onMobileToggle}
-      >
-        {associatesBody}
       </PersonEditorResponsiveSection>
       <PersonEditorResponsiveSection
         id="person-notes"

@@ -31,6 +31,7 @@ async function runPgDump(): Promise<Buffer> {
 
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
+    const stderrLines: string[] = [];
     const proc = spawn("pg_dump", [
       "--no-password",
       "--format=custom",
@@ -40,17 +41,21 @@ async function runPgDump(): Promise<Buffer> {
     proc.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
     proc.stderr.on("data", (data: Buffer) => {
       const msg = data.toString();
-      if (msg.trim()) console.warn("[backup] pg_dump:", msg.trimEnd());
+      if (msg.trim()) {
+        console.warn("[backup] pg_dump:", msg.trimEnd());
+        stderrLines.push(msg.trimEnd());
+      }
     });
     proc.on("close", (code) => {
       if (code === 0) {
         resolve(Buffer.concat(chunks));
       } else {
-        reject(new Error(`pg_dump exited with code ${code}`));
+        const detail = stderrLines.join(" ").slice(0, 500);
+        reject(new Error(`pg_dump exited with code ${code}${detail ? `: ${detail}` : ""}`));
       }
     });
     proc.on("error", (err) => {
-      reject(new Error(`pg_dump failed to start: ${err.message}. Ensure pg_dump is installed.`));
+      reject(new Error(`pg_dump failed to start: ${err.message}. Ensure pg_dump is installed and on PATH.`));
     });
   });
 }

@@ -17,7 +17,6 @@ import {
   upsertIndividualKeyFact,
 } from "@/lib/admin/admin-individual-key-events";
 import { computeIsLiving, deathKnownFromIndividualSnapshot, type LivingMode } from "@/lib/admin/admin-individual-living";
-import { normalizeRawAssociationsForSubject } from "@/lib/admin/individual-relationships";
 import type { SurnamePayloadRow } from "@/lib/forms/individual-editor-form";
 import {
   composeFullNameFromParts,
@@ -122,12 +121,6 @@ export type AddChildToSpouseFamilyPayload =
   | AddExistingChildToSpouseFamilyPayload
   | AddNewChildToSpouseFamilyPayload;
 
-/** GEDCOM ASSO MVP: subject is the edited individual; associate is another person in the same file. */
-export type IndividualAssociationSyncRow = {
-  associateIndividualId: string;
-  rela: string;
-};
-
 export type IndividualEditorPayload = {
   sex?: string | null;
   nameForms?: NameFormSyncInput[];
@@ -163,56 +156,7 @@ export type IndividualEditorPayload = {
    * Processed after spouse-family sync so only applies to families that already exist in this request.
    */
   addChildrenToSpouseFamilies?: AddChildToSpouseFamilyPayload[];
-  /** Full replace of record-level INDI→INDI associations when present (including empty array). */
-  associates?: IndividualAssociationSyncRow[];
 };
-
-async function syncIndividualAssociations(
-  tx: Tx,
-  fileUuid: string,
-  subjectIndividualId: string,
-  rows: IndividualAssociationSyncRow[] | undefined,
-) {
-  if (rows === undefined) return;
-
-  const cleaned: IndividualAssociationSyncRow[] = [];
-  const seenPair = new Set<string>();
-  for (const r of rows) {
-    const aid = r.associateIndividualId.trim();
-    const rela = r.rela.trim();
-    if (!aid || !rela) continue;
-    if (aid === subjectIndividualId) {
-      throw new Error("An associate cannot be the same person as the subject");
-    }
-    const k = `${aid}\t${rela}`;
-    if (seenPair.has(k)) continue;
-    seenPair.add(k);
-    cleaned.push({ associateIndividualId: aid, rela });
-  }
-
-  const uniqueIds = [...new Set(cleaned.map((c) => c.associateIndividualId))];
-  if (uniqueIds.length > 0) {
-    const n = await tx.gedcomIndividual.count({
-      where: { fileUuid, id: { in: uniqueIds } },
-    });
-    if (n !== uniqueIds.length) {
-      throw new Error("One or more associates are not in this tree");
-    }
-  }
-
-  await tx.gedcomIndividualAssociation.deleteMany({ where: { subjectIndividualId } });
-  for (let i = 0; i < cleaned.length; i++) {
-    await tx.gedcomIndividualAssociation.create({
-      data: {
-        fileUuid,
-        subjectIndividualId,
-        associateIndividualId: cleaned[i].associateIndividualId,
-        rela: cleaned[i].rela,
-        sortOrder: i,
-      },
-    });
-  }
-}
 
 async function loadCurrentSpouseFamilyIds(
   tx: Tx,
@@ -1005,10 +949,6 @@ export async function applyIndividualEditorPayload(
     await recomputeIndividualFamilyFlags(ctx, individualId);
   }
 
-  if (Object.prototype.hasOwnProperty.call(payload, "associates")) {
-    await syncIndividualAssociations(tx, fileUuid, individualId, payload.associates);
-    await normalizeRawAssociationsForSubject(tx, { fileUuid, subjectIndividualId: individualId });
-  }
 }
 
 /**
@@ -1049,50 +989,6 @@ export async function registerXrefInFileObjects(
   await tx.gedcomFileObject.create({
     data: { fileUuid, xref, objectType, objectUuid },
   });
-}
-
-/**
- * Create a minimal new person and add them as ASSO on `subjectIndividualId`,
- * merging with existing ASSO rows in one `syncIndividualAssociations` pass (same semantics as PATCH `associates`).
- */
-export async function createAssociateIndividualAndMergeSyncAssociations(
-  ctx: ChangeCtx,
-  subjectIndividualId: string,
-  miniPayload: IndividualEditorPayload,
-  rela: string,
-): Promise<string> {
-  const { tx, fileUuid } = ctx;
-  const subj = subjectIndividualId.trim();
-  if (!subj) throw new Error("subjectIndividualId is required");
-
-  const p: IndividualEditorPayload = { ...miniPayload };
-  delete (p as { familiesAsSpouse?: unknown }).familiesAsSpouse;
-  delete (p as { familiesAsChild?: unknown }).familiesAsChild;
-  delete (p as { newSpouseFamilies?: unknown }).newSpouseFamilies;
-  delete (p as { newChildFamiliesFromNewParents?: unknown }).newChildFamiliesFromNewParents;
-  delete (p as { newChildFamiliesLinkExistingParents?: unknown }).newChildFamiliesLinkExistingParents;
-  delete (p as { addChildrenToSpouseFamilies?: unknown }).addChildrenToSpouseFamilies;
-  delete (p as { associates?: unknown }).associates;
-
-  const newIndividualId = await createIndividualFromEditorPayload(ctx, p);
-
-  const existing = await tx.gedcomIndividualAssociation.findMany({
-    where: { fileUuid, subjectIndividualId: subj },
-    orderBy: { sortOrder: "asc" },
-  });
-
-  const merged: IndividualAssociationSyncRow[] = existing.map((row) => ({
-    associateIndividualId: row.associateIndividualId.trim(),
-    rela: row.rela.trim() || "ASSO",
-  }));
-  merged.push({
-    associateIndividualId: newIndividualId.trim(),
-    rela: rela.trim() || "ASSO",
-  });
-
-  await syncIndividualAssociations(tx, fileUuid, subj, merged);
-  await normalizeRawAssociationsForSubject(tx, { fileUuid, subjectIndividualId: subj });
-  return newIndividualId;
 }
 
 /**

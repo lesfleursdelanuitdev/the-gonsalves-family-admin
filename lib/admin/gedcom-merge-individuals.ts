@@ -258,41 +258,6 @@ async function mergeInTx(
     await tx.gedcomSpouse.update({ where: { id: s.id }, data: { spouseId: primaryId } });
   }
 
-  // ── 10. Update Associations ───────────────────────────────────────────────
-  const assoAsSubject = await tx.gedcomIndividualAssociation.findMany({
-    where: { fileUuid, subjectIndividualId: secondaryId },
-  });
-  for (const a of assoAsSubject) {
-    const exists = await tx.gedcomIndividualAssociation.findFirst({
-      where: { fileUuid, subjectIndividualId: primaryId, associateIndividualId: a.associateIndividualId },
-    });
-    if (exists) {
-      await logDelete(ctx, "individual_association", a.id, null, a as Record<string, unknown>);
-      await tx.gedcomIndividualAssociation.delete({ where: { id: a.id } });
-    } else {
-      await logUpdate(ctx, "individual_association", a.id, null,
-        { subjectIndividualId: secondaryId }, { subjectIndividualId: primaryId });
-      await tx.gedcomIndividualAssociation.update({ where: { id: a.id }, data: { subjectIndividualId: primaryId } });
-    }
-  }
-
-  const assoAsAssociate = await tx.gedcomIndividualAssociation.findMany({
-    where: { fileUuid, associateIndividualId: secondaryId },
-  });
-  for (const a of assoAsAssociate) {
-    const exists = await tx.gedcomIndividualAssociation.findFirst({
-      where: { fileUuid, subjectIndividualId: a.subjectIndividualId, associateIndividualId: primaryId },
-    });
-    if (exists) {
-      await logDelete(ctx, "individual_association", a.id, null, a as Record<string, unknown>);
-      await tx.gedcomIndividualAssociation.delete({ where: { id: a.id } });
-    } else {
-      await logUpdate(ctx, "individual_association", a.id, null,
-        { associateIndividualId: secondaryId }, { associateIndividualId: primaryId });
-      await tx.gedcomIndividualAssociation.update({ where: { id: a.id }, data: { associateIndividualId: primaryId } });
-    }
-  }
-
   // ── 11. Update gedcom_file_objects xref pointer ───────────────────────────
   const fileObjects = await tx.gedcomFileObject.findMany({
     where: { fileUuid, objectUuid: secondaryId, objectType: "INDI" },

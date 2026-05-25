@@ -43,7 +43,7 @@ function LineageCard({ lineage }: { lineage: AdminLineage }) {
             {lineage.topSurnames.map((s) => (
               <span
                 key={s}
-                className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize"
+                className="rounded-full border border-base-content/15 bg-base-200/60 px-2 py-0.5 text-xs font-medium text-base-content capitalize"
               >
                 {s}
               </span>
@@ -102,7 +102,7 @@ function buildLineagesConfig(): DataViewerConfig<AdminLineage> {
             {row.original.topSurnames.map((s) => (
               <span
                 key={s}
-                className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] capitalize text-muted-foreground"
+                className="rounded-full border border-base-content/15 bg-base-200/60 px-1.5 py-0.5 text-[11px] font-medium capitalize text-base-content"
               >
                 {s}
               </span>

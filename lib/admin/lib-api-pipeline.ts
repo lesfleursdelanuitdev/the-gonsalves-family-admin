@@ -47,5 +47,9 @@ export async function postLibApiParseValidateEnrich(
     }
     throw new Error(`Parse pipeline failed (${res.status}): ${detail}`);
   }
-  return JSON.parse(text) as LibApiPipelineResponse;
+  try {
+    return JSON.parse(text) as LibApiPipelineResponse;
+  } catch {
+    throw new Error(`Parse pipeline returned non-JSON: ${text.slice(0, 300)}`);
+  }
 }

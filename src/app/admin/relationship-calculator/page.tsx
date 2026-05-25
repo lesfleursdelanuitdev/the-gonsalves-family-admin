@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeftRight, GitMerge } from "lucide-react";
 import { toast } from "sonner";
@@ -63,7 +63,7 @@ function SelectedPersonBadge({
   );
 }
 
-export default function RelationshipCalculatorPage() {
+function RelationshipCalculatorPageContent() {
   const searchParams = useSearchParams();
   const sourceId = searchParams.get("sourceId");
 
@@ -222,5 +222,22 @@ export default function RelationshipCalculatorPage() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+export default function RelationshipCalculatorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Relationship calculator</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <RelationshipCalculatorPageContent />
+    </Suspense>
   );
 }

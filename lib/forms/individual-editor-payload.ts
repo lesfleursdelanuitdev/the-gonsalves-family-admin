@@ -1,6 +1,5 @@
 import type {
   AddChildToSpouseFamilyPayload,
-  IndividualAssociationSyncRow,
   IndividualEditorPayload,
   NewChildFamilyFromNewParentsPayload,
   NewChildFamilyLinkAsSpousePayload,
@@ -45,7 +44,6 @@ export const INDIVIDUAL_EDITOR_PATCH_KEYS = [
   "newChildFamiliesFromNewParents",
   "newChildFamiliesLinkExistingParents",
   "addChildrenToSpouseFamilies",
-  "associates",
 ] as const;
 
 export function bodyHasIndividualEditorPayload(body: Record<string, unknown>): boolean {
@@ -305,19 +303,6 @@ export function parseIndividualEditorPayload(body: Record<string, unknown>): Ind
       });
     }
     if (acOut.length > 0) payload.addChildrenToSpouseFamilies = acOut;
-  }
-
-  if (Array.isArray(body.associates)) {
-    const assoc: IndividualAssociationSyncRow[] = [];
-    for (const x of body.associates) {
-      if (x === null || typeof x !== "object") continue;
-      const o = x as Record<string, unknown>;
-      const associateIndividualId = String(o.associateIndividualId ?? "").trim();
-      const rela = typeof o.rela === "string" ? o.rela.trim() : "";
-      if (!associateIndividualId || !rela) continue;
-      assoc.push({ associateIndividualId, rela });
-    }
-    payload.associates = assoc;
   }
 
   if (!payload.nameForms?.length && payload.names) {

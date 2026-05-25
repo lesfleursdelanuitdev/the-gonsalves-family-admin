@@ -118,8 +118,6 @@ function IndividualLinksList({ links }: { links: IndividualDbContext["links"] })
   if (links.individualEventCount) items.push(`Individual events: ${links.individualEventCount}`);
   if (links.individualNoteCount) items.push(`Individual–note links: ${links.individualNoteCount}`);
   if (links.individualSourceCount) items.push(`Individual–source citations: ${links.individualSourceCount}`);
-  if (links.associationAsSubjectCount) items.push(`ASSO as subject: ${links.associationAsSubjectCount}`);
-  if (links.associationAsAssociateCount) items.push(`ASSO as associate: ${links.associationAsAssociateCount}`);
   if (links.individualMediaCount) items.push(`Individual media links: ${links.individualMediaCount}`);
   if (items.length === 0) items.push("No relationship junction rows found for this individual.");
   return (

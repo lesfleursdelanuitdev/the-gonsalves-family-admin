@@ -101,7 +101,6 @@ export async function createIndividualRelationship(input: CreateIndividualRelati
       include: {
         relationshipType: true,
         participants: { include: { individual: true, role: true }, orderBy: { sortOrder: "asc" } },
-        sourceAssociations: true,
       },
     });
   });
@@ -138,7 +137,6 @@ export async function updateIndividualRelationship(id: string, input: Omit<Creat
       include: {
         relationshipType: true,
         participants: { include: { individual: true, role: true }, orderBy: { sortOrder: "asc" } },
-        sourceAssociations: true,
       },
     });
   });
@@ -173,6 +171,17 @@ export async function inferReciprocalRoleId(
   return reciprocal?.id ?? null;
 }
 
+export async function listAllRelationships(fileUuid: string) {
+  return prisma.individualRelationship.findMany({
+    where: { fileUuid },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      relationshipType: { include: { roles: true } },
+      participants: { include: { individual: true, role: true }, orderBy: { sortOrder: "asc" } },
+    },
+  });
+}
+
 export async function listRelationshipsForIndividual(individualId: string) {
   const individual = await prisma.gedcomIndividual.findUnique({
     where: { id: individualId },
@@ -185,7 +194,6 @@ export async function listRelationshipsForIndividual(individualId: string) {
     include: {
       relationshipType: { include: { roles: true } },
       participants: { include: { individual: true, role: true }, orderBy: { sortOrder: "asc" } },
-      sourceAssociations: true,
     },
   });
 }

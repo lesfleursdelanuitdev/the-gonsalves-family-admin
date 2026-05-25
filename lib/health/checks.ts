@@ -417,8 +417,6 @@ const CHECKS: CheckDef[] = [
           hasParents: false,
           hasChildren: false,
           hasSpouse: false,
-          associationsAsSubject: { none: {} },
-          associationsWhereAssociate: { none: {} },
         },
       });
     },
@@ -430,8 +428,6 @@ const CHECKS: CheckDef[] = [
           hasParents: false,
           hasChildren: false,
           hasSpouse: false,
-          associationsAsSubject: { none: {} },
-          associationsWhereAssociate: { none: {} },
         },
         select: { id: true, xref: true, fullName: true, birthDateDisplay: true, deathDateDisplay: true },
         skip: offset,

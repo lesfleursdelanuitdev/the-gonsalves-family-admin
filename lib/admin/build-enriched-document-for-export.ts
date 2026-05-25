@@ -50,7 +50,6 @@ export async function buildEnrichedDocumentForExport(
     parentChild,
     familyChildren,
     spouses,
-    individualAssociations,
     individualRelationships,
   ] = await Promise.all([
     prisma.gedcomDate.findMany({ where, orderBy: { id: "asc" } }),
@@ -97,10 +96,6 @@ export async function buildEnrichedDocumentForExport(
     prisma.gedcomParentChild.findMany({ where }),
     prisma.gedcomFamilyChild.findMany({ where }),
     prisma.gedcomSpouse.findMany({ where }),
-    prisma.gedcomIndividualAssociation.findMany({
-      where,
-      orderBy: [{ subjectIndividualId: "asc" }, { sortOrder: "asc" }],
-    }),
     prisma.individualRelationship.findMany({
       where,
       include: {
@@ -173,28 +168,9 @@ export async function buildEnrichedDocumentForExport(
     return [];
   });
 
-  const rawAssociates = individualAssociations.map((a) => ({
-    owner_xref: indiIdToXref[a.subjectIndividualId] ?? "",
-    owner_type: "INDI",
-    associate_xref: indiIdToXref[a.associateIndividualId] ?? "",
-    relationship: a.rela ?? "",
-    source_tag: "ASSO",
-    owner_event_type: "",
-  }));
-
-  const associateKey = (row: {
-    owner_xref: string;
-    associate_xref: string;
-    relationship: string;
-  }) => `${row.owner_xref}\t${row.associate_xref}\t${row.relationship.trim().toLowerCase()}`;
-  const seenAssociates = new Set<string>();
-  const mergedAssociates = [...richAssociates, ...rawAssociates].filter((row) => {
-    if (!row.owner_xref || !row.associate_xref) return false;
-    const key = associateKey(row);
-    if (seenAssociates.has(key)) return false;
-    seenAssociates.add(key);
-    return true;
-  });
+  const mergedAssociates = richAssociates.filter(
+    (row) => row.owner_xref && row.associate_xref,
+  );
 
   return {
     Individuals: individuals.map((indi) => {

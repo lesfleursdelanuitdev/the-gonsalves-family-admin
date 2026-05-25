@@ -41,6 +41,7 @@ import {
   HeartPulse,
   ClipboardList,
   Dna,
+  Megaphone,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -67,6 +68,7 @@ export const adminNavSections: AdminNavSection[] = [
       { href: "/admin/branches", label: "Branches", icon: GitBranch },
       { href: "/admin/lineages", label: "Lineages", icon: TreePine },
       { href: "/admin/families", label: "Families", icon: Heart },
+      { href: "/admin/associations", label: "Associations", icon: Link2 },
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/attributes", label: "Attributes", icon: ClipboardList },
       { href: "/admin/event-types", label: "Event types", icon: CalendarDays },
@@ -96,6 +98,7 @@ export const adminNavSections: AdminNavSection[] = [
   {
     label: "Media & archive",
     items: [
+      { href: "/admin/whats-new", label: "What's New", icon: Megaphone },
       { href: "/admin/media", label: "Media", icon: Image },
       { href: "/admin/timelines", label: "Timelines", icon: ListTree },
       { href: "/admin/stories", label: "Stories", icon: ScrollText },

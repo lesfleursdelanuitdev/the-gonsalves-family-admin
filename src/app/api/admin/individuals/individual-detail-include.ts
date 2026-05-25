@@ -98,37 +98,6 @@ export const ADMIN_INDIVIDUAL_DETAIL_INCLUDE = {
       },
     },
   },
-  associationsAsSubject: {
-    orderBy: { sortOrder: "asc" as const },
-    select: {
-      id: true,
-      rela: true,
-      sortOrder: true,
-      associateIndividual: {
-        select: {
-          id: true,
-          xref: true,
-          fullName: true,
-          sex: true,
-          ...gedcomIndividualNlDenormSelect,
-          individualNameForms: {
-            where: { isPrimary: true },
-            take: 1,
-            select: {
-              givenNames: {
-                orderBy: { position: "asc" as const },
-                select: { givenName: { select: { givenName: true } } },
-              },
-              surnames: {
-                orderBy: { position: "asc" as const },
-                select: { surname: { select: { surname: true } } },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
   husbandInFamilies: {
     include: {
       husband: { select: ADMIN_INDIVIDUAL_CHILD_SELECT },

@@ -226,24 +226,6 @@ export type SpouseFamilyFormRow = {
   pendingSpouseFamilyChildren?: PendingSpouseFamilyChildDraft[];
 };
 
-/** One GEDCOM ASSO-style link (MVP: subject is the person being edited → another individual + RELA). */
-export type AssociateFormRow = {
-  clientId: string;
-  associateIndividualId: string;
-  /** Display only; from search pick or API include. */
-  associateDisplayLabel: string;
-  rela: string;
-};
-
-export function newAssociateFormRow(): AssociateFormRow {
-  return {
-    clientId: newClientId(),
-    associateIndividualId: "",
-    associateDisplayLabel: "",
-    rela: "",
-  };
-}
-
 export type IndividualEditorFormSeed = {
   xref: string;
   sex: string;
@@ -253,7 +235,6 @@ export type IndividualEditorFormSeed = {
   livingMode: LivingMode;
   familiesAsSpouse: SpouseFamilyFormRow[];
   familiesAsChild: ChildFamilyFormRow[];
-  associates: AssociateFormRow[];
 };
 
 export function emptyKeyFactFormState(): KeyFactFormState {
@@ -622,22 +603,6 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
     byFamilyParents.set(p.familyId, arr);
   }
 
-  const assocRows = (ind.associationsAsSubject as Record<string, unknown>[] | undefined) ?? [];
-  const associates: AssociateFormRow[] = assocRows.map((row) => {
-    const assoc = row.associateIndividual as Record<string, unknown> | undefined;
-    const aid = typeof assoc?.id === "string" ? assoc.id.trim() : "";
-    const xref = typeof assoc?.xref === "string" ? assoc.xref.trim() : "";
-    const fullName = typeof assoc?.fullName === "string" ? assoc.fullName.trim() : "";
-    const rela = typeof row.rela === "string" ? row.rela : "";
-    const label = fullName || xref || aid;
-    return {
-      clientId: aid || newClientId(),
-      associateIndividualId: aid,
-      associateDisplayLabel: label,
-      rela,
-    };
-  });
-
   const familiesAsChild: ChildFamilyFormRow[] = fcRows.map((row) => {
     const fam = row.family as Record<string, unknown> | undefined;
     const fid =
@@ -713,7 +678,6 @@ export function individualDetailToFormSeed(ind: Record<string, unknown>): Indivi
     livingMode: "auto",
     familiesAsSpouse,
     familiesAsChild,
-    associates,
   };
 }
 
@@ -727,7 +691,6 @@ export function emptyIndividualEditorFormSeed(): IndividualEditorFormSeed {
     livingMode: "auto",
     familiesAsSpouse: [],
     familiesAsChild: [],
-    associates: [],
   };
 }
 
@@ -954,11 +917,5 @@ export function buildEditorSubmitBody(seed: IndividualEditorFormSeed): Record<st
     ...(newChildFamiliesFromNewParents.length > 0 ? { newChildFamiliesFromNewParents } : {}),
     ...(newChildFamiliesLinkExistingParents.length > 0 ? { newChildFamiliesLinkExistingParents } : {}),
     ...(addChildrenToSpouseFamilies.length > 0 ? { addChildrenToSpouseFamilies } : {}),
-    associates: seed.associates
-      .filter((r) => r.associateIndividualId.trim() && r.rela.trim())
-      .map((r) => ({
-        associateIndividualId: r.associateIndividualId.trim(),
-        rela: r.rela.trim(),
-      })),
   };
 }

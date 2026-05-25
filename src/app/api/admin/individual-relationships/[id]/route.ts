@@ -12,7 +12,6 @@ export const GET = withAdminAuth(async (_req, _user, ctx) => {
     include: {
       relationshipType: { include: { roles: true } },
       participants: { include: { individual: true, role: true }, orderBy: { sortOrder: "asc" } },
-      sourceAssociations: { include: { association: true } },
     },
   });
   if (!relationship) return NextResponse.json({ error: "Relationship not found" }, { status: 404 });

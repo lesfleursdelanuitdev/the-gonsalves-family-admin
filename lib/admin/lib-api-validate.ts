@@ -39,5 +39,9 @@ export async function postLibApiValidateGedcomFile(file: Blob, filename: string)
     }
     throw new Error(`Validate failed (${res.status}): ${detail}`);
   }
-  return JSON.parse(text) as LibApiValidateResponse;
+  try {
+    return JSON.parse(text) as LibApiValidateResponse;
+  } catch {
+    throw new Error(`Validate returned non-JSON: ${text.slice(0, 300)}`);
+  }
 }

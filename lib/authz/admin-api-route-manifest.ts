@@ -102,11 +102,6 @@ export const ADMIN_API_ROUTE_MANIFEST: RouteManifestEntry[] = [
     permission: { kind: "requireCan", entity: "individual", action: "read", scope: "tree" },
   },
   {
-    pattern: "individuals/:id/associates",
-    methods: ["GET", "POST"],
-    permission: { kind: "requireCan", entity: "individual", action: "read", scope: "tree" },
-  },
-  {
     pattern: "individuals/:id/add-child",
     methods: ["POST"],
     permission: { kind: "requireCan", entity: "individual", action: "update", scope: "tree" },

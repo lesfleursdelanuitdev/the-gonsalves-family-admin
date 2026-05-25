@@ -3,13 +3,21 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminFileUuid } from "@/lib/infra/admin-tree";
 import { requireCan } from "@/lib/authz/routeGuards";
-import { createIndividualRelationship, listRelationshipsForIndividual } from "@/lib/admin/individual-relationships-service";
+import {
+  createIndividualRelationship,
+  listAllRelationships,
+  listRelationshipsForIndividual,
+} from "@/lib/admin/individual-relationships-service";
 
 export const GET = withAdminAuth(async (req) => {
   await requireCan({ entity: "individual", action: "read", scope: "tree" });
   const individualId = req.nextUrl.searchParams.get("individualId")?.trim() ?? "";
-  if (!individualId) return NextResponse.json({ error: "individualId is required" }, { status: 400 });
-  const relationships = await listRelationshipsForIndividual(individualId);
+  if (individualId) {
+    const relationships = await listRelationshipsForIndividual(individualId);
+    return NextResponse.json({ relationships });
+  }
+  const fileUuid = await getAdminFileUuid();
+  const relationships = await listAllRelationships(fileUuid);
   return NextResponse.json({ relationships });
 });
 

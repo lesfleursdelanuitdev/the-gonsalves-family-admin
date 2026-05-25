@@ -59,7 +59,13 @@ function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
     o.backup != null &&
     // Branches (20260524140000_add_gedcom_branches)
     o.gedcomBranch != null &&
-    o.gedcomBranchRun != null
+    o.gedcomBranchRun != null &&
+    // What's New (20260525120000_add_whats_new)
+    o.whatsNew != null &&
+    // Recipes + Glossary + Tree Settings (20260525140000_add_recipes_glossary_tree_settings)
+    o.recipe != null &&
+    o.glossaryEntry != null &&
+    o.treeSettings != null
   );
 }
 

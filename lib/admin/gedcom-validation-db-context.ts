@@ -57,8 +57,6 @@ export type IndividualDbContext = {
     individualEventCount: number;
     individualNoteCount: number;
     individualSourceCount: number;
-    associationAsSubjectCount: number;
-    associationAsAssociateCount: number;
     individualMediaCount: number;
     familyPartnerRowCount: number;
   };
@@ -134,8 +132,6 @@ async function buildIndividualContext(fileUuid: string, id: string, xref: string
     individualEventCount,
     individualNoteCount,
     individualSourceCount,
-    associationAsSubjectCount,
-    associationAsAssociateCount,
     individualMediaCount,
     familyPartnerRowCount,
   ] = await Promise.all([
@@ -154,8 +150,6 @@ async function buildIndividualContext(fileUuid: string, id: string, xref: string
     prisma.gedcomIndividualEvent.count({ where: { fileUuid, individualId: id } }),
     prisma.gedcomIndividualNote.count({ where: { fileUuid, individualId: id } }),
     prisma.gedcomIndividualSource.count({ where: { fileUuid, individualId: id } }),
-    prisma.gedcomIndividualAssociation.count({ where: { fileUuid, subjectIndividualId: id } }),
-    prisma.gedcomIndividualAssociation.count({ where: { fileUuid, associateIndividualId: id } }),
     prisma.gedcomIndividualMedia.count({ where: { fileUuid, individualId: id } }),
     prisma.gedcomFamilyPartner.count({ where: { fileUuid, individualId: id } }),
   ]);
@@ -181,8 +175,6 @@ async function buildIndividualContext(fileUuid: string, id: string, xref: string
       individualEventCount,
       individualNoteCount,
       individualSourceCount,
-      associationAsSubjectCount,
-      associationAsAssociateCount,
       individualMediaCount,
       familyPartnerRowCount,
     },

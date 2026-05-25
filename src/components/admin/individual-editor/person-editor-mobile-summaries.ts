@@ -76,11 +76,6 @@ export function personEditorSourcesSummary(count: number): string {
   return `${count} source${count === 1 ? "" : "s"}`;
 }
 
-export function personEditorAssociatesSummary(count: number): string {
-  if (count === 0) return "No associates";
-  return `${count} associate${count === 1 ? "" : "s"}`;
-}
-
 /**
  * Unique children linked under spouse/partner families (from loaded lists + unsaved pending rows).
  * Excludes the edited person when they appear as the “this person” row in a child list.

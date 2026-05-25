@@ -202,12 +202,14 @@ async function _detect(fileUuid: string, _runId: string): Promise<BranchDetectio
   let isolatedIndividuals = 0;
   let mainBranchSize = 0;
   const upsertedBranchIds: string[] = [];
+  const isolatedIds: string[] = [];
 
   const CHUNK = 1000;
 
   for (const [, members] of byRoot) {
     if (members.length < 2) {
       isolatedIndividuals += members.length;
+      isolatedIds.push(...members.map((m) => m.id));
       continue;
     }
 
@@ -298,11 +300,16 @@ async function _detect(fileUuid: string, _runId: string): Promise<BranchDetectio
     }
   }
 
-  // 7. Clear branch_id for isolated individuals
-  await prisma.gedcomIndividual.updateMany({
-    where: { fileUuid, hasParents: false, hasChildren: false },
-    data: { branchId: null },
-  });
+  // 7. Clear branch_id for truly isolated individuals (size-1 components only).
+  // Using the collected IDs rather than hasParents/hasChildren avoids incorrectly
+  // nulling spouses who are connected to a branch only through their partner.
+  for (let i = 0; i < isolatedIds.length; i += CHUNK) {
+    const chunk = isolatedIds.slice(i, i + CHUNK);
+    await prisma.gedcomIndividual.updateMany({
+      where: { id: { in: chunk } },
+      data: { branchId: null },
+    });
+  }
 
   // 8. Delete branches that no longer exist (merged or removed)
   const staleHashes = [...existingByHash.keys()].filter((h) => !seenHashes.has(h));

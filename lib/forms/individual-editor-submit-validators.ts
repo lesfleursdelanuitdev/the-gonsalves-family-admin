@@ -79,14 +79,6 @@ export function validateIndividualEditorSubmitSeed(seed: IndividualEditorFormSee
     }
   }
 
-  for (const a of seed.associates) {
-    const id = a.associateIndividualId.trim();
-    const rela = a.rela.trim();
-    if (!id && !rela) continue;
-    if (id && !rela) return "Each associate must have a relationship description (RELA).";
-    if (rela && !id) return "Pick a person for each associate row, or remove the row.";
-  }
-
   for (const row of seed.familiesAsSpouse) {
     for (const child of row.pendingSpouseFamilyChildren ?? []) {
       if (child.kind !== "new") continue;

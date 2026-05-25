@@ -31,6 +31,7 @@ const ADMIN_SECTION_ENTITY_SCOPE: Record<string, { entity: string; scope: CrudSc
   messages: { entity: "message", scope: "user" },
   stories: { entity: "story", scope: "tree" },
   changelog: { entity: "changelog", scope: "tree" },
+  "whats-new": { entity: "whatsNew", scope: "site" },
 };
 
 const OTHER_USER_SCOPED_ENTITIES = new Set(["media", "tag", "album", "story"]);
