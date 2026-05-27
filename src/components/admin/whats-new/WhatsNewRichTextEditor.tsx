@@ -104,7 +104,7 @@ export function WhatsNewRichTextEditor({
     const current = JSON.stringify(editor.getJSON());
     const next = JSON.stringify(value);
     if (current !== next) {
-      editor.commands.setContent(value, false);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorKey]);

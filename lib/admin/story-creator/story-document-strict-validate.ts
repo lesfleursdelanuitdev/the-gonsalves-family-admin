@@ -35,6 +35,7 @@ const GENERAL_EMBED_KINDS = new Set<StoryGeneralEmbedKind>([
   "personSpotlight",
   "familyGroup",
   "event",
+  "recipe",
 ]);
 
 const LEGACY_EMBED_KINDS = new Set(["image", "video", "audio", "media"]);

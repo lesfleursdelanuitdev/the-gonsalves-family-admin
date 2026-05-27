@@ -51,6 +51,7 @@ const GENERAL_EMBED_KINDS: readonly StoryGeneralEmbedKind[] = [
   "personSpotlight",
   "familyGroup",
   "event",
+  "recipe",
 ];
 
 /** Legacy persisted block shape (removed from `StoryBlock`; still on disk until migration runs). */

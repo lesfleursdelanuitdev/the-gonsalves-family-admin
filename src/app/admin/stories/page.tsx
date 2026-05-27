@@ -8,10 +8,12 @@ import { AdminListPageShell } from "@/components/admin/AdminListPageShell";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { FilterPanel } from "@/components/data-viewer/FilterPanel";
+import { StoriesBatchEditModal } from "@/components/admin/story-creator/StoriesBatchEditModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loadStoryIndex, deleteStoryDocument } from "@/lib/admin/story-creator/story-storage";
+import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 import type {
   StoryDocumentKind,
   StoryIndexEntry,
@@ -49,10 +51,19 @@ interface StoryRow {
   status: StoryLifecycleStatus;
   statusLabel: string;
   updatedAt: string;
+  tags: string[];
+  linkedIndividuals: { id: string; fullName: string }[];
+  tagsSearch: string;
+  individualsSearch: string;
 }
 
 function mapIndexToRow(e: StoryIndexEntry): StoryRow {
   const status: StoryLifecycleStatus = e.status === "published" ? "published" : "draft";
+  const tags = e.tags ?? [];
+  const linkedIndividuals = (e.linkedIndividuals ?? []).map((li) => ({
+    ...li,
+    fullName: stripSlashesFromName(li.fullName),
+  }));
   return {
     id: e.id,
     title: e.title,
@@ -62,18 +73,24 @@ function mapIndexToRow(e: StoryIndexEntry): StoryRow {
     status,
     statusLabel: lifecycleLabel(status),
     updatedAt: e.updatedAt,
+    tags,
+    linkedIndividuals,
+    tagsSearch: tags.join(" ").toLowerCase(),
+    individualsSearch: linkedIndividuals.map((i) => i.fullName).join(" ").toLowerCase(),
   };
 }
 
 function buildStoriesConfig(
   router: ReturnType<typeof useRouter>,
   onDelete: (row: StoryRow) => void,
+  bulkDeleteOne: (id: string) => Promise<void>,
+  onBulkEdit: (ids: string[]) => void,
 ): DataViewerConfig<StoryRow> {
   return {
     id: "stories",
     labels: { singular: "Story", plural: "Stories" },
     getRowId: (row) => row.id,
-    enableRowSelection: false,
+    enableRowSelection: true,
     defaultSorting: [{ id: "updatedAt", desc: true }],
     columns: [
       {
@@ -155,11 +172,26 @@ function buildStoriesConfig(
                   })}
                 </span>
               </p>
+              {record.tags.length > 0 ? (
+                <p className="flex flex-wrap gap-1 pt-0.5">
+                  {record.tags.map((t) => (
+                    <span key={t} className="badge badge-outline badge-xs border-base-content/20 text-base-content/60">
+                      {t}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
             </div>
           </div>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          <p>Synced to the server for this admin tree.</p>
+          {record.linkedIndividuals.length > 0 ? (
+            <p className="truncate">
+              Linked: {record.linkedIndividuals.map((i) => i.fullName || "Unknown").join(", ")}
+            </p>
+          ) : (
+            <p>Synced to the server for this admin tree.</p>
+          )}
         </CardContent>
         <CardActionFooter onView={onView} onDelete={onDelete} />
       </Card>
@@ -173,16 +205,29 @@ function buildStoriesConfig(
       delete: {
         label: "Delete",
         handler: onDelete,
+        bulkDeleteOne,
+      },
+      bulkEdit: {
+        label: "Edit selected",
+        handler: onBulkEdit,
       },
     },
   };
 }
 
+interface FilterDraft {
+  title: string;
+  tag: string;
+  individual: string;
+}
+
 export default function AdminStoriesPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<StoryIndexEntry[]>([]);
-  const [draftTitle, setDraftTitle] = useState("");
-  const [appliedTitle, setAppliedTitle] = useState("");
+  const [draft, setDraft] = useState<FilterDraft>({ title: "", tag: "", individual: "" });
+  const [applied, setApplied] = useState<FilterDraft>({ title: "", tag: "", individual: "" });
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditIds, setBatchEditIds] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     try {
@@ -204,31 +249,40 @@ export default function AdminStoriesPage() {
   const baseRows = useMemo(() => entries.map(mapIndexToRow), [entries]);
 
   const rows = useMemo(() => {
-    const q = appliedTitle.trim().toLowerCase();
-    if (!q) return baseRows;
-    return baseRows.filter(
-      (r) =>
-        r.displayTitle.toLowerCase().includes(q) ||
-        r.kindLabel.toLowerCase().includes(q) ||
-        r.statusLabel.toLowerCase().includes(q) ||
-        r.title.toLowerCase().includes(q),
-    );
-  }, [baseRows, appliedTitle]);
+    let result = baseRows;
+    const titleQ = applied.title.toLowerCase();
+    const tagQ = applied.tag.toLowerCase();
+    const indQ = applied.individual.toLowerCase();
+
+    if (titleQ) {
+      result = result.filter(
+        (r) =>
+          r.displayTitle.toLowerCase().includes(titleQ) ||
+          r.title.toLowerCase().includes(titleQ) ||
+          r.kindLabel.toLowerCase().includes(titleQ) ||
+          r.statusLabel.toLowerCase().includes(titleQ),
+      );
+    }
+    if (tagQ) result = result.filter((r) => r.tagsSearch.includes(tagQ));
+    if (indQ) result = result.filter((r) => r.individualsSearch.includes(indQ));
+
+    return result;
+  }, [baseRows, applied]);
 
   const applyFilters = useCallback(() => {
-    setAppliedTitle(draftTitle.trim());
-  }, [draftTitle]);
+    setApplied({ title: draft.title.trim(), tag: draft.tag.trim(), individual: draft.individual.trim() });
+  }, [draft]);
 
   const clearFilters = useCallback(() => {
-    setDraftTitle("");
-    setAppliedTitle("");
+    setDraft({ title: "", tag: "", individual: "" });
+    setApplied({ title: "", tag: "", individual: "" });
   }, []);
 
-  const activeFilterCount = appliedTitle.trim() ? 1 : 0;
+  const activeFilterCount = [applied.title, applied.tag, applied.individual].filter(Boolean).length;
 
   const handleDelete = useCallback(
     async (row: StoryRow) => {
-      if (!window.confirm(`Delete “${row.displayTitle}”? This marks the story as deleted on the server.`)) return;
+      if (!window.confirm(`Delete "${row.displayTitle}"? This marks the story as deleted on the server.`)) return;
       try {
         await deleteStoryDocument(row.id);
         await refresh();
@@ -240,9 +294,32 @@ export default function AdminStoriesPage() {
     [refresh],
   );
 
-  const config = useMemo(() => buildStoriesConfig(router, handleDelete), [router, handleDelete]);
+  const bulkDeleteOne = useCallback(async (id: string) => {
+    await deleteStoryDocument(id);
+  }, []);
+
+  const handleBulkDeleteFinished = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
+  const openBulkEdit = useCallback((ids: string[]) => {
+    setBatchEditIds(ids);
+    setBatchEditOpen(true);
+  }, []);
+
+  const config = useMemo(
+    () => buildStoriesConfig(router, handleDelete, bulkDeleteOne, openBulkEdit),
+    [router, handleDelete, bulkDeleteOne, openBulkEdit],
+  );
 
   return (
+    <>
+    <StoriesBatchEditModal
+      open={batchEditOpen}
+      onOpenChange={setBatchEditOpen}
+      selectedIds={batchEditIds}
+      onApplied={refresh}
+    />
     <AdminListPageShell
       title="Stories"
       description="Block-based family stories with a flexible section outline. Drafts and published stories are stored in the database for this admin tree."
@@ -261,16 +338,31 @@ export default function AdminStoriesPage() {
       filters={
         <FilterPanel onApply={applyFilters} onClear={clearFilters} activeFilterCount={activeFilterCount}>
           <div className="space-y-2">
-            <Label htmlFor="stories-filter-title">Search stories</Label>
+            <Label htmlFor="stories-filter-title">Title</Label>
             <Input
               id="stories-filter-title"
-              value={draftTitle}
-              onChange={(e) => setDraftTitle(e.target.value)}
-              placeholder="Title, type, draft, or published…"
+              value={draft.title}
+              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+              placeholder="Title, type, or status…"
             />
-            <p className="text-xs text-muted-foreground">
-              Matches title, story type, or status. Click Apply to filter the list below.
-            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stories-filter-tag">Tag</Label>
+            <Input
+              id="stories-filter-tag"
+              value={draft.tag}
+              onChange={(e) => setDraft((d) => ({ ...d, tag: e.target.value }))}
+              placeholder="e.g. immigration, war…"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stories-filter-individual">Linked person</Label>
+            <Input
+              id="stories-filter-individual"
+              value={draft.individual}
+              onChange={(e) => setDraft((d) => ({ ...d, individual: e.target.value }))}
+              placeholder="Name of a linked individual…"
+            />
           </div>
         </FilterPanel>
       }
@@ -282,9 +374,11 @@ export default function AdminStoriesPage() {
         defaultViewMode="table"
         viewModeKey="admin-stories-view"
         skipClientGlobalFilter
-        paginationResetKey={appliedTitle}
+        paginationResetKey={JSON.stringify(applied)}
         totalCount={entries.length}
+        onBulkDeleteFinished={handleBulkDeleteFinished}
       />
     </AdminListPageShell>
+    </>
   );
 }

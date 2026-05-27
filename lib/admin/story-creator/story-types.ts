@@ -979,6 +979,8 @@ export type StoryIndexEntry = {
   slug?: string | null;
   /** Omitted in older local indexes; hydrated from the full document on read. */
   status?: StoryLifecycleStatus;
+  tags?: string[];
+  linkedIndividuals?: { id: string; fullName: string }[];
 };
 
 export function newStoryId(): string {

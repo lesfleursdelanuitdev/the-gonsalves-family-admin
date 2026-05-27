@@ -29,11 +29,13 @@ if (ligneousUrl) {
 const projectRoot = path.resolve(__dirname);
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["archiver", "archiver-utils", "zip-stream"],
   transpilePackages: [
     "@ligneous/auth",
     "@ligneous/authz",
     "@ligneous/prisma",
     "@ligneous/story-creator",
+    "@ligneous/timeline-view",
     "@ligneous/album-view",
     "@ligneous/album-generated-queries",
     "@ligneous/relationship-calculator",
@@ -48,9 +50,11 @@ const nextConfig: NextConfig = {
     root: projectRoot,
   },
   webpack(config) {
+    const appNodeModules = path.join(projectRoot, "node_modules");
+    config.resolve.modules = [appNodeModules, ...(config.resolve.modules ?? ["node_modules"])];
     config.resolve.alias = {
       ...(config.resolve.alias as Record<string, string>),
-      "lucide-react": path.resolve(projectRoot, "node_modules/lucide-react"),
+      "lucide-react": path.join(appNodeModules, "lucide-react"),
     };
     return config;
   },

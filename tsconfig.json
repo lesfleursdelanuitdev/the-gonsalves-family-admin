@@ -21,7 +21,12 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@/lib/*": ["./lib/*"]
+      "@/lib/*": ["./lib/*"],
+      "lucide-react": ["./node_modules/lucide-react"],
+      "sonner": ["./node_modules/sonner"],
+      "@headlessui/react": ["./node_modules/@headlessui/react"],
+      "@tiptap/*": ["./node_modules/@tiptap/*"],
+      "@ligneous/timeline-view": ["../packages/ligneous-timeline-view/src/index.ts"]
     }
   },
   "include": [

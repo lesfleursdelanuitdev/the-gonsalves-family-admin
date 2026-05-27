@@ -48,7 +48,6 @@ function prismaClientHasExpectedDelegates(client: PrismaClient): boolean {
     o.relationshipTypeRole != null &&
     o.individualRelationship != null &&
     o.individualRelationshipParticipant != null &&
-    o.individualRelationshipSourceAssociation != null &&
     // Place resolution models (20260523170000_place_resolution)
     o.resolvedPlace != null &&
     o.resolvedPlaceLink != null &&

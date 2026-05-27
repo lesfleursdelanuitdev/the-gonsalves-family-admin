@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Link2, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { CardActionFooter } from "@/components/data-viewer/CardActionFooter";
 import { DataViewer, type DataViewerConfig } from "@/components/data-viewer";
 import {
   useAdminRelationships,
@@ -13,7 +14,15 @@ import { useRouter } from "next/navigation";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function AssociationCard({ relationship }: { relationship: AdminRelationship }) {
+function AssociationCard({
+  relationship,
+  onEdit,
+  onDelete,
+}: {
+  relationship: AdminRelationship;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   return (
     <Card>
       <CardContent className="space-y-3 pt-4">
@@ -39,6 +48,7 @@ function AssociationCard({ relationship }: { relationship: AdminRelationship }) 
           <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{relationship.notes}</p>
         )}
       </CardContent>
+      <CardActionFooter onEdit={onEdit} onDelete={onDelete} />
     </Card>
   );
 }
@@ -96,7 +106,9 @@ function buildConfig(
           ),
       },
     ],
-    renderCard: ({ record }) => <AssociationCard relationship={record} />,
+    renderCard: ({ record, onEdit, onDelete }) => (
+      <AssociationCard relationship={record} onEdit={onEdit} onDelete={onDelete} />
+    ),
     actions: {
       add: { label: "Add association", handler: onAdd },
       edit: { label: "Edit", handler: onEdit },

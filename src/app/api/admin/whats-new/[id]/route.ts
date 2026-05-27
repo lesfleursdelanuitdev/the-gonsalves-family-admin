@@ -4,9 +4,7 @@ import { prisma } from "@/lib/database/prisma";
 import { withAdminAuth } from "@/lib/infra/api-handler";
 import { getAdminTreeReadScope } from "@/lib/infra/admin-tree-access";
 
-type Ctx = { params: Promise<{ id: string }> };
-
-export const GET = withAdminAuth(async (_req: NextRequest, _user, ctx: Ctx) => {
+export const GET = withAdminAuth(async (_req: NextRequest, _user, ctx) => {
   const { id } = await ctx.params;
   const post = await prisma.whatsNew.findUnique({
     where: { id },
@@ -16,7 +14,7 @@ export const GET = withAdminAuth(async (_req: NextRequest, _user, ctx: Ctx) => {
   return NextResponse.json({ post });
 });
 
-export const PUT = withAdminAuth(async (req: NextRequest, user, ctx: Ctx) => {
+export const PUT = withAdminAuth(async (req: NextRequest, user, ctx) => {
   const { canReadAllTreeData } = await getAdminTreeReadScope(user);
   if (!canReadAllTreeData) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -63,7 +61,7 @@ export const PUT = withAdminAuth(async (req: NextRequest, user, ctx: Ctx) => {
   return NextResponse.json({ post });
 });
 
-export const DELETE = withAdminAuth(async (_req: NextRequest, user, ctx: Ctx) => {
+export const DELETE = withAdminAuth(async (_req: NextRequest, user, ctx) => {
   const { canReadAllTreeData } = await getAdminTreeReadScope(user);
   if (!canReadAllTreeData) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

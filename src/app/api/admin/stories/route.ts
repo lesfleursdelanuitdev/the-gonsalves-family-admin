@@ -61,7 +61,20 @@ export const GET = withAdminAuth(async (_req, user) => {
   const stories = await prisma.story.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, kind: true, status: true, slug: true, updatedAt: true, authorId: true },
+    select: {
+      id: true,
+      title: true,
+      kind: true,
+      status: true,
+      slug: true,
+      updatedAt: true,
+      authorId: true,
+      tags: true,
+      storyIndividuals: {
+        select: { individual: { select: { id: true, fullName: true } } },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
   });
 
   return NextResponse.json({
@@ -73,6 +86,11 @@ export const GET = withAdminAuth(async (_req, user) => {
       slug: s.slug,
       updatedAt: s.updatedAt.toISOString(),
       authorId: s.authorId,
+      tags: s.tags,
+      linkedIndividuals: s.storyIndividuals.map((si) => ({
+        id: si.individual.id,
+        fullName: si.individual.fullName ?? "",
+      })),
     })),
   });
 });

@@ -111,7 +111,10 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: INLINE_THEME_BOOTSTRAP }} />
-        <script dangerouslySetInnerHTML={{ __html: INLINE_CHUNK_RECOVERY }} />
+        {/* Production only: webpack HMR in dev emits transient "Loading chunk N failed" errors that trigger reload loops. */}
+        {process.env.NODE_ENV === "production" ? (
+          <script dangerouslySetInnerHTML={{ __html: INLINE_CHUNK_RECOVERY }} />
+        ) : null}
       </head>
       <body
         className={`${playfair.variable} ${cormorant.variable} ${inter.variable} antialiased`}

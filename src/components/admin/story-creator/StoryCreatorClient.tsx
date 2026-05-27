@@ -12,6 +12,7 @@ import {
   StoryEditorPickersProvider,
   StoryEditorMediaProvider,
   StoryEditorTimelineProvider,
+  type StoryCreatorFullscreenState,
 } from "@ligneous/story-creator/editor";
 import { loadStoryDocument, saveStoryDocument } from "@/lib/admin/story-creator/story-storage";
 import { useStoryMediaById, useStoryMediaByIds } from "@/hooks/useStoryMediaById";
@@ -30,9 +31,42 @@ import {
   AdminNotesPickerAdapter,
 } from "./story-creator-admin-pickers";
 
-export function StoryCreatorClient({ storyId }: { storyId: string }) {
+type Props = {
+  storyId: string;
+  initialSelectedBlockId?: string;
+  initialMode?: "edit" | "preview";
+  /** Override back navigation. Pass null to use router.back(). Omit to navigate to /admin/stories/[storyId]. */
+  onBackOverride?: ((state: StoryCreatorFullscreenState) => void) | null;
+  /** If true, hides the fullscreen button (e.g. standalone route is already fullscreen). */
+  hideFullscreen?: boolean;
+};
+
+export function StoryCreatorClient({ storyId, initialSelectedBlockId, initialMode, onBackOverride, hideFullscreen }: Props) {
   const router = useRouter();
-  const handleBack = useCallback(() => router.back(), [router]);
+
+  const defaultHandleBack = useCallback(
+    ({ selectedBlockId, mode }: StoryCreatorFullscreenState) => {
+      const params = new URLSearchParams();
+      if (selectedBlockId) params.set("block", selectedBlockId);
+      params.set("mode", mode);
+      router.push(`/admin/stories/${storyId}?${params.toString()}`);
+    },
+    [router, storyId],
+  );
+
+  const routerBackFn = useCallback((_state: StoryCreatorFullscreenState) => router.back(), [router]);
+
+  const handleBack = onBackOverride === null ? routerBackFn : onBackOverride ?? defaultHandleBack;
+
+  const handleEnterFullscreen = useCallback(
+    ({ selectedBlockId, mode }: StoryCreatorFullscreenState) => {
+      const params = new URLSearchParams({ from: "admin" });
+      if (selectedBlockId) params.set("block", selectedBlockId);
+      params.set("mode", mode);
+      router.push(`/storycreator/${storyId}?${params.toString()}`);
+    },
+    [router, storyId],
+  );
 
   return (
     <StoryEditorPickersProvider
@@ -56,6 +90,9 @@ export function StoryCreatorClient({ storyId }: { storyId: string }) {
             onLoad={loadStoryDocument}
             onSave={saveStoryDocument}
             onBack={handleBack}
+            onEnterFullscreen={hideFullscreen ? undefined : handleEnterFullscreen}
+            initialSelectedBlockId={initialSelectedBlockId}
+            initialMode={initialMode}
           />
         </StoryEditorTimelineProvider>
       </StoryEditorMediaProvider>

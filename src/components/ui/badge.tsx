@@ -1,0 +1,34 @@
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "@/lib/utils";
+
+const badgeVariants = cva("badge badge-sm font-medium", {
+  variants: {
+    variant: {
+      default: "badge-primary",
+      secondary: "badge-ghost",
+      destructive: "badge-error",
+      outline: "badge-outline",
+    },
+  },
+  defaultVariants: {
+    variant: "default",
+  },
+});
+
+function Badge({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+  return (
+    <span
+      data-slot="badge"
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
+  );
+}
+
+export { Badge, badgeVariants };

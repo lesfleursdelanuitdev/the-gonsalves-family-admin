@@ -10,10 +10,18 @@ import {
   AlignRight,
   Bold,
   Code,
+  Heading1,
+  Heading2,
+  Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
   Highlighter,
   Italic,
   Link2,
   Link2Off,
+  List,
+  ListOrdered,
   Redo2,
   Strikethrough,
   Underline,
@@ -77,6 +85,12 @@ function useStoryInlineToolbarState(editor: Editor) {
   return useEditorState({
     editor,
     selector: ({ editor: ed }) => ({
+      h1: ed.isActive("heading", { level: 1 }),
+      h2: ed.isActive("heading", { level: 2 }),
+      h3: ed.isActive("heading", { level: 3 }),
+      h4: ed.isActive("heading", { level: 4 }),
+      h5: ed.isActive("heading", { level: 5 }),
+      h6: ed.isActive("heading", { level: 6 }),
       bold: ed.isActive("bold"),
       italic: ed.isActive("italic"),
       underline: ed.isActive("underline"),
@@ -84,6 +98,8 @@ function useStoryInlineToolbarState(editor: Editor) {
       highlight: ed.isActive("highlight"),
       inlineCode: ed.isActive("code"),
       link: ed.isActive("link"),
+      bullet: ed.isActive("bulletList"),
+      ordered: ed.isActive("orderedList"),
       textAlign: blockTextAlign(ed),
     }),
   });
@@ -110,6 +126,25 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
   return (
     <div className="border-0 bg-transparent" onMouseDownCapture={preventToolbarFocusLoss}>
       <div className={cn(scrollRow, "items-center gap-0.5 px-2 py-2")} role="toolbar" aria-label="Text formatting">
+        <ToolbarButton touch={touch} label="Heading 1" active={s.h1} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+          <Heading1 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touch} label="Heading 2" active={s.h2} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+          <Heading2 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touch} label="Heading 3" active={s.h3} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+          <Heading3 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touch} label="Heading 4" active={s.h4} onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}>
+          <Heading4 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touch} label="Heading 5" active={s.h5} onClick={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}>
+          <Heading5 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touch} label="Heading 6" active={s.h6} onClick={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}>
+          <Heading6 className="size-4" />
+        </ToolbarButton>
+        <ToolbarSeparator />
         <ToolbarButton touch={touch} label="Bold" active={s.bold} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold className="size-4" />
         </ToolbarButton>
@@ -153,6 +188,13 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
         </ToolbarButton>
         <ToolbarSeparator />
         <StoryFlowInsertToolbarButtons editor={editor} touch={touch} />
+        <ToolbarSeparator />
+        <ToolbarButton touch={touch} label="Bullet list" active={s.bullet} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+          <List className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton touch={touch} label="Numbered list" active={s.ordered} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+          <ListOrdered className="size-4" />
+        </ToolbarButton>
         <ToolbarSeparator />
         <ToolbarButton
           touch={touch}

@@ -83,6 +83,26 @@ function buildConfig(
         cell: ({ row }) => new Date(row.original.updatedAt).toLocaleDateString(),
       },
     ],
+    renderCard: ({ record, onView, onDelete }) => (
+      <div className="flex flex-col gap-1.5 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-medium leading-snug">{record.title}</span>
+          <Badge variant={record.status === "published" ? "default" : "secondary"} className="shrink-0">
+            {record.statusLabel}
+          </Badge>
+        </div>
+        <div className="text-xs text-base-content/60">{record.authorName}</div>
+        {record.publishedAt && (
+          <div className="text-xs text-base-content/50">
+            Published {new Date(record.publishedAt).toLocaleDateString()}
+          </div>
+        )}
+        <div className="mt-2 flex gap-2">
+          <button type="button" className="btn btn-xs btn-outline" onClick={onView}>Edit</button>
+          <button type="button" className="btn btn-xs btn-outline btn-error" onClick={onDelete}>Delete</button>
+        </div>
+      </div>
+    ),
     actions: {
       add: {
         label: "New update",
