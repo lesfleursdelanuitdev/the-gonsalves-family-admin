@@ -9,6 +9,7 @@ import type { StoryFieldKey } from "@/lib/admin/story-creator/story-field-resolv
 import type { StoryFlowMediaAttrs } from "@/lib/admin/story-creator/story-types";
 import { StoryField } from "@/lib/admin/story-creator/story-tiptap-story-field-extension";
 import { StoryTable } from "@/lib/admin/story-creator/story-tiptap-story-table";
+import { StoryBulletList } from "@/lib/admin/story-creator/story-tiptap-bullet-list";
 import { StoryLink } from "@/components/admin/story-creator/story-tiptap-link-extension";
 import { createStoryFlowNodeExtensions } from "@/components/admin/story-creator/story-tiptap-flow-extensions";
 
@@ -40,6 +41,7 @@ export function createStoryTipTapExtensions(
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       link: false,
+      bulletList: false,
       codeBlock: {
         HTMLAttributes: {
           class: "story-editor-codeblock",
@@ -88,6 +90,7 @@ export function createStoryTipTapExtensions(
       resizable: false,
       HTMLAttributes: { class: "story-table" },
     }),
+    StoryBulletList,
   ];
 
   if (placeholder !== null) {

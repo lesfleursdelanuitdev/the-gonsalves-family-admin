@@ -1062,6 +1062,9 @@ body {
 .story-tiptap .ProseMirror li::marker {
   color: color-mix(in oklch, var(--color-base-content) 78%, transparent);
 }
+.story-tiptap .ProseMirror ul[data-list-style="circle"] { list-style-type: circle; }
+.story-tiptap .ProseMirror ul[data-list-style="square"] { list-style-type: square; }
+.story-tiptap .ProseMirror ul[data-list-style="none"] { list-style-type: none; padding-left: 0; }
 
 /* Media delete dialog — indeterminate progress strip */
 @keyframes admin-media-delete-progress {
@@ -1094,6 +1097,9 @@ body {
 .story-tiptap--paper .ProseMirror li::marker {
   color: color-mix(in oklch, var(--color-neutral) 82%, white);
 }
+.story-tiptap--paper .ProseMirror ul[data-list-style="circle"] { list-style-type: circle; }
+.story-tiptap--paper .ProseMirror ul[data-list-style="square"] { list-style-type: square; }
+.story-tiptap--paper .ProseMirror ul[data-list-style="none"] { list-style-type: none; padding-left: 0; }
 .story-tiptap--paper .ProseMirror th,
 .story-tiptap--paper .ProseMirror td {
   border-color: color-mix(in oklch, var(--color-neutral) 22%, transparent);

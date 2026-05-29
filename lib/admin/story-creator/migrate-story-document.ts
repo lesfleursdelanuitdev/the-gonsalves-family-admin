@@ -3,8 +3,8 @@ import {
   clampStoryRichTextHeadingLevel,
   EMPTY_STORY_DOC,
   inferFirstHeadingLevel,
+  normalizeStoryDocContent,
   storyDocJsonEquals,
-  syncRichTextDocToPreset,
 } from "@/components/admin/story-creator/story-tiptap-doc";
 import type {
   StoryBlock,
@@ -161,12 +161,11 @@ const MIGRATE_DIVIDER_VARIANTS: readonly StoryDividerVariant[] = ["line", "space
 function migrateRichTextBlock(b: StoryRichTextBlock): StoryRichTextBlock {
   const preset = b.preset ?? b.textPreset ?? "paragraph";
   const { textPreset: _, ...rest } = b;
-  let out: StoryRichTextBlock = { ...rest, preset };
-  const docOut = syncRichTextDocToPreset(out.doc as JSONContent, preset, {
-    headingLevel: out.headingLevel,
-    listVariant: out.listVariant,
-  });
-  out = { ...out, doc: docOut };
+  // Only normalize doc structure (ensure valid shape); never call syncRichTextDocToPreset here —
+  // that destructively transforms content (unwraps lists, strips headings) and must only run
+  // when the user explicitly changes the preset in the inspector.
+  const docOut = normalizeStoryDocContent(b.doc);
+  let out: StoryRichTextBlock = { ...rest, preset, doc: docOut };
   if (preset === "heading") {
     out.headingLevel = clampStoryRichTextHeadingLevel(out.headingLevel ?? inferFirstHeadingLevel(docOut) ?? 2);
   }

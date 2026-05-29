@@ -55,6 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { StoryTiptapToolbarDensity } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
+import { BULLET_LIST_STYLE_OPTIONS, type BulletListStyle } from "@/lib/admin/story-creator/story-tiptap-bullet-list";
 import {
   StoryTipTapGlobalToolbar,
   ToolbarButton,
@@ -213,6 +214,7 @@ function StoryTipTapToolbarLive({
         h5: ed.isActive("heading", { level: 5 }),
         h6: ed.isActive("heading", { level: 6 }),
         bullet: ed.isActive("bulletList"),
+        bulletListStyle: (ed.getAttributes("bulletList").listStyle as BulletListStyle | undefined) ?? "disc",
         ordered: ed.isActive("orderedList"),
         quote: ed.isActive("blockquote"),
         codeBlock: ed.isActive("codeBlock"),
@@ -495,6 +497,28 @@ function StoryTipTapToolbarLive({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        {s.bullet ? (
+          <div
+            className="flex items-center gap-x-1 border-t border-base-content/10 px-2 py-1.5"
+            role="toolbar"
+            aria-label="Bullet style"
+          >
+            <span className="mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wide text-base-content/45">
+              Bullet
+            </span>
+            {BULLET_LIST_STYLE_OPTIONS.map(({ value, label, symbol }) => (
+              <ToolbarBtn
+                key={value}
+                touch
+                label={label}
+                active={s.bulletListStyle === value}
+                onClick={() => editor.chain().focus().updateAttributes("bulletList", { listStyle: value }).run()}
+              >
+                <span className="font-mono text-sm leading-none">{symbol}</span>
+              </ToolbarBtn>
+            ))}
+          </div>
+        ) : null}
         {s.table ? (
           <div
             className={cn(scrollRow, "gap-x-1 gap-y-1 border-t border-base-content/10 px-2 py-2.5")}
@@ -757,6 +781,27 @@ function StoryTipTapToolbarLive({
           <Trash2 className="size-4" />
         </ToolbarBtn>
       </div>
+      {s.bullet ? (
+        <div
+          className="flex items-center gap-x-1 border-t border-base-content/10 px-2 py-1.5"
+          role="toolbar"
+          aria-label="Bullet style"
+        >
+          <span className="mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wide text-base-content/45">
+            Bullet
+          </span>
+          {BULLET_LIST_STYLE_OPTIONS.map(({ value, label, symbol }) => (
+            <ToolbarBtn
+              key={value}
+              label={label}
+              active={s.bulletListStyle === value}
+              onClick={() => editor.chain().focus().updateAttributes("bulletList", { listStyle: value }).run()}
+            >
+              <span className="font-mono text-sm leading-none">{symbol}</span>
+            </ToolbarBtn>
+          ))}
+        </div>
+      ) : null}
       {s.table ? (
         <div
           className="flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-base-content/10 px-2 py-2"
