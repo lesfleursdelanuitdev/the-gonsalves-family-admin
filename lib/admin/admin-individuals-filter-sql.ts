@@ -101,7 +101,7 @@ export function adminIndividualsFilterConditions(
   }
 
   if (structured.givenContains) {
-    parts.push(givenNameExistsSql(Prisma.raw("i.id"), structured.givenContains));
+    parts.push(givenNameExistsSql(Prisma.raw("i.id"), structured.givenContains, Prisma.raw("i.full_name_lower")));
   }
 
   if (structured.branchId) {

@@ -6,15 +6,20 @@ import { Prisma } from "@ligneous/prisma";
 import { escapeLike, surnamePrefixRegexPattern } from "@/lib/gedcom/gedcom-name-search";
 
 /**
- * EXISTS subquery matching an individual's given name via the name-forms tables.
+ * EXISTS subquery matching an individual's given name via the name-forms tables,
+ * with a full_name_lower fallback for individuals whose name-form chain is incomplete
+ * (e.g. some GEDCOM imports where given-name rows weren't created).
+ *
  * @param individualIdExpr - SQL expression for the individual ID column (e.g. `Prisma.raw("i.id")`)
+ * @param fullNameExpr - optional SQL expression for full_name_lower (fallback LIKE match)
  */
 export function givenNameExistsSql(
   individualIdExpr: Prisma.Sql,
   givenNameLower: string,
+  fullNameExpr?: Prisma.Sql,
 ): Prisma.Sql {
   const likePattern = `%${escapeLike(givenNameLower)}%`;
-  return Prisma.sql`EXISTS (
+  const existsPart = Prisma.sql`EXISTS (
     SELECT 1
     FROM gedcom_individual_name_forms inf
     INNER JOIN gedcom_name_form_given_names nfgn ON nfgn.name_form_id = inf.id
@@ -22,6 +27,10 @@ export function givenNameExistsSql(
     WHERE inf.individual_id = ${individualIdExpr}
       AND gn.given_name_lower LIKE ${likePattern} ESCAPE '\\'
   )`;
+  if (fullNameExpr) {
+    return Prisma.sql`(${existsPart} OR ${fullNameExpr} LIKE ${likePattern} ESCAPE '\\')`;
+  }
+  return existsPart;
 }
 
 /**

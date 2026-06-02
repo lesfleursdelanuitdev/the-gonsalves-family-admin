@@ -8,6 +8,10 @@ import {
   AlignJustify,
   AlignLeft,
   AlignRight,
+  ArrowDownToLine,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  ArrowUpToLine,
   Bold,
   Code,
   Heading1,
@@ -22,14 +26,20 @@ import {
   Link2Off,
   List,
   ListOrdered,
+  PanelLeft,
+  PanelTop,
   Redo2,
+  Rows3,
   Strikethrough,
+  Table,
+  TableColumnsSplit,
+  Trash2,
   Underline,
   Undo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { blockTextAlign, validateStoryLinkUrl } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
-import { StoryPersonLinkToolbarButton } from "@/components/admin/story-creator/StoryPersonLinkToolbarButton";
+import { StoryEntityLinkToolbarButton } from "@/components/admin/story-creator/StoryEntityLinkToolbarButton";
 import { StoryFlowInsertToolbarButtons } from "@/components/admin/story-creator/StoryFlowInsertToolbarButtons";
 
 const scrollRow =
@@ -100,6 +110,7 @@ function useStoryInlineToolbarState(editor: Editor) {
       link: ed.isActive("link"),
       bullet: ed.isActive("bulletList"),
       ordered: ed.isActive("orderedList"),
+      table: ed.isActive("table"),
       textAlign: blockTextAlign(ed),
     }),
   });
@@ -177,7 +188,7 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
         <ToolbarButton touch={touch} label="Link" active={s.link} onClick={setLink}>
           <Link2 className="size-4" />
         </ToolbarButton>
-        <StoryPersonLinkToolbarButton editor={editor} touch={touch} />
+        <StoryEntityLinkToolbarButton editor={editor} touch={touch} />
         <ToolbarButton
           touch={touch}
           label="Remove link"
@@ -229,6 +240,22 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
           <AlignJustify className="size-4" />
         </ToolbarButton>
         <ToolbarSeparator />
+        <ToolbarButton
+          touch={touch}
+          label="Insert 3×3 table"
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        >
+          <Table className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          touch={touch}
+          label="Delete table"
+          disabled={!s.table}
+          onClick={() => editor.chain().focus().deleteTable().run()}
+        >
+          <Trash2 className="size-4" />
+        </ToolbarButton>
+        <ToolbarSeparator />
         <ToolbarButton touch={touch} label="Undo" onClick={() => editor.chain().focus().undo().run()}>
           <Undo2 className="size-4" />
         </ToolbarButton>
@@ -236,6 +263,43 @@ function InlineFormattingRow({ editor, touch }: { editor: Editor; touch?: boolea
           <Redo2 className="size-4" />
         </ToolbarButton>
       </div>
+      {s.table ? (
+        <div
+          className={cn(scrollRow, "gap-x-1 border-t border-base-content/10 px-2 py-2")}
+          role="toolbar"
+          aria-label="Table structure"
+        >
+          <span className="mr-1 shrink-0 self-center text-[10px] font-bold uppercase tracking-wide text-base-content/45">
+            Table
+          </span>
+          <ToolbarButton touch={touch} label="Add row above" onClick={() => editor.chain().focus().addRowBefore().run()}>
+            <ArrowUpToLine className="size-4" />
+          </ToolbarButton>
+          <ToolbarButton touch={touch} label="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()}>
+            <ArrowDownToLine className="size-4" />
+          </ToolbarButton>
+          <ToolbarButton touch={touch} label="Delete row" onClick={() => editor.chain().focus().deleteRow().run()}>
+            <Rows3 className="size-4" />
+          </ToolbarButton>
+          <ToolbarSeparator />
+          <ToolbarButton touch={touch} label="Add column left" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+            <ArrowLeftToLine className="size-4" />
+          </ToolbarButton>
+          <ToolbarButton touch={touch} label="Add column right" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+            <ArrowRightToLine className="size-4" />
+          </ToolbarButton>
+          <ToolbarButton touch={touch} label="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()}>
+            <TableColumnsSplit className="size-4" />
+          </ToolbarButton>
+          <ToolbarSeparator />
+          <ToolbarButton touch={touch} label="Toggle header row" onClick={() => editor.chain().focus().toggleHeaderRow().run()}>
+            <PanelTop className="size-4" />
+          </ToolbarButton>
+          <ToolbarButton touch={touch} label="Toggle header column" onClick={() => editor.chain().focus().toggleHeaderColumn().run()}>
+            <PanelLeft className="size-4" />
+          </ToolbarButton>
+        </div>
+      ) : null}
     </div>
   );
 }

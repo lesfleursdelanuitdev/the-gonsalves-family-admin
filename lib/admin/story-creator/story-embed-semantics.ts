@@ -224,9 +224,13 @@ export function storyTimelinePayloadFromEmbedBlock(block: StoryEmbedBlock): Stor
   const data = normalized.embedKind === "timeline" ? normalized.data : undefined;
   const scope = timelineScopeFromSourceType(data?.sourceType) ?? normalized.scope ?? null;
   const entityId = data?.sourceId ?? normalized.entityId ?? null;
+  const rules = Array.isArray(data?.rules) && data!.rules!.length > 0 ? data!.rules : undefined;
+  const globalFilters = isRecord(data?.globalFilters) ? (data!.globalFilters as import("./story-types").TimelineGlobalFilters) : undefined;
   return {
     scope,
     entityId,
+    rules,
+    globalFilters,
     viewMode: normalized.viewMode,
     orient: normalized.orient,
     activeView: normalized.activeView,

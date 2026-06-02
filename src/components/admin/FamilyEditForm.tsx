@@ -258,6 +258,7 @@ export function FamilyEditForm({
       childNonBirthById={childNonBirthById}
       pending={e.pending}
       onRemoveChild={e.onRemoveChild}
+      onReorderChildren={e.onReorderChildren}
       childAddStep={e.childAddStep}
       setChildAddStep={e.setChildAddStep}
       childSearchQ={e.childSearchQ}

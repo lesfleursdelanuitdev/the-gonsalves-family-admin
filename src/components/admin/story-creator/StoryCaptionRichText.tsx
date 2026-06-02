@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { validateStoryLinkUrl } from "@/components/admin/story-creator/story-tiptap-toolbar-utils";
 import { storyCaptionFromEditorHtml, storyCaptionToEditorHtml, storyCaptionToRenderableHtml } from "@/lib/admin/story-creator/story-caption-richtext";
 import { StoryLink } from "@/components/admin/story-creator/story-tiptap-link-extension";
-import { StoryPersonLinkToolbarButton } from "@/components/admin/story-creator/StoryPersonLinkToolbarButton";
+import { StoryEntityLinkToolbarButton } from "@/components/admin/story-creator/StoryEntityLinkToolbarButton";
 
 function CaptionToolbarButton({
   label,
@@ -114,7 +114,7 @@ function CaptionEditorToolbar({ editor }: { editor: Editor }) {
         <CaptionToolbarButton label="Link" active={s.link} onClick={setLink}>
           <Link2 className="size-4" />
         </CaptionToolbarButton>
-        <StoryPersonLinkToolbarButton editor={editor} size="caption" />
+        <StoryEntityLinkToolbarButton editor={editor} size="caption" />
         <CaptionToolbarButton
           label="Remove link"
           disabled={!s.link}

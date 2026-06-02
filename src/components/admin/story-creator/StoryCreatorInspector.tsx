@@ -98,6 +98,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  UserCircle,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -136,6 +137,7 @@ import { StoryDebugInspector } from "@/components/admin/story-creator/inspector/
 import { StoryCaptionRichTextEditor } from "@/components/admin/story-creator/StoryCaptionRichText";
 import { StoryTipTapEditor } from "@/components/admin/story-creator/StoryTipTapEditor";
 import { verseTextFromTipTapDoc } from "@/lib/admin/story-creator/story-verse";
+import { stripSlashesFromName } from "@/lib/gedcom/display-name";
 
 export type StoryInspectorTab = "block" | "story" | "debug";
 
@@ -1237,19 +1239,16 @@ export function InspectorStoryLinkedRecords({
   );
 }
 
-function userMediaRefFromLibraryItem(m: AdminMediaListItem): StoryImageMediaRef {
-  return { mediaId: m.id, mediaKind: "user_media" };
+function adminMediaRefFromLibraryItem(m: AdminMediaListItem): StoryImageMediaRef {
+  // Admin media is stored in gedcomMedia table.
+  return { mediaId: m.id, mediaKind: "gedcom_media" };
 }
 
-/** Keeps deprecated `coverMediaId` in sync when cover is admin library (`user_media`) media. */
 function coverImageMetaPatch(ref: StoryImageMediaRef | undefined): StoryDocumentMetaPatch {
   if (!ref) {
     return { coverImage: undefined, coverMediaId: undefined, coverMediaKind: undefined };
   }
-  if (ref.mediaKind === "user_media") {
-    return { coverImage: ref, coverMediaId: ref.mediaId, coverMediaKind: "user_media" };
-  }
-  return { coverImage: ref, coverMediaId: undefined, coverMediaKind: undefined };
+  return { coverImage: ref, coverMediaId: ref.mediaId, coverMediaKind: ref.mediaKind };
 }
 
 function InspectorStoryImageRow({
@@ -1363,7 +1362,7 @@ export function InspectorStoryImagesSection({
           onPick={(items) => {
             const m = items[0];
             if (!m) return;
-            onStoryMetaChange(coverImageMetaPatch(userMediaRefFromLibraryItem(m)));
+            onStoryMetaChange(coverImageMetaPatch(adminMediaRefFromLibraryItem(m)));
           }}
           onRemove={() => onStoryMetaChange(coverImageMetaPatch(undefined))}
         />
@@ -1380,7 +1379,7 @@ export function InspectorStoryImagesSection({
           onPick={(items) => {
             const m = items[0];
             if (!m) return;
-            onStoryMetaChange({ profileImage: userMediaRefFromLibraryItem(m) });
+            onStoryMetaChange({ profileImage: adminMediaRefFromLibraryItem(m) });
           }}
           onRemove={() => onStoryMetaChange({ profileImage: undefined })}
         />
@@ -1525,6 +1524,46 @@ export function InspectorStoryAuthorsSection({
                 value={credit.name}
                 onChange={(e) => updateCredit(credit.id, { name: e.target.value })}
               />
+              <div className="mt-2">
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-base-content/45">
+                  Link to tree person
+                </p>
+                {credit.personXref ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-base-content/12 bg-base-100/60 px-3 py-2">
+                    <UserCircle className="size-4 shrink-0 text-base-content/45" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-base-content">{credit.name}</p>
+                      <p className="text-xs text-base-content/50">{credit.personXref}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs shrink-0 gap-1 text-base-content/50"
+                      onClick={() => updateCredit(credit.id, { personXref: undefined, personId: undefined })}
+                      aria-label="Remove tree person link"
+                    >
+                      <X className="size-3" aria-hidden />
+                      Clear
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <IndividualSearchPicker
+                      idPrefix={`author-person-${credit.id}`}
+                      onPick={(ind) => {
+                        const displayName = stripSlashesFromName(ind.fullName) || ind.xref || ind.id;
+                        updateCredit(credit.id, {
+                          personXref: ind.xref ?? undefined,
+                          personId: ind.id,
+                          name: displayName,
+                        });
+                      }}
+                    />
+                    <p className="mt-1 text-[10px] text-base-content/40">
+                      Optional — links the byline name to their profile page.
+                    </p>
+                  </>
+                )}
+              </div>
               <p className="mb-1.5 mt-3 text-[10px] font-bold uppercase tracking-wider text-base-content/45">
                 Text before this name
               </p>

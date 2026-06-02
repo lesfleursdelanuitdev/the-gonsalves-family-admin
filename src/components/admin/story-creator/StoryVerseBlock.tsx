@@ -51,7 +51,7 @@ export function StoryVerseBlock({
       )}
     >
       {title ? (
-        <p className={cn("font-semibold leading-snug", storyTextAlignClass(block.verseTitleAlign ?? "center"))}>{title}</p>
+        <p className={cn("italic leading-snug", storyTextAlignClass(block.verseTitleAlign ?? "center"))}>{title}</p>
       ) : null}
       {hasLines ? (
         <div

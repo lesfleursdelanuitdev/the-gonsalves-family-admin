@@ -83,7 +83,7 @@ export function IndividualSearchPicker({
 
   const qs = useMemo(() => buildIndividualsParams(listOpts).toString(), [listOpts]);
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: [...ADMIN_INDIVIDUALS_QUERY_KEY, "picker", qs],
     queryFn: () => fetchJson<AdminIndividualsListResponse>(`/api/admin/individuals${qs ? `?${qs}` : ""}`),
     enabled: queryEnabled,
@@ -118,6 +118,8 @@ export function IndividualSearchPicker({
         <div className="max-h-60 overflow-auto rounded-box border border-base-content/10 bg-base-100 py-1 text-sm shadow-md">
           {loading ? (
             <p className="px-3 py-2 text-muted-foreground">Searching…</p>
+          ) : isError ? (
+            <p className="px-3 py-2 text-error">Search failed — please try again.</p>
           ) : rows.length === 0 ? (
             <p className="px-3 py-2 text-muted-foreground">No matches.</p>
           ) : (

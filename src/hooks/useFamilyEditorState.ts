@@ -533,6 +533,17 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     [familyChildren, membership],
   );
 
+  const onReorderChildren = useCallback(
+    async (childIds: string[]) => {
+      try {
+        await membership.mutateAsync({ action: "reorderChildren", childIds });
+      } catch {
+        toast.error("Failed to save new order.");
+      }
+    },
+    [membership],
+  );
+
   const pending = membership.isPending || updateFamily.isPending;
 
   const onMediaAttached = useCallback(() => {
@@ -603,6 +614,7 @@ export function useFamilyEditorState({ familyId, mode = "edit" }: UseFamilyEdito
     onAddChildById,
     onCreateChild,
     onRemoveChild,
+    onReorderChildren,
     setMiniBirth,
     setMiniDeath,
     parentSlotRulesOpen,

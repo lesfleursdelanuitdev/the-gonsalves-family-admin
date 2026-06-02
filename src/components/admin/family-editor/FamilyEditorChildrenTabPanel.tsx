@@ -1,8 +1,9 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { selectClassName } from "@/components/data-viewer/constants";
 import { KeyFactSection } from "@/components/admin/individual-editor/KeyFactSection";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export type FamilyEditorChildrenTabPanelProps = {
   childNonBirthById: Map<string, boolean>;
   pending: boolean;
   onRemoveChild: (childId: string) => void | Promise<void>;
+  onReorderChildren: (childIds: string[]) => void | Promise<void>;
   childAddStep: FamilyMemberAddStep | null;
   setChildAddStep: Dispatch<SetStateAction<FamilyMemberAddStep | null>>;
   childSearchQ: string;
@@ -59,18 +61,38 @@ function ChildRow({
   pending,
   onRemove,
   nonBirthChild,
+  isDragOver,
+  dragHandleProps,
 }: {
   child: NonNullable<FamilyEditChildRow["child"]>;
   pending: boolean;
   onRemove: () => void;
   nonBirthChild?: boolean;
+  isDragOver?: boolean;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   const label = stripSlashesFromName(child.fullName) || child.xref || child.id;
   const initials = initialsFromDisplayName(child.fullName, child.id);
   const by = child.birthYear != null && Number.isFinite(child.birthYear) ? String(child.birthYear) : null;
   const metaParts = [partnerSexLabel(child.sex), by ? `Born ${by}` : null].filter(Boolean);
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-base-content/10 bg-base-content/[0.02] px-3 py-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg border bg-base-content/[0.02] px-3 py-3 transition-colors",
+        isDragOver
+          ? "border-primary/50 bg-primary/5 shadow-sm"
+          : "border-base-content/10",
+      )}
+    >
+      {/* Drag handle */}
+      <div
+        {...dragHandleProps}
+        className="flex shrink-0 cursor-grab items-center text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+        title="Drag to reorder"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="size-4" />
+      </div>
       <div
         className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${partnerAvatarClass(child.sex)}`}
         aria-hidden
@@ -116,6 +138,7 @@ export function FamilyEditorChildrenTabPanel({
   childNonBirthById,
   pending,
   onRemoveChild,
+  onReorderChildren,
   childAddStep,
   setChildAddStep,
   childSearchQ,
@@ -134,27 +157,70 @@ export function FamilyEditorChildrenTabPanel({
   setMiniBirth,
   setMiniDeath,
 }: FamilyEditorChildrenTabPanelProps) {
+  const dragIndexRef = useRef<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  function handleDragStart(index: number) {
+    dragIndexRef.current = index;
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setOverIndex(index);
+  }
+
+  function handleDragEnd() {
+    dragIndexRef.current = null;
+    setOverIndex(null);
+  }
+
+  function handleDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    dragIndexRef.current = null;
+    setOverIndex(null);
+    if (fromIndex === null || fromIndex === dropIndex) return;
+    const reordered = [...familyChildren];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(dropIndex, 0, moved!);
+    const ids = reordered.map((r) => r.child?.id).filter(Boolean) as string[];
+    void onReorderChildren(ids);
+  }
+
   return (
     <div className="space-y-4">
       {familyChildren.length === 0 ? (
         <p className="text-sm text-muted-foreground">No children in this relationship yet.</p>
       ) : (
-        <ul className="space-y-2">
-          {familyChildren.map((row) => {
-            const c = row.child;
-            if (!c?.id) return null;
-            return (
-              <li key={c.id}>
-                <ChildRow
-                  child={c}
-                  pending={pending}
-                  onRemove={() => void onRemoveChild(c.id)}
-                  nonBirthChild={childNonBirthById.get(c.id)}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {familyChildren.length > 1 && (
+            <p className="text-xs text-muted-foreground">Drag rows to reorder children by birth order.</p>
+          )}
+          <ul className="space-y-2">
+            {familyChildren.map((row, index) => {
+              const c = row.child;
+              if (!c?.id) return null;
+              return (
+                <li
+                  key={c.id}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <ChildRow
+                    child={c}
+                    pending={pending}
+                    onRemove={() => void onRemoveChild(c.id)}
+                    nonBirthChild={childNonBirthById.get(c.id)}
+                    isDragOver={overIndex === index && dragIndexRef.current !== index}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {childAddStep === null ? (

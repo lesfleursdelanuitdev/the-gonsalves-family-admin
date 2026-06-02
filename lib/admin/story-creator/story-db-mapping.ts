@@ -9,6 +9,7 @@ import type {
   StoryImageMediaRef,
   StoryLifecycleStatus,
   StorySection,
+  StorySectionEntityLink,
 } from "@/lib/admin/story-creator/story-types";
 import { getStoryAuthorCredits, parseStoryAuthorsFromMetaArray } from "@/lib/admin/story-creator/story-author-display";
 import { newStoryId } from "@/lib/admin/story-creator/story-types";
@@ -16,8 +17,8 @@ import { normalizeStorySlugInput } from "@/lib/admin/story-creator/story-slug";
 import type { SelectedNoteLink } from "@/lib/forms/note-form-links";
 import { formatPlaceSuggestionLabel } from "@/lib/forms/admin-place-suggestions";
 
-/** Envelope stored in `StorySection.content_json` (explicit `blocks` array). */
-export type StorySectionContentEnvelope = { blocks: StoryBlock[] };
+/** Envelope stored in `StorySection.content_json`. */
+export type StorySectionContentEnvelope = { blocks: StoryBlock[]; entityLinks?: StorySectionEntityLink[] };
 
 export const STORY_DB_READ_INCLUDE = {
   author: { select: { id: true, name: true, username: true } },
@@ -112,10 +113,21 @@ export type StoryDbSerializedPayload = {
   };
 };
 
-function parseSectionContentJson(json: unknown): StoryBlock[] {
-  if (!json || typeof json !== "object") return [];
-  const blocks = (json as { blocks?: unknown }).blocks;
-  return Array.isArray(blocks) ? (blocks as StoryBlock[]) : [];
+function parseSectionEntityLinks(raw: unknown): StorySectionEntityLink[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is StorySectionEntityLink => {
+    if (!item || typeof item !== "object") return false;
+    const r = item as Record<string, unknown>;
+    return typeof r.id === "string" && typeof r.entityType === "string" && typeof r.entityId === "string" && typeof r.label === "string";
+  });
+}
+
+function parseSectionContentJson(json: unknown): { blocks: StoryBlock[]; entityLinks: StorySectionEntityLink[] } {
+  if (!json || typeof json !== "object") return { blocks: [], entityLinks: [] };
+  const raw = json as Record<string, unknown>;
+  const blocks = Array.isArray(raw.blocks) ? (raw.blocks as StoryBlock[]) : [];
+  const entityLinks = parseSectionEntityLinks(raw.entityLinks);
+  return { blocks, entityLinks };
 }
 
 const STORY_META_BODY_V = "ligneous-story-meta/1" as const;
@@ -130,6 +142,8 @@ function serializeStoryBodyMeta(doc: StoryDocument): string {
       name: c.name.trim(),
       authorPrefixMode: c.authorPrefixMode ?? null,
       authorPrefixCustom: c.authorPrefixCustom ?? null,
+      personXref: c.personXref ?? null,
+      personId: c.personId ?? null,
     })),
     author: null,
     authorPrefixMode: null,
@@ -270,7 +284,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
           slug: null,
           isChapter: j === 0 ? parentChapter : false,
           isPage: j === 0 ? parentPage : false,
-          contentJson: { blocks: ch.blocks ?? [] },
+          contentJson: { blocks: ch.blocks ?? [], ...(ch.entityLinks?.length ? { entityLinks: ch.entityLinks } : {}) } as StorySectionContentEnvelope,
         })),
       });
     } else {
@@ -288,7 +302,7 @@ export function storyDocumentToDbPayload(doc: StoryDocument, _treeId: string, _a
             slug: null,
             isChapter: root.isChapter ?? false,
             isPage: root.isPage ?? false,
-            contentJson: { blocks: root.blocks ?? [] },
+            contentJson: { blocks: root.blocks ?? [], ...(root.entityLinks?.length ? { entityLinks: root.entityLinks } : {}) } as StorySectionContentEnvelope,
           },
         ],
       });
@@ -346,6 +360,7 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
     const secs = [...ch.sections].sort((a, b) => a.sortOrder - b.sortOrder);
     if (secs.length === 1 && secs[0].title === ch.title) {
       const s0 = secs[0];
+      const { blocks: s0Blocks, entityLinks: s0Links } = parseSectionContentJson(s0.contentJson);
       roots.push({
         id: s0.id,
         title: s0.title,
@@ -355,7 +370,8 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
         collapsed: false,
         isChapter: s0.isChapter ?? false,
         isPage: s0.isPage ?? false,
-        blocks: parseSectionContentJson(s0.contentJson),
+        blocks: s0Blocks,
+        entityLinks: s0Links.length > 0 ? s0Links : undefined,
       });
     } else {
       const chapterFlag = secs[0]?.isChapter ?? false;
@@ -367,15 +383,19 @@ export function dbRecordToStoryDocument(story: StoryWithChaptersAndSections): St
         isChapter: chapterFlag,
         isPage: pageFlag,
         blocks: [],
-        children: secs.map((s) => ({
-          id: s.id,
-          title: s.title,
-          subtitle: s.subtitle ?? undefined,
-          hideTitle: s.hideTitle ?? false,
-          hideSubtitle: s.hideSubtitle ?? false,
-          collapsed: false,
-          blocks: parseSectionContentJson(s.contentJson),
-        })),
+        children: secs.map((s) => {
+          const { blocks, entityLinks } = parseSectionContentJson(s.contentJson);
+          return {
+            id: s.id,
+            title: s.title,
+            subtitle: s.subtitle ?? undefined,
+            hideTitle: s.hideTitle ?? false,
+            hideSubtitle: s.hideSubtitle ?? false,
+            collapsed: false,
+            blocks,
+            entityLinks: entityLinks.length > 0 ? entityLinks : undefined,
+          };
+        }),
       });
     }
   }

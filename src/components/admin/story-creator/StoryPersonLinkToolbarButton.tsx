@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { UserRound } from "lucide-react";
+import { useToolbarDialogOpen } from "@/components/admin/story-creator/story-tiptap-active-editor-context";
 import { IndividualSearchPicker } from "@/components/admin/IndividualSearchPicker";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +73,8 @@ export function StoryPersonLinkToolbarButton({
   const [selection, setSelection] = useState<SelectionSnapshot>(() => selectedText(editor));
   const [selectedIndividual, setSelectedIndividual] = useState<AdminIndividualListItem | null>(null);
   const [displayText, setDisplayText] = useState("");
+
+  useToolbarDialogOpen(open);
 
   const active = editor.isActive("link", { entityType: "person" });
   const selectedMeta = selectedIndividual ? individualSearchMetaLine(selectedIndividual) : "";

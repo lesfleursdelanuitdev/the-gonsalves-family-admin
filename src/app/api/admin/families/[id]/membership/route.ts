@@ -114,11 +114,24 @@ export const POST = withAdminAuth(async (req, user, ctx) => {
         const newId = await createIndividualFromEditorPayload(changeCtx, parsed);
         await addChildToFamily(changeCtx, familyId, newId, { birthOrder, relationshipType });
       });
+    } else if (action === "reorderChildren") {
+      const childIds = body.childIds;
+      if (!Array.isArray(childIds) || childIds.some((id) => typeof id !== "string")) {
+        return NextResponse.json({ error: "childIds must be an array of strings" }, { status: 400 });
+      }
+      await prisma.$transaction(async (tx) => {
+        for (let i = 0; i < childIds.length; i++) {
+          await tx.gedcomFamilyChild.updateMany({
+            where: { familyId, childId: childIds[i] as string, fileUuid },
+            data: { birthOrder: i + 1 },
+          });
+        }
+      });
     } else {
       return NextResponse.json(
         {
           error:
-            "Unknown action. Use addParent, removeParent, addChild, removeChild, createParentAndAdd, or createChildAndAdd.",
+            "Unknown action. Use addParent, removeParent, addChild, removeChild, createParentAndAdd, createChildAndAdd, or reorderChildren.",
         },
         { status: 400 },
       );

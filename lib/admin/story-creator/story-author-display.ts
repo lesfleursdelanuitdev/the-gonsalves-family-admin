@@ -37,7 +37,9 @@ export function parseStoryAuthorsFromMetaArray(raw: unknown): StoryAuthorCredit[
     const authorPrefixMode = parsePrefixMode(rec.authorPrefixMode);
     const authorPrefixCustom =
       typeof rec.authorPrefixCustom === "string" ? rec.authorPrefixCustom : undefined;
-    out.push({ id, name, authorPrefixMode, authorPrefixCustom });
+    const personXref = typeof rec.personXref === "string" && rec.personXref ? rec.personXref : undefined;
+    const personId = typeof rec.personId === "string" && rec.personId ? rec.personId : undefined;
+    out.push({ id, name, authorPrefixMode, authorPrefixCustom, personXref, personId });
   }
   return out;
 }

@@ -13,6 +13,10 @@ export type StoryAuthorCredit = {
   authorPrefixMode?: StoryAuthorPrefixMode;
   /** When `authorPrefixMode` is `custom`, text before the name (spaces optional). */
   authorPrefixCustom?: string;
+  /** GEDCOM xref of the linked individual in the tree (e.g. "@I001@"). */
+  personXref?: string;
+  /** Database UUID of the linked individual — used for profile page links. */
+  personId?: string;
 };
 
 /** Row-level width and float behavior for story blocks (editor + preview). */
@@ -650,7 +654,11 @@ export type StoryTimelineEmbedPayload = Pick<
   | "timelineWidthPct"
   | "timelinePreviewWidthUnit"
   | "timelineShowPlaybackControls"
->;
+> & {
+  /** Rule-based event source (EventsListPicker custom/noteEvents mode). */
+  rules?: TimelineEventRule[];
+  globalFilters?: TimelineGlobalFilters;
+};
 
 /**
  * Content inside a column cell. Columns may nest one level (section → columns → columns);
@@ -871,6 +879,15 @@ export type StoryBlock =
  * Ordered structural unit: optional `blocks`, optional nested `children` (both may be set).
  * Naming is free-form (e.g. "Chapter 1", "Acknowledgments", "Appendix A").
  */
+/** A single entity associated with a section (person, family, event, or place). */
+export type StorySectionEntityLink = {
+  id: string;
+  entityType: "person" | "family" | "event" | "place";
+  entityId: string;
+  entityXref?: string;
+  label: string;
+};
+
 export type StorySection = {
   id: string;
   title: string;
@@ -892,6 +909,8 @@ export type StorySection = {
   isPage?: boolean;
   blocks: StoryBlock[];
   children?: StorySection[];
+  /** Entities (people, families, events, places) that this section discusses. */
+  entityLinks?: StorySectionEntityLink[];
 };
 
 export type StoryDocument = {
