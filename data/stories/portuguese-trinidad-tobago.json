@@ -1,0 +1,381 @@
+{
+  "version": 1,
+  "id": "portuguese-trinidad-tobago",
+  "title": "The Portuguese of Trinidad and Tobago: Locating an Ethnic Minority",
+  "slug": "portuguese-trinidad-tobago",
+  "kind": "article",
+  "status": "published",
+  "authors": [
+    {
+      "id": "author-jo-anne-ferreira",
+      "name": "Jo-Anne S. Ferreira",
+      "authorPrefixMode": "by"
+    }
+  ],
+  "excerpt": "From the seventeenth century to the present day — the remarkable story of the Portuguese community of Trinidad and Tobago and their contributions to commerce, politics, sport, literature, music and national life. By Jo-Anne S. Ferreira, 2012.",
+  "tags": ["madeira", "portuguese", "trinidad", "tobago", "history", "immigration"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-main",
+      "title": "The Portuguese of Trinidad and Tobago: Locating an Ethnic Minority",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-title",
+          "type": "richText",
+          "preset": "heading",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "The Portuguese of Trinidad and Tobago: Locating an Ethnic Minority" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Author: " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Jo-Anne S. Ferreira" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Written August 2012 for " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Trinidad and Tobago: 50 Years of Independence" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-body",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Portuguese came to Tobago and Trinidad as early as the seventeenth century. Over time, the Portuguese included groups of Jews, Catholics and Protestants. The earliest shiploads of migrant, not indentured, workers came from the Azores in 1834. For over 140 years, from 1846 up to 1975, the ancestors of the modern Portuguese community in Trinidad & Tobago hailed mostly from the archipelago of Madeira. In 2011, the Madeiran Portuguese Community of Trinidad and Tobago recognised the 165th anniversary of the arrival of the first Madeirans in Trinidad in 1846." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "At first, the Madeirans left their homeland either in search of economic relief (Catholics) or fleeing to a religious haven (Presbyterians). They emigrated to various locations throughout the then British Caribbean as migrant labourers and religious refugees, particularly Guyana, St Vincent, Antigua and Trinidad, because of difficult economic and social conditions in Madeira in the 19th century, and because of the centuries-old relationship between Portugal and England. The twentieth century also saw emigration of Portuguese directly from Madeira, and also via Guyana, St Vincent, Antigua and St Kitts and other territories. The various waves came as a result of ongoing chain migration of communities and families, and those entering business partnerships here. Important communities settled in Port-of-Spain, Arima, Arouca, Chaguanas and San Fernando, with a few Portuguese in Scarborough." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Recalling the presence of the Portuguese in our nation today are over 100 Portuguese surnames (and some surnames have also become street and other place names), including those associated with Jewish Portuguese. Surnames include Abreu, Affonso, d'Andrade, Cabral, Carvalho, Coelho, Farinha, de Freitas, Fernandes, Gonsalves, Gouveia, Jardim, Lourenço, Luz, Mendes, Mendonça, Netto, Nunes, Pereira, Pestana, Quintal, Rodrigues, Serrão, dos Santos, de Silva, deSouza, Teixeira, Vieira and Xavier, and many more, many of them famous names in the world of business. The spelling, if not the pronunciation, has for the most part been preserved. Interestingly, the Portuguese have been mentioned in various calypsos (such as Pharoah's “Portuguese Dance”, and those mentioning businessman " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "JJ Ribeiro" },
+                  { "type": "text", "text": ", calypso recording pioneer " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Eduardo Sá Gomes" },
+                  { "type": "text", "text": " and politician " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Albert Maria Gomes" },
+                  { "type": "text", "text": "), and in skits and plays, for example the 1905 “Portuguese Shop in George Street”, and latterly, the 1992 “Ah Wanna Fall”." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Unlike descendants of other nations, the Portuguese have not contributed much in the way of food and drink, preferring instead to adopt national dishes as their own. At one time, however, they were the bakers (" },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "João Quintal, João Vieira Coelho, José Francisco de Freitas" },
+                  { "type": "text", "text": " and a Mr Jardine) and rum-makers to the nation. Among the latter, the most outstanding of all was " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "José Bento (JB) Fernandes" },
+                  { "type": "text", "text": ", whose name still lives in various quality rum brand names. Portuguese food items that have survived include the Christmas carne vinha d'alhos (calvinadage or garlic pork), bacalhau “cod” dishes (some even suggest that buljol may be derived from bacalhau), bolo de mel (a famous Madeiran molasses cake), cebolas de escabeche (pickled onions; escabeche has also given the English language ceviche and escoveitch), malassadas (Shrove Tuesday pancakes), and more. Luso-Trinbagonians and others of Guyanese origin, whether Luso-Guyanese or not, generally remember many more food items, because of the fact that Guyana's 19th century Portuguese community was 10 to 15 times bigger than that of Trinidad's." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In pre-independence Trinidad and Tobago, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Albert Maria Gomes" },
+                  { "type": "text", "text": " was perhaps the most outstanding Luso-Trinidadian. In 1931, he launched " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "The Beacon" },
+                  { "type": "text", "text": ", successor of the magazine, " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Trinidad" },
+                  { "type": "text", "text": ". (The Beacon group included Ralph de Boissière, CLR James, Alfred Mendes and others.) In 1945, he was elected to the Legislative Council, winning the seat formerly held by Mayor Arthur Cipriani, and the following year, he was elected to the Executive Council. In 1950, Gomes became the first Chief Minister of Trinidad & Tobago, and Minister of Labour, Industry and Commerce up to 1956. He was leader of the conservative Party of Political Progress Groups (POPPG). From 1958, he served as a member of the West Indies Federal House of Representatives, which dissolved with the breakdown of the Federation in 1962. He made his mark in politics to the extent that that political era was referred to as “Gomesocracy” and he was undoubtedly one of the country's more colourful and controversial federalist politicians. After POPPG's defeat at the polls by the People's National Movement (PNM), Gomes took the defeat very hard and left Trinidad to live in England." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Gomes will always be remembered by the Shouter Baptists, among others. In 1951, he asked the Legislative Council to appoint a committee to look into a repeal of the 1917 Shouters Prohibition Ordinance (which denied Shouter Baptists freedom of religious expression for 34 years). Gomes also strongly supported the Steelband movement and Calypso. After his defeat at the polls by Eric Williams (he was born in 1911, like Williams, 100 years ago), he remains sadly forgotten by the majority of our populace, in spite of his role in the recent pre-independence history of the nation. This patriot published his autobiography, " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Through a Maze of Colour" },
+                  { "type": "text", "text": " in 1974, and four years later published " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "All Papa's Children" },
+                  { "type": "text", "text": ", a novel about the Portuguese community." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Others in politics and public service included " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "George de Nobriga" },
+                  { "type": "text", "text": " (Legislative Council, 1938) and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Sir Errol dos Santos" },
+                  { "type": "text", "text": " (Colonial Secretary, 1947). Mayors included " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Henry de Nobriga" },
+                  { "type": "text", "text": " (Arima, 1916), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Henry de Freitas" },
+                  { "type": "text", "text": " (Port-of-Spain, 1932), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Charles Gomes Netto" },
+                  { "type": "text", "text": " (Arima, 1947), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "George Cabral" },
+                  { "type": "text", "text": " (Port-of-Spain, 1947), and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gerard Ferreira" },
+                  { "type": "text", "text": " (San Fernando, 1996)." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "As an independent nation, the country has recognised several members of the Portuguese community, through awards of the following national honours to: " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Roger (Gomez Sheppard) Gibbon" },
+                  { "type": "text", "text": " (Humming Bird Medal (Silver) for Athletics – Cycling, 1969, with many accomplishments starting at age 17), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Peter Carvalho" },
+                  { "type": "text", "text": " and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Harold (Sally) Saldenah" },
+                  { "type": "text", "text": " (both awarded the Public Service Medal of Merit (Silver) for Carnival Development, 1972), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Edmond G. (D'Olliviera) Hart" },
+                  { "type": "text", "text": " (Humming Bird Medal (Gold) for Carnival Development, 1973), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Charles de Freitas" },
+                  { "type": "text", "text": " (Public Service Medal of Merit (Gold), 1975), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Hugh Ferreira" },
+                  { "type": "text", "text": " (Public Service Medal of Merit (Gold), 1976), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Lady Enid dos Santos" },
+                  { "type": "text", "text": " (Humming Bird Medal (Gold) for Voluntary Social Work, 1978), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Maria Nunes" },
+                  { "type": "text", "text": " (Humming Bird Medal (Gold) for Sport, 1980), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Ignatius Ferreira" },
+                  { "type": "text", "text": " (Humming Bird Medal (Silver) for Community Service, 1980, also recognised by the Government of Portugal in 1991, having been appointed Grau de Comendador: Class Order of Commander), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Sr Paul (Gloria) D'Ornellas" },
+                  { "type": "text", "text": " (Public Service Medal of Merit (Gold) for Education, 1991), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Hilary (Larry) Angelo Gomes" },
+                  { "type": "text", "text": " (Humming Bird Medal (Silver) for Sport, 1992), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "June Rita Gonsalves" },
+                  { "type": "text", "text": " (Humming Bird Medal (Gold) for Community Service, 1992), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Stephen (Pereira) Ames" },
+                  { "type": "text", "text": " (Chaconia Gold Medal (Golf), 2004), and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Carl de Souza" },
+                  { "type": "text", "text": " (Public Service Medal of Merit (Gold), posthumously, 2004). National awards also went to " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Ovid Owen Fernandes" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Rupert Mendes" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Neville Miranda" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Nora Florence Franco" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Raymond “Atilla” Quevedo" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Augustine “Rock” Ribeiro" },
+                  { "type": "text", "text": ", and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Rene Serrao" },
+                  { "type": "text", "text": "." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The T&T Sports Hall of Fame also recognised " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Carl de Souza" },
+                  { "type": "text", "text": " (Weightlifting, 1985), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Roger P. Gibbon" },
+                  { "type": "text", "text": " (Cycling, 1985), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Hilary (Larry) Angelo Gomes" },
+                  { "type": "text", "text": " (Cricket, 1985), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gerald (Gerry) Gomez" },
+                  { "type": "text", "text": " (Cricket, 1985), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Compton Gonsalves" },
+                  { "type": "text", "text": " (Cycling, 1985; Mr Gonsalves was the founder of the T&T Cycling Federation), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Joey Gonsalves" },
+                  { "type": "text", "text": " (Football, 1985), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gerard Ian Jardine" },
+                  { "type": "text", "text": " (Hockey, 1985), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Sir Errol dos Santos" },
+                  { "type": "text", "text": ", CBE (Administration, 1987), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Marjorie Paddy Fernandes-Williams" },
+                  { "type": "text", "text": " (Hockey, 1995), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Deborah (Mendes) O'Connor" },
+                  { "type": "text", "text": " (Badminton, 2000), " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gene (João/John) Samuel" },
+                  { "type": "text", "text": " (Cycling, 2000), and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Silvano Gomes Ralph" },
+                  { "type": "text", "text": " (All Rounder, 2000)." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Other sports figures include the " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Portuguese Magnolias Hockey Club" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Lio de Freitas" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "David (Pestana) King" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Joseph Nunes" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Matthew Nunes" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Carlton Franco" },
+                  { "type": "text", "text": " and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Ryan Mendes" },
+                  { "type": "text", "text": ". In 1956, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "John (João) Ernesto Ferreira" },
+                  { "type": "text", "text": " founded the National Racing Pigeon Commission of Trinidad and Tobago. In 1968, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Geoffrey Ferreira" },
+                  { "type": "text", "text": " was Trinidad and Tobago's representative (Swimming) at the Mexico City Olympic Games. In 1994, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gerry Rodrigues" },
+                  { "type": "text", "text": " became the World Masters Open Water Champion in Montréal, Canada, and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Robert Ames" },
+                  { "type": "text", "text": " set a golf record at Palmas del Mar in 1995." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In the area of literature, Jean de Boissière claimed that the Portuguese of Trinidad created what little there existed that was genuinely of Trinidad in the Trinidadian literary scene (at that time, the 1940s). Portuguese Trinidadians such as Albert Gomes and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Alfred Hubert Mendes" },
+                  { "type": "text", "text": ", members of the famous Beacon group produced their works in English (not in Portuguese, which was the language of their parents and grandparents)." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Modern contributions in the humanities and the arts include a compilation of memoires published in 1988 by one of the last Madeiran immigrants, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Maria Mónica Reis Pestana" },
+                  { "type": "text", "text": ", originally of Estreito de Câmara de Lobos, Madeira, later of St Joseph and Mt Lambert, a film about the Portuguese community of Trinidad by " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Mary Jane Gomes" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Angel in a Cage" },
+                  { "type": "text", "text": " (1999), and the publication of " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "The Autobiography of Alfred Mendes 1897-1991" },
+                  { "type": "text", "text": " (Michele Levy, UWI Press, 2002). In 2002, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "BC Pires" },
+                  { "type": "text", "text": " was selected as one of three West Indians in Guha's " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "The Picador Book of Cricket" },
+                  { "type": "text", "text": " (the other two were CLR James and VS Naipaul), celebrating the finest writers of cricket literature." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In the area of music, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "John (João) Ernesto Ferreira" },
+                  { "type": "text", "text": " was inducted as a pioneer into the Sunshine Awards Hall of Fame (Steelband Music, 2008). Singers and composers include " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Lord Executor (Philip Garcia)" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Stephen Ferreira" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Marcia Miranda" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gaston Nunes" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Johnny Gonsalves" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Michelle Xavier" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Arlette Xavier" },
+                  { "type": "text", "text": ", and others." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In 2003, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Cecilia (Coelho) Salazar" },
+                  { "type": "text", "text": " was awarded the Cacique Award for Most Outstanding Actress (with other awards in following years). Ms Salazar most recently portrayed the patriot " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gene E. (Teixeira) Miles" },
+                  { "type": "text", "text": ", who was also of Portuguese descent (born in 1930, died in 1972). It is worth noting that the Associação Portuguesa Primeiro de Dezembro of Richmond Street began as a drama group, and later became known for its Carnival and sporting activities. Beauty pageant winners include " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Christine Mary (de Silva) Jackson" },
+                  { "type": "text", "text": ", selected Miss Amity at Miss Universe 1975, and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Gabrielle (De Freitas) Walcott" },
+                  { "type": "text", "text": ", 2nd runner up at Miss World 2008. In 2011, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Hayden Ferreira" },
+                  { "type": "text", "text": " was selected as one of 50 distinguished alumni of UWI, St Augustine." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Luso-Trinidadians have also contributed to religion, giving several clergy to both the Roman Catholic and Presbyterian churches (Greyfriars and St Ann's Church of Scotland). In 1989, " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Fr John Mendes" },
+                  { "type": "text", "text": ", son of João Mendes of Ponta de Sol, Madeira, was ordained Bishop of Port-of-Spain." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The entrepreneurs, doctors, lawyers and soldiers are too numerous to count here, but other pioneers included " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Diego Serrão" },
+                  { "type": "text", "text": " who brought the first sound radio to Trinidad via his home broadcasting station in 1935, and " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Isabella Ribeiro de Cabral de Freitas" },
+                  { "type": "text", "text": " who was the first female pilot in the English-speaking Caribbean." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In a remarkably short space of time, the Portuguese community quietly and unobtrusively spawned a number of eminent sons and daughters of the soil, far out of proportion to its relatively small size and against all odds, and has contributed beyond its fair share to the progress of this nation. They remain small in numbers but great in influence and occupational status. The vast majority of Portuguese descendants have become inseparably interwoven with other ethnic groups, to form the total picture that is unmistakably and irrevocably Trinidadian and Tobagonian." }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-footer",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "(This is the revised version of what appears in the above publication for which there was a strict word limit.)" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "See also: " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "http://freepages.genealogy.rootsweb.ancestry.com/~portwestind/diaspora/west_indies/ferreira_timeline.html", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Portuguese West Indies timeline (RootsWeb)"
+                  },
+                  { "type": "text", "text": " and " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "http://www2.guardian.co.tt/news/2012-09-06/new-book-reflects-50-years-tt-independence", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Trinidad Guardian: New book reflects 50 years of T&T independence"
+                  },
+                  { "type": "text", "text": "." }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

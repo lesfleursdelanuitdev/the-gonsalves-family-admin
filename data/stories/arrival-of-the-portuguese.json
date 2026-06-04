@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "id": "arrival-of-the-portuguese",
+  "title": "The Arrival Of The Portuguese",
+  "slug": "arrival-of-the-portuguese",
+  "kind": "article",
+  "status": "published",
+  "authors": [],
+  "excerpt": "From the abolition of the slave trade in 1807 to the last group of Portuguese immigrants in 1882 — the story of how 30,645 Madeiran labourers came to British Guiana and transformed its commercial landscape. Source: guyana.org.",
+  "tags": ["madeira", "portuguese", "guyana", "demerara", "immigration", "history"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-main",
+      "title": "The Arrival Of The Portuguese",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-title",
+          "type": "richText",
+          "preset": "heading",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "The Arrival Of The Portuguese" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Source: " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "http://www.guyana.org/features/guyanastory/chapter47.html", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "guyana.org"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-body",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "From the time of the abolition of the slave trade in 1807 and, particularly, during the period of the campaign to end slavery, the planters of the Caribbean and Guyana were aware of the acute need to find a substitute labour force that was both cheap and reliable to fill the ranks of the soon-to-be-liberated Africans. They initially were interested in seeking a labour force from Europe since they realised that there was a decreasing proportion of Whites in the colony. They felt that this imbalance could be remedied by recruiting indentured labour from European countries. In addition to strengthening their own security, they wanted to have an alternative labour force to compete with the ex-slaves for plantation jobs after emancipation and thus forcing down employment costs." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In late 1834, a small group of Portuguese recruited from the poverty-stricken Portuguese-owned island of Madeira arrived in Guyana to work on a sugar plantation in Demerara. Then on May 3, 1835, 40 indentured peasants arrived from Madeira on the ship, \"Louisa Baillie\". The arrivals were brought in through the private enterprise of the planters who were made aware of the great poverty and political instability in the island. The hard-pressed Madeiran peasants were most likely eager to seek their fortune in a land being referred to as \"El Dorado\". By the end of the year 553 others had arrived and were contracted as indentured labourers to various sugar plantations." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Madeiran peasants were capable farmers since they were born and bred on a small and mountainous island where every square inch of the soil was precious. Their recruitment was part of a migration scheme based on a \"bounty\" system. Under this system, public money, made available by the British Government, was used to pay the planters for each immigrant transported to the Colony." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In 1835, in addition to the Portuguese who arrived, small groups of Germans and English farmers were also recruited. In 1836, 44 Irish and 47 English labourers landed in Guyana, and in following year 43 Scottish labourers arrived from Glasgow. In 1839, 209 Maltese and 121 Germans were added to the population. Many of these labourers did not adapt well to the climate and they suffered from a high mortality rate. In particular, the Maltese, who were indentured to Hibernia in Essequibo, suffered badly and their social conditions deteriorated so very rapidly that the Governor cancelled their indentures and arranged for them to be shipped back to Malta." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Between 1836 and 1839 the planters did not recruit any Portuguese, but this situation changed in 1840 when 15 Portuguese from Madeira arrived to be followed by 4,297 in 1841." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The first arrivals suffered from deficiency in diet, poor accommodation and, above all, overwork in a rigorous climate in order to improve their economic status. Yet, suffering, and even death, did not deter them, for 30 of the original emigrants, at the completion of their indenture, returned to Madeira with their earnings and encouraged their families, relatives and friends to migrate to Guyana. The later arrivals from Madeira seemed to be less impoverished, acclimatised better, and suffered little from sickness." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The year 1841, however, proved to be a bad year for the immigrants as yellow fever was raging in British Guiana and, among the children, measles spread rapidly with fatal results. Concern over the high death rate of the Portuguese led to the setting up of a commission of inquiry by the British Guiana Government to investigate the reasons for the sickness and mortality among the emigrants." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Based on the results, instructions were duly sent to the recruiting agent in Madeira to discontinue sending emigrants to Guyana after March 1, 1842. Migration was also halted when the Governor and the Bishop of the island began a scare campaign warning those who wanted to go to Guyana that they would be branded and sold as slaves on arrival. This caused the emigration to slow down to a trickle. Despite the mortality and the subsequent stoppage of emigration from Madeira, yet more than 1,200 Portuguese arrived between 1842 and 1846. A turn-around occurred in 1846 when a famine struck the island and this encouraged over 6,000 of the inhabitants to migrate to Guyana under the \"bounty\" system that year." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "By 1848, an additional 4,000 left the island for Guyana. But migration was halted again in 1848 due to a high mortality rate among these new immigrants, but it resumed in 1850. From then on, small numbers of Portuguese continued to arrive until 1882 when the last group of 182 came. In the period from the inception of Portuguese migration, 30,645 indentured labourers arrived mainly from Madeira, while smaller groups came from the Azores, Cape Verde and Brazil." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Portuguese labourers rarely remained on the sugar plantations after they completed their period of indenture. Generally, they found it physically difficult to carry out the tough tasks in the sugar cane fields. But they were also influenced by the popular opinion that working in the sugar cane fields was akin to slavery. In addition, they felt uncomfortable working alongside Blacks and Indians, ethnic groups that Whites regarded as socially inferior. They, being White, also felt it was below their dignity to associate themselves with such a menial position in the colonial society. Many of the planters, themselves Whites, also were in an uncomfortable position of ordering people of their own ethnic group to do strenuous field work. A suggestion by the planters for the Portuguese to be given the status as British citizens was never followed up." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "As soon as their two- to four-year period of indenture ended, they moved off the plantations and on to their small plots of land as well as into the huckster and retail trade. The White merchants in Georgetown employed many of them as agents to retail imported goods to the rural areas. They quickly took over this role from some Africans and mulattos who had this task. As retailers, they established shops and supplied basic supplies to the plantation workers who were, by this time, mainly Indian indentured labourers. A few of them also began importing their own goods, including famous Portuguese wines, from Madeira." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Portuguese adapted very quickly to commerce. During their indenture, they worked hard and saved their earnings which they invested mainly in their business. By 1851, in Georgetown, 173 out of the 296 shops belonged to Portuguese. In New Amsterdam, they owned 28 of the 52 registered shops while in the villages they had 283 of the 432 shops. By the end of the nineteenth century, large Portuguese firms were beginning to appear on Water Street in Georgetown." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Portuguese made a significant contribution to the economy of the country as they moved into every type of business. Eventually, they formed a significant section of the growing merchant class, and became a buffer class between the non-White population and the English expatriate population. However, they were generally regarded by the English planters and civil servants as belonging to a slightly lower social status, and these Englishmen soon classified them as a different ethnic group from that of \"Europeans\"." }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

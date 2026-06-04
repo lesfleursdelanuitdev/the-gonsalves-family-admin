@@ -1,0 +1,176 @@
+{
+  "version": 1,
+  "id": "madeira-islands-arrivals-departures",
+  "title": "Madeira: Islands Of Arrivals And Departures",
+  "slug": "madeira-islands-arrivals-departures",
+  "kind": "article",
+  "status": "published",
+  "authors": [
+    {
+      "id": "author-dr-alberto-vieira",
+      "name": "Dr Alberto Vieira",
+      "authorPrefixMode": "by"
+    }
+  ],
+  "excerpt": "An overview of the waves and cycles of Madeiran migration — from the age of European expansion to the great 19th-century exodus to the Americas. By Dr Alberto Vieira, Director of the Centro de Estudos de História do Atlântico. Translated by J.S. Ferreira.",
+  "tags": ["madeira", "portuguese", "migration", "diaspora", "history", "atlantic"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-main",
+      "title": "Madeira: Islands Of Arrivals And Departures",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-title",
+          "type": "richText",
+          "preset": "heading",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "Madeira: Islands Of Arrivals And Departures" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Author: " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Dr Alberto Vieira" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Director of the " },
+                  {
+                    "type": "text",
+                    "marks": [
+                      { "type": "italic" },
+                      { "type": "link", "attrs": { "href": "http://www.madeira-edu.pt/ceha/", "target": "_blank", "rel": "noopener noreferrer" } }
+                    ],
+                    "text": "Centro de Estudos de História do Atlântico"
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Translated by J.S. Ferreira" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-body",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "An island is a space open to the world, a harbour for regular arrivals and departures. Within and outside of Madeira, historical events and movements determined the many waves and cycles of the movement of Madeirans. These movements also determined the nature of the island's attraction to other peoples." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "European expansion opened the doors to settlers, the enslaved, merchants and adventurers. The archipelago of Madeira in the Atlantic became attractive to new immigrants, and played a role in providing new avenues for immigration for scholars, tourists, political refugees, and deportees." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Internal conditions, such as a lack of space, along with news and offers of paradise and wealth, set in motion a centripetal force that sent out our islanders almost all over the world. The first ports of call were Portuguese settlements in the Atlantic and in the Indian Ocean, followed by areas colonised by other empires, whether on continents or on islands." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The phenomenon of Madeiran migration can be defined in two main waves. First of all, Madeirans were involved in the (re)discovery, conquest and occupation of Atlantic and Indian Ocean spaces. Afterwards, the conditions offered in those spaces, along with the difficulties of life in the island, were reasons for the migration of many Madeirans." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Nineteenth century emigration exhibits different characteristics. Before that time emigration was based largely on external demands, along with a spirit of adventure linked to economic and political issues. The movement of peoples was an initiative of the Crown and of private ventures. The objective was the occupation of uninhabited spaces, as a means of consolidating Portuguese sovereignty." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "From the nineteenth century, migratory movements began to be dominated by domestic issues, unique to Madeira itself. The land, which itself had received immigrants four hundred years before, now found itself as stepmother, incapable of meeting vital needs. For this reason, Madeirans were driven to the Americas, hoping to find improved living conditions." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Emigration has been a constant feature of Madeiran society. In the second half of the nineteenth century, emigration was fuelled by incessant market demands for labourers and also by difficult living conditions locally brought about by the economic crisis, or by the oppressive form of land ownership, through a system known as the " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "contrato de colonia" },
+                  { "type": "text", "text": ". Emigration was therefore considered the only escape from hunger and from this bondage." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In the nineteenth century, conditions did not favour the Madeiran. The crisis of trade and of wine production (the basis of the economy) caused famines. The most well-known of these famines happened in 1847, during which time " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://pt.wikipedia.org/wiki/Jos%C3%A9_Silvestre_Ribeiro", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "José Silvestre Ribeiro"
+                  },
+                  { "type": "text", "text": " was Prefect." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "On the other side of the Atlantic, it was a time of economic euphoria, with mining and agro-industrial crops, which could not survive after the abolition of slavery. In this context, the Madeiran islander, dispossessed of land inheritance and burdened by the demands of the economy, abandoned his own home. The emigrant went to these destinations, enticed by the offers of recruiters in service of the British, who were seeking to replace former slave labour. For this reason, many politicians of the era considered this form of labour recruitment as a new form of slavery, or as \"white slavery\"." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In the years 1844 to 1846, religious proselytism, led by " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/Robert_Reid_Kalley", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Robert Reid Kalley"
+                  },
+                  { "type": "text", "text": ", ultimately forced out many of those Madeirans who had decided to join this Protestant movement, when the State decided to persecute them." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The second phase of the diaspora, more important than the first, reached its peak in 1847. This was a result of the economic crisis, aggravated by the state of viticulture. The diseases that attacked vine cultivation (" },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "oidium" },
+                  { "type": "text", "text": " in 1852 and " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "phylloxera" },
+                  { "type": "text", "text": " in 1872) dashed the only economic hope of Madeirans, forcing them to flee to the Hawai'ian islands. From this time, the destinations of Madeirans begin to diversify, and are directly linked with changes in the markets and labour demands." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The American continent was the principal destination for Madeirans in the nineteenth century, receiving 98% of Madeiran migrants. The three main destinations were the then British West Indies, North America and Brazil. The British West Indies was the main market to receive Madeiran labour, with 86% of legal migrants scattered across St. Kitts, Suriname, Trinidad, Jamaica and Demerara, areas known to the Madeiran and linked to Madeira through the wine trade. In the period from 1853 to 1881, more than 40,000 Madeirans migrated to the West Indies." }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

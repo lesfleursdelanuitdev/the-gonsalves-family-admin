@@ -1,0 +1,744 @@
+{
+  "version": 1,
+  "id": "buxton-portuguese-history",
+  "title": "A Brief History of Portuguese in Buxton/Friendship",
+  "slug": "brief-history-portuguese-buxton-friendship",
+  "kind": "article",
+  "status": "draft",
+  "authors": [
+    {
+      "id": "author-rollo-younge",
+      "name": "Rollo Younge",
+      "authorPrefixMode": "by"
+    }
+  ],
+  "excerpt": "An account of the Portuguese Madeiran community in the twin villages of Buxton and Friendship on the East Coast of Demerara, told through the memories of Lionel Vieira and George Cleveland Vasconcellos (Clevie).",
+  "tags": [
+    "buxton",
+    "friendship",
+    "madeira",
+    "portuguese",
+    "guyana",
+    "east-coast-demerara"
+  ],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-introduction",
+      "title": "Introduction",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-intro-h1",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 1,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 1
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "A Brief History of Portuguese in Buxton/Friendship"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "By: Rollo Younge — youngefitzroy@gmail.com or 274 0572 (Guyana)."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "In the late 1834, a small group of Portuguese were recruited from the poverty-stricken island of Madeira, off the west Coast of Africa, to work on a sugar plantation in Demerara. On May 3, 1835, 40 indentured peasants arrived on the ship ‘Louisa Baillie’. By the end of the year about 553 others had arrived and were contracted to various sugar plantations."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Not only did they bring their agricultural expertise (especially sugar cane farming) but their faith as well. They were profoundly religious which brought new life into the Catholic Church in British Guiana."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "These “Madeirenses” as they were called, rarely remained on the sugar plantations after they completed their period of indenture. As soon as their two or four-year period ended, they moved off the plantations and on to their small plots of land, as well as into the huckster and retail trade."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-p4",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Many were employed by white merchants in Georgetown and adopted very quickly to Commerce. By 1851 in Georgetown 173 out of the 296 (58.4%) shops belonged to Portuguese. In the villages they had 283 of the 432 (65.5%) shops."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-p5",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "About 55 years ago, the center of gravity of business in Georgetown was along Water and Lombard Streets and the greatest number and biggest businesses were owned by the “Madeirenses.” Firms such as D’Aguiar’s Imperial House, G. Bettencourt & Co., Demerara Pawnbroking & Trading Co., D.M. Fernandes Ltd., The Eclipse, J.P. Santos, Ferreira & Gomes, Guiana Match and Rodrigues & Rodrigues once dominated the water front area. They are all gone now."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro-p6",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Elsewhere, Portuguese owned many bakeries, pawnbrokeries, retail and rum shops. Between 1835 and 1882, over 30,645 persons of Portuguese descent were brought to British Guiana from Madeira, the Azores, the Cape Verde Islands and Brazil."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-buxton",
+      "title": "Portuguese in Buxton/Friendship",
+      "hideTitle": false,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-buxton-h3-lionel",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Lionel and Mary Vieira"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-img-lionel",
+          "type": "media",
+          "mediaId": null,
+          "label": "Lionel and Mary Vieira",
+          "caption": "LionelVieira.png — Lionel Vieira & his wife Mary, who were married on September 4, 1960, and have 6 children and 8 grandchildren. Photo taken on March 31, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-lionel-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Lionel Vieira was born on August 15, 1929, at his mother’s house in Brickdam. His family moved to Buxton when he was a baby."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-lionel-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "His grandparents came from Madeira. His mother died when he was three and his father died when he was five. His mother, Celisse Lucas was from Plaisance. His father, Victor Vieira was born in Buxton and worked at G. Bettencourts in Georgetown. He lived on Company Road with his uncle, Mannie Gonsalves who was married to his mom’s sister and also a cousin of Benedict Correia."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-lionel-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Lionel attended Roman Catholic School under Mr. Theirens. He still remembers Mr. Theirens’s red tie and cork hat. Other Headmasters at the school during that time include Mr. Philadelphia, Cheeks and Ren Durant."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-h3-clevie",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "George Cleveland Vasconcellos (Clevie)"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-img-clevie",
+          "type": "media",
+          "mediaId": null,
+          "label": "George Cleveland Vasconcellos (Clevie)",
+          "caption": "Clevie.png — George Cleveland Vasconcellos (Clevie), who was born at 51 Company Road, Friendship – next to his current shop. Photo taken on April 5, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The father of George Cleveland Vasconcellos was George Christian Vasconcellos from Vryheid Lust, and his mother Cecelia was from Beterverwagting. His current shop used to be the old Trade School, Singh’s Drug Store then Chanderband Drug Store."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The interviews with these two gentlemen were interesting. Lionel began by saying that the Madeiran Portuguese were capable farmers, since they were born and bred on a small and mountainous island where every square inch of soil was precious."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Their recruitment was part of a migration scheme based on a “bounty” system. He said that under the system, public money made available under the British Government, was used to pay the planters for each immigrant transported to the Colony."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p4",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Early Portuguese had settled on the East Bank of Demerara at Meadow Bank, Ruimveldt and Agricola. Bishop Haynes had made Meadow Bank the center of the Catholic Church in British Guiana."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p5",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "On the East Coast, Plaisance was a main center between 1840s and 1860s when the railway there. As the railway extended from Plaisance to Mahaica, “church stations” mushroomed along the coast. Many Catholic churches were built near to the railway stations, because the railway was an integral transportation then."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p6",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The building of the churches in the villages had been mostly financed and supported by the Portuguese. The Catholic church in Friendship was opened on November 19, 1871 while the Church of St. John the Baptist in Plaisance was opened in 1877. Plaisance became noted for its boisterous festivals."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p7",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Clevie reminded me that Portuguese made a significant contribution to the economy of the twin villages of Buxton/Friendship. He remembered the Olympic Cinema (built in 1916) and “Rubber” Rum shop on Buxton Middle Walk, owned by the Willie Correia Family."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-img-rubber",
+          "type": "media",
+          "mediaId": null,
+          "label": "\"Rubber\" Rum Shop",
+          "caption": "RubberRumshop.png — “Rubber” Rum Shop, once owned by Henrique Correia, called Rubber. Photo taken on April 5, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p8",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Lionel says that the most significant economic contribution to Buxton was made in 1936 when Julio Gomes Pereira arrived on the scene, bought out the old post office site and established the largest, most equipped and well stocked General Store on the East Coast of Demerara. This edifice was called Times Square."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-img-timessquare",
+          "type": "media",
+          "mediaId": null,
+          "label": "Times Square Store",
+          "caption": "TimesSquareStore.png — Times Square Store, owned by Julio Gomes Pereira and built around 1936, on the site of the old post office. It enhanced Buxton’s standing as a shopping center on the East Coast. Photo taken on April 5, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p9",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Another huge building was the “New Foundout” store owned by the Gomes family."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-img-newfoundout",
+          "type": "media",
+          "mediaId": null,
+          "label": "New Foundout",
+          "caption": "NewFoundout.png — “New Foundout” – this was a 3-in-1 store owned by the Gomes Family. It was a rum shop, store and salt goods shop. In the yard to the right is a breadfruit tree that was there probably since the shop was built. Lionel said that this is a ‘sister’ tree from the original tree. Photo taken on April 5, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-clevie-p10",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Some other Portuguese shops and homes include: Vasconcellos Rum Shop over the line on Company Road, Seebou shop at the corner of Friendship Middle Walk & Noble Streets (now Castello’s house), Gomes shop where MC Moses lived, Gomes at Friendship back – Flying House Rum Shop, Santos at Friendship back – salt goods shop. The Ogles’ house on Ogle Street was once owned by a Mr. Vieira, who was a diamond seeker and had a daughter named Agnes."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-h3-guesthouses",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Portuguese Guest Houses in Friendship"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-img-defreitas",
+          "type": "media",
+          "mediaId": null,
+          "label": "De Freitas Guest House",
+          "caption": "DeFreitasGuestHouse.png — This guest house was once owned by the De Freitas family of Central Garage. They spent most week-ends here. Norma Easton now lives there. Photo taken on April 5, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-img-lopes1",
+          "type": "media",
+          "mediaId": null,
+          "label": "Lopes Guest House",
+          "caption": "LopesGuestHouse.png — This was a “fabulous” guest house once owned by the Lopes family. It was renovated and became a hotel in October 2001, by Brian Hamilton family who once owned the Esso Gas Station in Friendship. Photo taken about Xmas 2001.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-img-lopes2",
+          "type": "media",
+          "mediaId": null,
+          "label": "Lopes Guest House — today",
+          "caption": "LopesGuestHouse2.png — This is what’s left of this house today. After 35-year-old Brian Hamilton was shot and killed on March 21, 2003 at his gas station, his father Oscar Hamilton “couldn’t take it anymore.” He soon arrived with attorneys Nigel Hughes and Stephen Fraser and closed the gas station. It wasn’t too long after that this beautiful building was vandalized.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-img-jpsantos",
+          "type": "media",
+          "mediaId": null,
+          "label": "J.P. Santos Guest House",
+          "caption": "JPSantosGuestHouse.png — This was another guest house owned by a family of J.P. Santos & Co. It was also owned by Brian Hamilton’s grandmother, who remodeled it. The current owner is Elaine Neil, Odinga’s mother. Photo taken on April 5, 2011.",
+          "rowLayout": {
+            "widthMode": "full",
+            "alignment": "center",
+            "displayMode": "block"
+          }
+        },
+        {
+          "id": "b-buxton-closing-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "In closing I must mention that May 3, 2011 marked 176 years since the landing the first Portuguese in British Guiana from Madeira, on the “Louisa Baille.” My maternal grandmother came from Madeira. She was an organist at the Anglican church and once lived in the original house where Haslyn Parris now resides. There was also a bakery there, maybe as early as 1898. My mother was also born in this house."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-buxton-closing-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "For me, Portuguese touch is indelible. They made an invaluable contribution not only to Buxton/Friendship’s social and commercial life but to the Colony at large. This still remains and should be remembered today as we celebrate the 170th anniversary of the purchase of Plantation Friendship."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-acknowledgements",
+      "title": "Acknowledgements",
+      "hideTitle": false,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-ack-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "I’d like to thank everyone who kindly supplied this information and made it possible for this history to be written."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-ack-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "I am grateful to: Lionel Vieira, his wife Mary & daughter Margaret and Cleveland Vasconcellos who spent invaluable time with me to have the interviews done."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-ack-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Note: To send errors or additions, please contact me at "
+                  },
+                  {
+                    "type": "text",
+                    "text": "youngefitzroy@gmail.com",
+                    "marks": [
+                      {
+                        "type": "link",
+                        "attrs": {
+                          "href": "mailto:youngefitzroy@gmail.com",
+                          "target": "_blank",
+                          "rel": "noopener noreferrer"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "text": " or 274 0572 (Guyana). Rollo Younge."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

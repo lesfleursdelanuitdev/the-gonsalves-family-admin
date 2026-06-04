@@ -44,3 +44,6 @@ next-env.d.ts
 
 # admin-uploaded GEDCOM media binaries (created at runtime)
 /public/uploads/gedcom-admin/*
+
+# Local backup archives (large, not for version control)
+backups/

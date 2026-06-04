@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "id": "portuguese-presence-guyana",
+  "title": "The Portuguese Presence",
+  "slug": "portuguese-presence-guyana",
+  "kind": "article",
+  "status": "published",
+  "authors": [],
+  "excerpt": "A look at the remarkable commercial, professional and political presence of the Portuguese community in Guyana — from their arrival in 1835 to the legacy they leave today. Published in Stabroek News, May 2003.",
+  "tags": ["madeira", "portuguese", "guyana", "georgetown", "demerara", "history"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-main",
+      "title": "The Portuguese Presence",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-title",
+          "type": "richText",
+          "preset": "heading",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "The Portuguese Presence" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Source: Stabroek News, 6 May 2003" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-body",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "A visit to Georgetown fifty years ago would have conveyed a completely different picture of professional, commercial and social life to that of the present day. Then, the centre of gravity of business was along Water and Lombard Streets, not Regent and Camp Streets, and the greatest number and biggest businesses were owned by members of the Portuguese ethnic group." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Firms such as G. Bettencourt & Co; D'Aguiar's Imperial House; Demerara Pawnbroking & Trading Co; The Eclipse, D.M. Fernandes Ltd; J.P. Fernandes; Ferreira & Gomes Ltd; Guiana Match Co Ltd; J.P. Santos & Co Ltd and Rodrigues & Rodrigues once dominated the waterfront area. They are all gone now." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Elsewhere in the city, Portuguese owned numerous bakeries, hotels, pawnbrokeries, printeries, retail stores and, of course, rum shops. Accounting firms, commission agents, insurance agencies, saw mills, and other small establishments proliferated. Few remain." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "But the Portuguese presence spread far beyond business into professions such as law and medicine and into the arts, education, politics, religion, science and sport. The achievement of members of this ethnic group, which has now shrunk to less than one per cent of the population, was remarkable given their small numbers and the short period of time that had elapsed since their arrival in this country." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The first Portuguese came from the Island of Madeira off the West coast of Africa and were called " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Madeirenses" },
+                  { "type": "text", "text": ". Forty indentured immigrants landed in Demerara on May 3, 1835 from the ship Louisa Baillie after an eleven-week voyage. In the four decades of immigration between 1841 and 1882, 30,645 persons of Portuguese descent were brought to Guyana from Madeira, the Azores, the Cape Verde Islands, and Brazil. A century after their arrival, the Portuguese population peaked at just over 8,000." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Portuguese immigration was the most successful experiment in bringing Europeans to labour in the sugar industry. Prior to the coming of the Portuguese, small numbers of Germans, Irish, English, Scottish and Maltese labourers were tried but, for various reasons, these Europeans were insufficient to satisfy the labour needs of the planters." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "British officials had anticipated, incorrectly as it turned out, that with the passing of the Act of Emancipation by the British Parliament in 1833 ending the enslavement of Africans throughout the British Empire on August 1, 1834, the emancipated Africans would quit the canefields, creating a labour gap. Hence, they recommended that European immigrants be imported to create a buffer class between the European planters and the emancipated Africans. In fact, most Africans continued to work on the plantations and the European immigrants chose to leave." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "By the mid-1840s, the " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Madeirenses" },
+                  { "type": "text", "text": " had moved off the sugar plantations and into the huckster and retail trade with which they were very familiar in their homeland. According to Professor Mary Noel Menezes, the most prolific chronicler of Portuguese-Guyanese history, the ship Zargo brought not only labourers but also a cargo of onions, potatoes, wine and other commodities in 1843, initiating direct trade between Demerara and Madeira and launching the Portuguese business community in Guyana. By 1890, 45 years after immigration started, nearly half of the largest stores in Georgetown were already owned by the " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Madeirenses" },
+                  { "type": "text", "text": "." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "There was friction between the Africans and Portuguese leading to serious anti-Portuguese riots in 1847, 1856 (Angel Gabriel) and 1889 (Cent Bread). The targets of the rioters were the Portuguese-owned shops rather than persons. There was also friction with the British as the Portuguese resented the way they were treated as second-class residents. They sought to add political clout to their growing economic power by seeking election to the Court of Policy, as the legislature used to be called. Francis Dias and J.P. Santos were two of the first to be so elected with the support of African voters." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In 1960, Peter D'Aguiar founded the United Force party which was supported by much of the Portuguese community and won 16.3 per cent of the electorate in the 1961 general election. In 1964, the UF could still command 12.4 per cent of the electorate, enabling it to form a coalition administration with the African-dominated People's National Congress which won 40.5 per cent." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The turmoil of the disturbances of the 1960s, the experiments with state socialism of the 1970s and the economic depression of the 1980s and 1990s prompted many Portuguese, along with other sections of the business community, to migrate. Nevertheless, 168 years after the landing of the Louisa Baillie, the Portuguese touch is indelible. They made an invaluable contribution to Guyana's social, political, professional and commercial life which still remains and should be remembered today." }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

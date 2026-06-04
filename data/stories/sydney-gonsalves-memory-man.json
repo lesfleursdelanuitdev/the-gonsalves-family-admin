@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "id": "sydney-gonsalves-memory-man",
+  "title": "Sydney Gonsalves – Guyana's Memory Man",
+  "slug": "sydney-gonsalves-memory-man",
+  "kind": "article",
+  "status": "draft",
+  "authors": [
+    {
+      "id": "author-margaret-kendall",
+      "name": "Margaret Kendall",
+      "authorPrefixMode": "by"
+    }
+  ],
+  "excerpt": "A profile of Sydney Holbert Gonsalves, born October 4th, 1930, known in Guyana as the 'Memory Man' for his extraordinary ability to recall exact dates and events. Published in the Stabroek News, 03 Feb 1988.",
+  "tags": ["sydney-gonsalves", "memory-man", "stabroek-news", "guyana", "profile"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+
+    {
+      "id": "s-introduction",
+      "title": "Introduction",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-mm-h1",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 1,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "Sydney Gonsalves – Guyana's Memory Man" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "by Margaret Kendall, Stabroek News, 03 Feb 1988" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Sydney Holbert Gonsalves, also known as the 'Memory Man', is something of a legend in Guyana. Born on Saturday, October 4th, 1930 at 9.22 a.m. at Belfield Railway, where his father was the Station Master." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Sydney said, \"When I used to go to school I was a dunce,\" and that up to five years ago when his school-mates met him they wanted to know how it is that he is now so bright." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-photo",
+          "type": "media",
+          "mediaId": null,
+          "label": "Sydney Holbert Gonsalves",
+          "caption": "Sydney Holbert Gonsalves seen making a point forcefully at our office. (Image embedded in original MemoryMan.html — extract and upload from source file.)",
+          "rowLayout": { "widthMode": "medium", "alignment": "right", "displayMode": "float", "float": "right" }
+        },
+        {
+          "id": "b-mm-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Even his mother, he said, told him that she wanted to send him to Q.C. but she said he looked so stupid, she didn't believe he would take in his education. Besides that, his father didn't have the money to pay his tuition." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p4",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "The memory man said that the awareness of his unusual memory came to him while he was talking about old times on Thursday, June 15th, 1950 with his foreman at the then British Guiana Lithographic. It was at that point he realised that he had a capacity for recalling events." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p5",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Sydney is versed in the art of recalling social and political events, and he gave a demonstration of this by replying to questions that were put to him impromptu at the Stabroek News Office as a test in the presence of witnesses." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p6",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "In response to the first question he said though he wasn't around at the time he remembered his father telling him that the railway was started in 1922." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p7",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "He can recall though that the railway was scrapped in three different stages – from Mahaica to Rosignol on Tuesday, 30th June, 1970; from Georgetown to Mahaica on Friday, June 30th, 1972 and on the West Coast on Sunday, June 30th, 1974. It was done at intervals of two years, he said." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p8",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Continuing on his memory round, in response to another question, he said that the political affairs Committee was formed on Wednesday 6th November 1946, and this led to the formation of the PPP on Sunday, January 8th, 1950. On that day, Sir Gordon Lethem left the country as the retired Governor of British Guiana." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p9",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "To the final question, Cheddie Jagan, he said, won the Central Demerara Constituency on Monday 24th November, 1947 and first took up his seat in Parliament on Thursday the 18th December, 1947." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p10",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Because of his wizardry at recalling dates Sydney appeared on such programmes as Pelbay Quizz Show on Monday the 9th of July, 1951 and won a bottle of Pelbay Jam after answering three straight questions out of seven." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p11",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "On a short version of Action Line which lasted from 9 to 9.30 p.m. he appeared to answer questions phoned in by the public between Wednesday 6th November to Wednesday 18th December, 1968." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p12",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "He also appeared on \"My Kind Of Music\" on Sunday the 6th October from 9.20 p.m. to 10.15 p.m. D.J. for a day on Thursday 7th September 1972 from 7.25 p.m to 7.55 p.m. in which you spin your own tunes. Sydney's favourite tune was and still is Cathy-o in remembrance of an old girl friend." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-mm-p13",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "In 1968 and 1971 he appeared on two stage shows called Laugh-O-Rama, produced and directed by Vivian Lee. He also did six advertisements on a Vic Insanally show for National Lottery on Wednesday 20th December 1972 in which he recalled events that took place on the said date for six years." }]
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "s-incident",
+      "title": "An Incident",
+      "hideTitle": false,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-inc-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Upon hearing that this article would appear on Wednesday 3rd February, Sydney recalled an incident that he said he would never forget, and which took place on Sunday 3rd February, 1946. He was fifteen years of age at the time." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-inc-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "His sister had come to awaken him early one Sunday morning at 7.15 a.m. to fetch water from the vat in the back yard. He had protested that people don't wake up that early on Sunday morning, whereupon he got up and gave her two cuffs by the ears." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-inc-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "His mother had then opened the back door and put him out and he suffered starvation that day. All he ate was two small fruits that afternoon about 5 p.m. given to him by a friend." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-inc-p4",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "The next day, on Monday the 4th of February, at 1 p.m. a cousin took him home and told him to apologise to his mother." }]
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "s-bachelor",
+      "title": "The Bachelor",
+      "hideTitle": false,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-bac-p1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "He was young and stupid then, he said." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-bac-p2",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "At present, Sydney Gonsalves is employed as a Security Guard at Gonsalves Works in Bent Street. A simple man, Sydney never married and has no kids. This he attributes to romantic disillusionment earlier in life." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-bac-p3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "In his spare time, he writes letters to family and friends abroad." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-bac-p4",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "To end it all, Sydney said that someone once called him a madman and later that same man couldn't remember the day of the week in which his daughter was born, only the date which was the 1st October, 1968." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-bac-p5",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Sydney recalled that he told the man he had to pay the madman to get the answer, as he put it – no remuneration, no answer. The man was not given the answer, but the day was a Tuesday, Sydney said." }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-bac-p6",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Because of his genius for recalling dates one wonders why Sydney never made a book out of his wizardry. He said financial constraints prevented him from doing so." }]
+              }
+            ]
+          }
+        }
+      ]
+    }
+
+  ]
+}

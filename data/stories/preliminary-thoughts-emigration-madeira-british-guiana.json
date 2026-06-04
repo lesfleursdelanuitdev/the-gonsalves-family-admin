@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "id": "preliminary-thoughts-emigration-madeira-british-guiana",
+  "title": "Preliminary Thoughts On Emigration From Madeira To British Guiana",
+  "slug": "preliminary-thoughts-emigration-madeira-british-guiana",
+  "kind": "article",
+  "status": "published",
+  "authors": [
+    {
+      "id": "author-sr-m-noel-menezes",
+      "name": "Sr M. Noel Menezes, R.S.M",
+      "authorPrefixMode": "by"
+    }
+  ],
+  "excerpt": "On May 3, 1835, the first Portuguese landed in what was then British Guiana. Sr M. Noel Menezes looks at the early Portuguese emigrants and the skills they brought with them from Madeira. Published in Stabroek News, May 2000.",
+  "tags": ["madeira", "portuguese", "guyana", "demerara", "emigration", "history"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-main",
+      "title": "Preliminary Thoughts On Emigration From Madeira To British Guiana",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-title",
+          "type": "richText",
+          "preset": "heading",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "Preliminary Thoughts On Emigration From Madeira To British Guiana" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Author: " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Sr M. Noel Menezes, R.S.M" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Source: Stabroek News, 07 May 2000" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "italic" }],
+                    "text": "On May 3, 1835, the first Portuguese landed in what was then British Guiana. In commemoration of that event, Sr M. Noel Menezes looks at the early Portuguese, and the skills they brought with them from Madeira."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-body",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In the 1830s and into the 1850s Portugal was undergoing a series of crises - recurring civil wars between the Constitutionalists and the " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/Absolutism", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Absolutists"
+                  },
+                  { "type": "text", "text": ", the repercussions of which were felt in " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/Madeira", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Madeira"
+                  },
+                  { "type": "text", "text": ". Many young men jumped at the opportunity to get out of Madeira at any cost and thus evade compulsory military service which was necessary, as Madeira was considered part of metropolitan Portugal." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Also, more and more, poverty was becoming a harsh reality of life on the thirty-four mile long, fourteen mile wide island of 100,000 inhabitants. During the first decade of the nineteenth century life for the peasant, the " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "colono" },
+                  { "type": "text", "text": " who worked the land for the lord of the manor, had become even harder." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Madeira had been discovered in 1419 by " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/Jo%C3%A3o_Gon%C3%A7alves_Zarco", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Joao Goncalves Zarco"
+                  },
+                  { "type": "text", "text": " under the auspices of " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/Henry_the_Navigator", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Prince Henry, the Navigator"
+                  },
+                  { "type": "text", "text": ", and by 1425 it had been settled. Prince Henry, son of " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/John_I_of_Portugal", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Joao 1 of Portugal"
+                  },
+                  { "type": "text", "text": " and patron of exploration, an unusually far-seeing and intellectual prince of his age and of many centuries beyond, was responsible for the introduction of the sugar-cane from Sicily to Madeira." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "By 1456 the first shipment of sugar was sent to England, and by the end of the century the burgeoning sugar industry was helping Madeira to play a prominent role in the commerce of the period. Bentley Duncan claims: “By 1500, when Madeira had reached only its seventy-fifth year of settlement the island had become the world’s greatest producer of sugar, and with its complex European and African connections, was also an important centre for shipping and navigation.”" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "After 1570 the sugar trade began to decline as it faced competition from the cheaper and better-refined Brazilian product. Also the industry had been bedevilled by soil exhaustion, soil erosion, expensive irrigation measures, destruction by rats and insects, and ravaging by plant diseases." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "As sugar declined in international trade the wine trade took precedence. Here again Madeira owed its name as a famous wine-producing country to the enterprises of Prince Henry who introduced the vine from Cyprus and Crete. The ‘Madeira’ of Madeira took its place with the port of " },
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "link", "attrs": { "href": "https://en.wikipedia.org/wiki/Porto", "target": "_blank", "rel": "noopener noreferrer" } }],
+                    "text": "Oporto"
+                  },
+                  { "type": "text", "text": " on the tables of the world. It was soon discovered that the rolling of the ship added to the rich quality of the wine, and in the 17th and 18th centuries no ship left the island without a large consignment of pipes of Madeira for the West Indies and England, the largest consumers." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "In the 19th century wine was being shipped from Madeira to the United States, England, the West Indies, the East Indies, France, Portugal, Denmark, Cuba, Gibraltar, Newfoundland, Brazil, Africa and Russia. By the late 19th century St Petersburg, Russia, vied with London in its consumption of Madeira." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "But as with the sugar industry so too with the viniculture. The vines were often demolished by diseases. In 1848 the oidium ravaged the plants, and by 1853 vine cultivation was almost totally abandoned. Twenty years later, the phylloxera, which also nearly ruined the French wine industry, crippled the vines." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Madeiran peasant, in particular, owed his existence and that of his family to his job as a sugar-worker, a vine-tender or a " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "borracheiro" },
+                  { "type": "text", "text": " (transporter of wines in skins). No wonder when catastrophe continuously hit those crops, “the peasant, descending from the sierra with his bundle of beech sticks for the beans, and occasionally stopping to rest at the turns in the paths, casts his glance at the sea horizon and, in spite of himself, begins to feel the winged impulse to disimprison himself in search of lands where life would be less harsh.” (de Gouveia)" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Thus the Portuguese emigrant who came to British Guiana was the inheritor of a more than 300-year legacy of sugar production and viniculture. He was also a “thrifty husbandman of no small merit” (Koebel) utilising every inch of available space of the terraced hillsides to grow peas, beans, cauliflower, cabbage, potatoes, carrots, spinach, pumpkin, onion and a vast variety of fruits." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Thus it is surprising to read in Dalton’s history that agriculture was not the forte of the Portuguese! What is even more surprising is the somewhat grudging concession made to the commercial enterprise of the emigrants. Significant among the reasons given for their meteoric rise to prominence in the retail, and later the wholesale trade in British Guiana, is the over-emphasis on the “preferential treatment” accorded them by the government of the day." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "It was “the patronage of the European elite [which] was the spark that ignited Portuguese initiative and secured ultimate success” (Wagner). To continue this train of thought — the government and planters regarded the Portuguese as allies against the Creoles. Yet it seemed that this European patronage boomeranged as later one is told that as the commercial power of the Portuguese grew they “became a threat to European elite’s dominion.”" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "One is left to conjecture whether the Portuguese in British Guiana would ever have risen in the mercantile trade had not the government and planters paved the way for them. Yet an investigation of Portuguese-Madeiran history indicates a long familiarity with trade and the tricks of trade. The Madeirans were heirs to a dynamic trade system that had its roots in 14th century Portugal when Lisbon was the important Atlantic seaport carrying on a vigorous trade with the Orient and Europe." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Nineteenth century sources reveal an incidence of shopkeepers on the island with writers commenting caustically on those “wily creatures” (shopkeepers) imbued with the spirit of swindling. One observer on the island wrote: “They can work like horses when they see their interest in it, but they are cunning enough to understand the grand principle of commerce, to give as little, and receive as much as possible.” A plethora of shops on the island, some of which date back to earlier centuries, attests to the fact that the Madeirans were no novices in business." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The British presence in trade and industry was ubiquitous but by the eighteenth century native jealousy had become very overt. By 1826 Madeirans were strongly objecting to “the almost monopoly of trade of the island in the hands of British merchants.” (Koebel) Possibly then the Madeiran merchant in British Guiana might have argued that the British merchants there owed him patronage in return for the privileges their counterparts had been receiving in Madeira for over two centuries!" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The Madeiran emigrant then, did not arrive in British Guiana devoid of everything but his conical blue cloth cap, coarse jacket, short trousers and his " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "rajao" },
+                  { "type": "text", "text": " (banjo). As did all other immigrants he brought with him a background history in agriculture, a flair for business, as well as the culture and mores of his island home, a replica of the mother country, Portugal." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "He brought with him, not only his family, but in many cases his " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "criado" },
+                  { "type": "text", "text": " (servant), his deep faith, his love of festivals, his taste in food, the well-known pumpkin and cabbage soup, the celebrated moorish dish, " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "cus-cus" },
+                  { "type": "text", "text": ", the " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "bacelhau" },
+                  { "type": "text", "text": " (salted fish), " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "cebolas" },
+                  { "type": "text", "text": " (onions) and " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "alho" },
+                  { "type": "text", "text": " (garlic). These tastes and many other customs became incorporated into the life of the Guianese." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Very early the Catholic faith was carried throughout the country and wherever the Portuguese settled churches were built; the major feast days were celebrated, as they were and still are in Madeira, with fireworks and processions. As the Register of Ships notes, throughout the nineteenth century ships plied between Madeira and British Guiana, ships chartered by the Portuguese themselves, bringing in their holds cargoes of " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "bacelhau" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "cus-cus" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "cebolas" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "alho" },
+                  { "type": "text", "text": " and wine, as well as new emigrants." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "The success and prosperity of the Portuguese within a short span of time and out of proportion to their numbers (in a total population of 278,328 in 1891 they numbered only 12,166 or 4.3 per cent), whether due to “preferential treatment” or not, brought in its train economic jealousy among the Creole population, erupting in violence within fifteen years of their arrival in the colony. Later, when the Portuguese began to oust the European merchant in the wholesale trade, they felt the brunt of European envy which manifested itself in many subtle and overt ways." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Though the whites grudgingly acknowledged the economic supremacy of the Portuguese, at no time did they accord them social supremacy or draw them into their privileged group. This attitude undoubtedly hurt and embittered the Portuguese who considered themselves Europeans. But this did not hamper them or cripple their expectations or ambitions. Although from the very outset the local authorities, both Church and State in Madeira, tried to dissuade their countrymen from leaving the island, the émigré returning with his earnings, on the other hand, encouraged his brethren to cross the Atlantic and find their El Dorado in Demerara." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Today it seems that “the winged impulse” has again overtaken the Portuguese, and many have crossed the ocean in search of another El Dorado — in the north. Maybe it is the resurgence of the spirit of the early Portuguese explorers who lived to the hilt the motto of their Prince: “Go farther.”" }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

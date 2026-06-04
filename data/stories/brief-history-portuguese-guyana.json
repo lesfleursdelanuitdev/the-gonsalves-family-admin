@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "id": "brief-history-portuguese-guyana",
+  "title": "A Brief History Of The Portuguese In Guyana",
+  "slug": "brief-history-portuguese-guyana",
+  "kind": "article",
+  "status": "published",
+  "authors": [
+    {
+      "id": "author-sr-mary-noel-menezes",
+      "name": "Sr Mary Noel Menezes",
+      "authorPrefixMode": "by"
+    }
+  ],
+  "excerpt": "From their arrival in Demerara in 1835 to their rise in commerce, religion, culture and politics — an account of the Madeiran Portuguese in Guyana. By Sr Mary Noel Menezes, Stabroek News, May 2010.",
+  "tags": ["madeira", "portuguese", "guyana", "demerara", "history"],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-main",
+      "title": "A Brief History Of The Portuguese In Guyana",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "b-title",
+          "type": "richText",
+          "preset": "heading",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": { "level": 1 },
+                "content": [{ "type": "text", "text": "A Brief History Of The Portuguese In Guyana" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-byline",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "Author: " },
+                  { "type": "text", "marks": [{ "type": "bold" }], "text": "Sr Mary Noel Menezes" }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [{ "type": "text", "text": "Source: Stabroek News, Tuesday, May 4, 2010" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-bio",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "marks": [{ "type": "italic" }],
+                    "text": "Sr Mary Noel Menezes is a Sister of Mercy and an emeritus professor at the University of Guyana."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-intro",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "On 3rd May 1835, after a voyage of 78 days, the Louisa Baillie docked in Demerara with 40 Madeiran emigrants bound for ‘Plantation Thomas’ of RG Butts and for ‘Plantations La Penitence’ and ‘Liliendaal’ of James Albuoy. Why emigrants from a 286-mile island, Madeira, off the coast of Morocco to a continental British colony on the northern tip of South America? Three factors made such a move a reality:"
+                  }
+                ]
+              },
+              {
+                "type": "orderedList",
+                "content": [
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [{ "type": "text", "text": "The approaching abolition of slavery throughout the British possessions creating a labour gap;" }]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [{ "type": "text", "text": "The long-standing alliance between Portugal and England;" }]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [{ "type": "text", "text": "The political, military and economic problems in Madeira in the 1830s." }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "b-body",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Sugar had been grown in Madeira since 1452 and by 1500 the island had become the world’s largest producer of sugar cultivated by the sturdy and hard-working peasant-farmer who, suffering from the economic depression and political troubles, was eager to emigrate. The first decade of the arrival of the Madeirans was a difficult one for them; disease and death plagued those years; at the same time strong objections against emigration were raised by the Madeiran civil and ecclesiastical authorities fearing the erosion of their labourers. By 1845 most of the Portuguese had moved off the plantations, bought small plots of land and moved into the huckster and retail trade. In 1843 the first import of goods from Madeira by the Portuguese was noted by both the Madeiran and Demeraran press. The Portuguese were long masters in the field of trade and the Madeiran emigrant brought with him this flair and expertise."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "In the early years it was mainly in the rum trade that the Portuguese made their mark. By 1852 79% of the retail rum shops were owned by the Portuguese and they retained that monopoly well into the twentieth century. The end of the 1860s and the 1870s saw the Portuguese well entrenched in business. The roster of Portuguese entrepreneurs was extensive. Apart from being property owners, they were provision and commission merchants, spirit shop owners, importers, iron-mongers, ship chandlers, leather merchants, boot and shoe makers, saddlers, coach builders, woodcutters, timber merchants, brick makers, cattle owners, pork-knockers (miners), charcoal dealers, bakers and photographers."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  { "type": "text", "text": "This commercial success of the Portuguese received high praise in the " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Royal Gazette" },
+                  { "type": "text", "text": "." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The rise of the Portuguese in this colony from a state of most abject poverty to one of comparative affluence, and to the possession, in many instances, of thousands of dollars within the space of a few years, is one of the most remarkable occurrences in modern Colonial History. This unprecedented success of the Portuguese in business aroused the jealousy and animosity of the Blacks to such an extent that riots resulted, one especially violent one, the 1856 ‘Angel Gabriel’ Riots during which Portuguese shops were extensively damaged, shops but not lives."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "In 1858 the number of Portuguese in the colony was estimated at approximately 35,000 and mostly all were Catholic. They brought not only their agricultural expertise but their faith as well. The Madeirans were profoundly religious; their religion they expressed with joy. Their religious "
+                  },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "festas" },
+                  {
+                    "type": "text",
+                    "text": " were celebrated with joyful abandon and with much pomp and splendour. With the arrival of Portuguese-speaking priests the Catholic Church advanced rapidly. In 1861 Sacred Heart Church was built for the Portuguese and by the Portuguese. Other churches rose all over the country, along the east coast and east bank, Demerara and in Essequibo."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Of all the religious customs transmitted by the Portuguese, the Christmas Novena continues to hold sway among Catholic Guyanese of every ethnic origin. Another Madeiran custom was the establishment of confraternities, guilds and societies for the relief of widows, orphans, the sick, unemployed, the elderly and the imprisoned as well as for the education of the children of their members."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The Portuguese held on to their language throughout the nineteenth century. A number of Portuguese newspapers kept the Portuguese in touch with events in Madeira and in the colony: "
+                  },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Voz Portuguez" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "O Lusitano" },
+                  { "type": "text", "text": ", " },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Chronica Seminal" },
+                  { "type": "text", "text": ", The Watchman, among others. Portuguese schools were established for both boys and girls." }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Together with other amateur and professional groups the Portuguese entered the cultural stream of music and drama in the British Guianese society. Plays and concerts were held at the Assembly Rooms and at the Philharmonic Hall. Noted for their musical bands in Madeira the Portuguese formed the "
+                  },
+                  { "type": "text", "marks": [{ "type": "italic" }], "text": "Premeiro de Dezembro" },
+                  {
+                    "type": "text",
+                    "text": " band which played at every festivity in the colony and regularly on the Sea Wall, the Botanic and Promenade Gardens, the Town Hall and the Assembly Rooms."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The Portuguese were also prominent in the world of sports: in boxing, cricket and cycling, rugby, football, tennis, hockey, racing and rowing. In 1898 the first cycling club, the Vasco da Gama Cycling Club, was formed by the Portuguese. In 1925 the Portuguese Club was founded and nurtured famous tennis players of the day. Indeed, the Portuguese worked hard in their business world but they also played hard. In music, dance and sport, they acquitted themselves well."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "However much the Portuguese added to the cultural dimension in music, drama and sport, their entry into the political field took them much longer."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "First, there was the language barrier; secondly, the majority of the Portuguese men were not naturalized British subjects and thirdly, the government constantly cautioned the Portuguese ‘not to meddle with politics’ but stick to their business. Not until 1906 did the Portuguese run for office, FI Dias and JP Santos winning seats in the Court of Policy and Combined Court. However, although the Portuguese had gained a political foothold, they were not at all welcomed with open arms into the colonial government."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "By the turn of the century the Portuguese had created their own middle and upper class. They were never accepted into the echelons of white European society though they themselves were Europeans. Much less did they ‘bolster white supremacy’. The rapid economic progress of the Portuguese, their strong adherence to the Catholic faith and their clannishness bred respect but never whole-hearted acceptance among the population either in the nineteenth or twentieth century. In the 1960s and 1970s the Portuguese suffered even more discrimination and many crossed the ocean in search of another El Dorado in the north, maybe in the spirit of the early Portuguese explorers who lived to the hilt the motto of Prince Henry the Navigator: ‘Go farther’."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1974 @@
+{
+  "version": 1,
+  "id": "at-journey",
+  "title": "The Journey of A.T. Gonsalves",
+  "slug": "the-journey-of-at-gonsalves",
+  "kind": "story",
+  "status": "draft",
+  "authors": [
+    {
+      "id": "author-neville",
+      "name": "Neville Gonsalves",
+      "authorPrefixMode": "by"
+    },
+    {
+      "id": "author-at",
+      "name": "Augustinho Thomas Gonsalves",
+      "authorPrefixMode": "custom",
+      "authorPrefixCustom": "as told by"
+    }
+  ],
+  "excerpt": "A biographical account of Augustinho Thomas (A.T.) Gonsalves, tracing his life from Bladen Hall, British Guiana to Scarborough, Ontario — written by his son Neville and presented on A.T.'s 102nd birthday in February 1996.",
+  "tags": [
+    "guyana",
+    "immigration",
+    "scarborough",
+    "biography",
+    "portuguese-madeira"
+  ],
+  "updatedAt": "2026-05-27T00:00:00Z",
+  "sections": [
+    {
+      "id": "s-cover",
+      "title": "Cover",
+      "hideTitle": true,
+      "isChapter": false,
+      "blocks": [
+        {
+          "id": "s-cover-b1",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 1,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 1
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The Journey of A.T."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-cover-b2",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 2,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 2
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "From Bladen Hall to Scarborough, Ontario"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-cover-b3",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "As told by A.T. Gonsalves and written by "
+                  },
+                  {
+                    "type": "text",
+                    "marks": [
+                      {
+                        "type": "bold"
+                      }
+                    ],
+                    "text": "Neville Gonsalves"
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Presented to A.T. on the occasion of his "
+                  },
+                  {
+                    "type": "text",
+                    "marks": [
+                      {
+                        "type": "bold"
+                      }
+                    ],
+                    "text": "102nd Birthday"
+                  },
+                  {
+                    "type": "text",
+                    "text": " — February 18, 1996."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-cover-b4",
+          "type": "columns",
+          "columns": [
+            {
+              "id": "s-cover-b4-col1",
+              "blocks": [
+                {
+                  "id": "s-cover-b4-col1-b1",
+                  "type": "media",
+                  "mediaId": null,
+                  "label": "A.T. Gonsalves",
+                  "caption": "AT1s.jpg — portrait of A.T. Gonsalves"
+                },
+                {
+                  "id": "s-cover-b4-col1-b2",
+                  "type": "richText",
+                  "preset": "paragraph",
+                  "doc": {
+                    "type": "doc",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "9 children"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "45 grandchildren"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "83 great-grandchildren"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "3 great-great-grandchildren"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "s-cover-b4-col2",
+              "blocks": [
+                {
+                  "id": "s-cover-b4-col2-b1",
+                  "type": "richText",
+                  "preset": "paragraph",
+                  "doc": {
+                    "type": "doc",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "marks": [
+                              {
+                                "type": "bold"
+                              }
+                            ],
+                            "text": "Homes in Guyana"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "bulletList",
+                        "content": [
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Bladen Hall"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Berbice"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Bladen Hall"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Nonpareil"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Buxton"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Georgetown"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "s-cover-b4-col2-b2",
+                  "type": "richText",
+                  "preset": "paragraph",
+                  "doc": {
+                    "type": "doc",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "marks": [
+                              {
+                                "type": "bold"
+                              }
+                            ],
+                            "text": "Homes in Ontario, Canada"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "bulletList",
+                        "content": [
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Brockley Dr / Lawrence Ave East"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Shenley Rd / Kennedy Rd"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Millwood Rd"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Victoria Park / Lawrence Ave East"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Dundalk Drive / College & Gladstone"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Cedarbrook Lodge / Markham Rd"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "listItem",
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "The Wexford / Lawrence Ave East"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "columnWidthPercents": [
+            40,
+            60
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s-ack",
+      "title": "Acknowledgment",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-ack-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 35,
+          "text": {
+            "id": "s-ack-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The life story of my father, from Bladen Hall (Guyana) to Scarborough (Ontario, Canada) was written through his eyes and as a legacy for posterity. I am thankful for the patience of my wife Nancy, during the many hours assisting with the editing of the story, and my love/hate relationship with the \"computer\"."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "With love to my father."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-ack-b1-sup",
+            "blocks": [
+              {
+                "id": "s-ack-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "A.T. Gonsalves",
+                "caption": "ATGrand.jpg — A.T. Gonsalves"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-ack-b2",
+          "type": "container",
+          "props": {
+            "preset": "callout",
+            "padding": "md",
+            "border": "subtle"
+          },
+          "children": [
+            {
+              "id": "s-ack-b2-c1",
+              "type": "richText",
+              "preset": "paragraph",
+              "doc": {
+                "type": "doc",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "marks": [
+                          {
+                            "type": "bold"
+                          }
+                        ],
+                        "text": "A. T. Gonsalves"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "marks": [
+                          {
+                            "type": "bold"
+                          }
+                        ],
+                        "text": "Birth Date: "
+                      },
+                      {
+                        "type": "text",
+                        "text": "Tuesday, February 18, 1894, 1:15 pm"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "marks": [
+                          {
+                            "type": "bold"
+                          }
+                        ],
+                        "text": "Birthplace: "
+                      },
+                      {
+                        "type": "text",
+                        "text": "Bladen Hall, British Guiana"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "marks": [
+                          {
+                            "type": "bold"
+                          }
+                        ],
+                        "text": "Sign: "
+                      },
+                      {
+                        "type": "text",
+                        "text": "Aquarius"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s-reflections",
+      "title": "Reflections",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-ref-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 33,
+          "text": {
+            "id": "s-ref-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In December of 1993, the company that I was employed with decided to downsize their operations. I found myself unemployed, at a time when unemployment was quite high and the future seemed uncertain."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "I decided to go back to school to learn the skillful use of computers after being unemployed for almost two years."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Having successfully completed the courses required, I decided that it would be an excellent idea to write a story of my aging father and also to share some of the historical background of the country where he was born."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The story itself is incomplete. It is only an overview that should be read with an open mind. Some of the contents are factual. Some are my reflections and memories of my family and the land that is so dear to many - "
+                    },
+                    {
+                      "type": "text",
+                      "text": "GUYANA",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Guyana",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-ref-b1-sup",
+            "blocks": [
+              {
+                "id": "s-ref-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Guyana in South America",
+                "caption": "GuyGlobe.jpg — globe showing Guyana's location in South America"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-chronology",
+      "title": "Chronology",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-chron-b1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "marks": [
+                      {
+                        "type": "italic"
+                      }
+                    ],
+                    "text": "A timeline of key events from 1497 to 1995, spanning the exploration of South America, the colonisation of British Guiana, the family's Madeiran roots, A.T.'s life in Guyana, and his immigration to Canada."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-chron-b2",
+          "type": "embed",
+          "embedKind": "timeline",
+          "title": "Chronology: 1497–1995",
+          "data": {}
+        }
+      ]
+    },
+    {
+      "id": "s-history",
+      "title": "History",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-hist-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 33,
+          "text": {
+            "id": "s-hist-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Formally, British Guiana is bounded on the north and northeast by the Atlantic Ocean, on the east by Suriname, on the south by Brazil, and the northwest by Venezuela. This territory, now Guyana, was first charted by Spanish explorers in 1499."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "At the beginning of the 1600s the Dutch first settled in this area. They erected a fort and depot at Fort Kyk-Over-Al in the county of Essequibo. During the 1700s the Dutch and English established posts, trading with the Amerindian natives, including the Arawak and Carib tribes."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Plantations were laid out and worked using slaves from Africa. Coffee and cotton were the main crops in the early years. Sugar became the dominant crop by 1820. When slavery was abolished some of the slaves scattered as small landholders. The plantation owners looked for other sources of labour."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "By the mid eighteenth century Dutch settlers and traders had prevailed over rival Spanish and British expeditions. Although formal possession fell to the British in 1814, the Dutch system of administration persisted during most of the pre-colonial period. The colony of British Guiana came into being in 1831."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Agreements were made with the governments of China, India, and Portugal to send workers to this South American colony as indentured labourers. These workers were required to work for the plantation owners for a fixed period before they were free to work elsewhere or become citizens."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "After becoming citizens the Chinese and Portuguese joined the business community. The East Indians remained as workers on the sugar plantations. The Africans were the carpenters, builders and tradesmen. The six races of Guyana are diversified and have lived harmoniously together. The majority of the population is Christian (Anglican and Roman Catholic) and the remainder is either Hindu or Muslim."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Guyanese food is as varied as the races themselves. There is British, Creole, Chinese, East Indian and Portuguese cuisine. Popular dishes include traditional roast beef and Yorkshire pudding. Meat stew seasoned with cayenne pepper and "
+                    },
+                    {
+                      "type": "text",
+                      "text": "cassareep",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Cassareep",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": ", called "
+                    },
+                    {
+                      "type": "text",
+                      "text": "pepperpot",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Guyana_Pepperpot",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": ", is a creole delight. Cassareep is an extract of "
+                    },
+                    {
+                      "type": "text",
+                      "text": "cassava",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Cassava",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": ", a root vegetable grown in Guyana. Meat, pork and rice dishes prepared by the Chinese are enjoyed by many. "
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-hist-b1-sup",
+            "blocks": [
+              {
+                "id": "s-hist-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Ruins of Fort Kyk-Over-Al, Guyana",
+                "caption": "Kyk-over-al.jpg — Ruins of Fort Kyk-Over-Al, Guyana"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-land",
+      "title": "The Land",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-land-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 40,
+          "text": {
+            "id": "s-land-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "British Guiana, with its 83,000 square miles, has a population of just under a million and less than 5% of its land area under cultivation. The rest of the land area is made up of forests and pastures. Most people live either in "
+                    },
+                    {
+                      "type": "text",
+                      "text": "Georgetown",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Georgetown,_Guyana",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": ", or in villages and towns strung along the coast of Guyana from Charity in the west to Springlands in the east."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-land-b1-sup",
+            "blocks": [
+              {
+                "id": "s-land-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Map of Guyana",
+                "caption": "mguyana.jpg — Map of Guyana"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-sugar",
+      "title": "Sugar Plantations",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-sugar-b1",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Enmore and Nonpareil"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-sugar-b2",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 40,
+          "text": {
+            "id": "s-sugar-b2-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Sugar cane",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Sugarcane",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": " is grown and processed at refineries on the coast of Guyana. Cultivated in tropical climates, it grows to a height of eight feet and has joints (stems) from one to two inches long. Several varieties are known, differing in colour. Some have deep cuts and spaces between the joints. Sugar cane is planted with cuttings ninety days old. At each joint there is an undeveloped bud called an \"eye\" which produces growth. An approximate length of eight inches is cut off and planted just under the soil in rows, on a bed prepared for planting."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-sugar-b2-sup",
+            "blocks": [
+              {
+                "id": "s-sugar-b2-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Sugar cane",
+                "caption": "Sugarcane.jpg — Sugar cane fields in Guyana"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-refining",
+      "title": "The Refining Process",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-ref2-b1",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Enmore"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-ref2-b2",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 35,
+          "text": {
+            "id": "s-ref2-b2-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "At the factory the bundles are lifted from the punts and weighed. Each bundle could have an average weight of between four and eight tons. After being weighed the cane is pushed onto a bed of toothed rollers, where it is crushed and the juice extracted. Hot water is sprayed over the crushed material to dissolve any remaining sugar. This process is called grinding."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The pulpy material remaining after extraction is called bagasse, which is dried and used as fuel. Limestone is added to the juice and this mixture is boiled. Unwanted organic acids form compounds with the limestone that are filtered off with other impurities. The juice is treated with sulphur dioxide which acts as a bleach, then goes through another filtering process."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The resulting clear juice is evaporated in a vacuum and heated until it forms a thick syrup containing many crystals of sugar. These crystals are placed into a centrifuge turning at over one thousand revolutions per minute. During this process a syrup called molasses is forced out through small holes in the centrifuge walls."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The brown sugar removed from this process is raw sugar, sprayed with water to remove any clinging molasses. Molasses is a valuable by-product — used in the manufacture of alcohol, rum and food flavouring, and added to drinking water for cows, horses and mules. The raw sugar is weighed, transferred to bags for general consumption, or loaded into containers for transport to waiting ships."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-ref2-b2-sup",
+            "blocks": [
+              {
+                "id": "s-ref2-b2-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Unrefined Demerara brown sugar",
+                "caption": "SugarBrown.jpg — Unrefined Demerara brown sugar"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-older-gen",
+      "title": "Older Generations",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-og-b1",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Indenture, Marriage and Children"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-og-b2",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 40,
+          "text": {
+            "id": "s-og-b2-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My grandmother Mias, her two sisters and brother Manoel came to British Guiana from the Portuguese island of Madeira as indentured labourers. The four of them went to work at Enmore sugar plantation on the east coast of Demerara. Having made the decision to come to this new country, they soon realised it was not what they were accustomed to. They felt isolated because of cultural and language barriers. The wages they received did not compensate for the many long hours that they worked. When they were in the old country, women did not have to do manual labour."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Manoel decided that as a family they should live frugally and pool their financial resources so that the three girls would not have to continue working. After five years the three sisters were able to repay the plantation owners and became citizens. They remained at Enmore Estate and were married. Manoel continued working on the sugar estate for ten years before he was able to repay his own indenture. When he became a free citizen he moved to a small settlement called Bladen Hall where he built his home."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My grandmother had two children from her first marriage: a son John and a daughter Mary (my mother). After her husband died she married again and had a son Manoel. Her second husband's surname was Gonsalves. John and Mary's surname was changed from Agusta to Gonsalves. My mother Mary went to Bladen Hall to live with her uncle Manoel Gracis and his three daughters and son."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My father Augustus was born in Bladen Hall. He went to work at an early age as a labourer at Enmore sugar plantation. He had a twin sister named Amilia, two other sisters and a brother."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My parents had ten children: Manoel (born April 1892), myself — Augustinho Thomas, born February 18, 1894 — Victor (born February 2, 1902), Isabella (born December 12, 1904), Joseph (born March 28, 1906), and five other children who died when they were young."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-og-b2-sup",
+            "blocks": [
+              {
+                "id": "s-og-b2-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "A.T.'s ancestors in Guyana",
+                "caption": "Tree1.jpg — AT's ancestors in Guyana"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-working",
+      "title": "My Working Years & My Valentine",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-work-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 35,
+          "text": {
+            "id": "s-work-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "As a young boy with very little formal education, I went to work to help support my father, who was very sick. I worked in various positions. The salary in those days started at eight cents per day, with small increases to sixteen cents per day."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In 1910 when I was sixteen years of age, I left home and went to New Amsterdam to look for suitable employment. Mr. E.G. Ferreira owned a chain of grocery and liquor stores in New Amsterdam, Corentyne, Canje Rosehall, West Coast Berbice and East Bank Berbice up to plantation Mara, twenty-five miles up the Berbice River. To get to Mara we travelled by launch."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "I worked in the districts mentioned as a grocery and liquor clerk. My starting salary was six dollars per month, but by 1914 my salary had doubled."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "During my school years I fell in love with Lucy Xavier, who lived next door to us. In my late teens, when I was away from home, I was informed that Lucy was betrothed to someone else. Her parents wanted her to marry an older person who would be more suitable and would be able to give her a better life than I was able to offer."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Contrary to their wishes, on St Valentine's Day 1914 — Lucy's birthday — we eloped and were married by a bishop in Georgetown. At the time of our marriage I was almost twenty and Lucy was seventeen. We settled in Berbice."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "I was employed in a liquor store in Canje Rosehall and could not find an apartment to rent in the area. The nearest village, Sheet Anchor, was five miles from my work, but we finally found a place to call home. Mr Ferreira bought a bicycle for me. My working day started at 5 am and finished at 9 pm. There were five employees in the store."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-work-b1-sup",
+            "blocks": [
+              {
+                "id": "s-work-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Lucy & Augustinho with baby Sydney, 1917",
+                "caption": "Sydney1917.jpg — Lucy & Augustinho with baby Sydney, 1917"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-family",
+      "title": "My Progeny & My Own Business",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-fam-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 45,
+          "text": {
+            "id": "s-fam-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My first son Sydney was born in 1916. At that time my salary was twenty-two dollars per month and my house was rent free. In 1919 my second son Lawrence was born. My salary had increased to thirty dollars per month."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "I was sent to be in charge of a grocery and liquor store in West Coast Berbice. With my working experience I felt it was time to move on. A decision was made to go back home and start our own business. We left Berbice at the end of 1920, after ten years, to return to Bladen Hall where I was born."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In 1921 I bought my first home at Plantation Nonpareil and converted the property into a living area with a store attached. This comprised two and a half bedrooms, a small living room, a kitchen, a grocery, hardware and a dry goods store. There was no electricity, so kerosene lamps were used. We had no indoor plumbing, so an out-house had to suffice. Cooking was done on a stove made out of clay — called a fireside."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In the immediate area were marsh lands that were breeding grounds for mosquitoes and other insects. Mosquitoes injected into the blood stream deadly tropical diseases such as "
+                    },
+                    {
+                      "type": "text",
+                      "text": "malaria",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Malaria",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": ", "
+                    },
+                    {
+                      "type": "text",
+                      "text": "yellow fever",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Yellow_fever",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": " and "
+                    },
+                    {
+                      "type": "text",
+                      "text": "filariasis",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/Filariasis",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": ". Controlling these insects was not a priority of the day and no cure for malaria was available in 1921. Years later it was discovered that spraying in the homes and yards with "
+                    },
+                    {
+                      "type": "text",
+                      "text": "DDT",
+                      "marks": [
+                        {
+                          "type": "link",
+                          "attrs": {
+                            "href": "http://en.wikipedia.org/wiki/DDT",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "text": " was the only way to control these insects."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In 1924 my third son Edward was born. Lucy became very sick with malaria. There was no treatment available in British Guiana, so I sent her to Suriname for medical care."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Lennard was born on October 13, 1926, two days after my father Augustus died. The fifth son Albert Norbert was born in December 1927, and Stephen in 1929. In 1930 my second daughter and eighth child Lucille was born. The ninth, a son, died as an infant. Then in 1935 my last son Neville was born."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-fam-b1-sup",
+            "blocks": [
+              {
+                "id": "s-fam-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "AT's family — 1937",
+                "caption": "Family1937c.jpg — AT's family, 1937. Back row: Lawrence, Ephigenia and Sydney. Next row standing: Edward and Lennard. Sitting in front: Stephen, Lucille and Norbert. Middle row sitting: Lucy holding baby Neville, with Augustinho."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-buxton",
+      "title": "The Buxton Connection",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-bux-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 35,
+          "text": {
+            "id": "s-bux-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My business was prospering, so Lucy and I purchased a store with a small living area attached in the nearest village to Bladen Hall, called Buxton. My youngest brother Joe managed the store, and we agreed that he would pay us a percentage of his profits as rental. This was in the late 1920s."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "A few years later another property was up for sale in Buxton that included a store, a living room, a kitchen, two bedrooms, and a bakery. Lucy and I discussed with Sydney the possibility of my purchasing the property and letting him manage the business, repaying us from the profits. We agreed, and this started the Buxton connection."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The store and the bakery did extremely well financially at first, but due to a lack of supervision the bakery building started to deteriorate. We decided to close the bakery in the late 1930s. My brother Joe later informed me he would like to leave Buxton to start his own business. We completed our agreement and I sold the property."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In addition to the two stores I also owned six acres of sugar cane, four acres of provision farm, a rice farm and thirty-eight cows."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In 1939 Lucy and I decided that if we continued to live at Nonpareil, our children would be at a disadvantage with regards to their education, social life and the many illnesses — malaria, filariasis, diphtheria — that she and the children had to endure. We decided to sell the property in Nonpareil and go to Georgetown, the capital city."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "We bought a property and did some renovations. I enlarged it into a two-storey home. The upstairs was the living area — three bedrooms, a sewing room, a kitchen, a dining room and the main living room. Every room in the house was spacious. The downstairs was made into a grocery store."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-bux-b1-sup",
+            "blocks": [
+              {
+                "id": "s-bux-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Sydney and Julie on their wedding day, 1939",
+                "caption": "SydneyJulieWed1939.jpg — Sydney and Julie on their wedding day in 1939"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-death",
+      "title": "Death in the Family",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-death-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 38,
+          "text": {
+            "id": "s-death-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "On April 28, 1940, the family suffered its first setback when Sydney died suddenly at the age of twenty-four. He was married less than a year and there were no children from this marriage."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "At the time of Sydney's illness, Lawrence was stationed at Enmore as a police officer. When he received word that his brother's illness had worsened he asked permission to go to Georgetown. A leave of absence was denied. As a result, when he eventually got to the city, Sydney had already died. Needless to say he quit the police force. So I offered him the same agreement to manage the store at Buxton that Sydney originally had."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Our business did very well, so in 1944 I bought the three adjoining houses and rented them to my children when they married. Lucy and I continued working in the grocery store and living in the upper flat until we retired in 1965."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The family suffered their second setback when my beloved Lucy died on August 23, 1967, after a short illness. After Lucy's death, and in my grief, I realised how much alone I was. I felt life was not worth living. So I prayed and asked the Lord for comfort."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My prayer was answered. I started thinking of the things that I could do. Somehow I started to recite and memorise the alphabet from A to Z and then from Z to A. This became my strength. Years later some of my children and grandchildren were amused, when I recited the alphabet both forward and backward as part of my act with the Cedarbrook Follies."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "During 1973 another setback developed when Stephen died at age forty-four. He was survived by his wife Sheila and their seven children. Then in 1976 Lawrence emigrated to Toronto, Ontario. In December of 1990 Lawrence died after a lengthy illness. He was survived by his wife Angela, their children and grandchildren."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-death-b1-sup",
+            "blocks": [
+              {
+                "id": "s-death-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "After Lucy died in 1967",
+                "caption": "Family1967s.jpg — After Lucy died in 1967"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-canada",
+      "title": "O Canada!",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-can-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 30,
+          "text": {
+            "id": "s-can-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "My daughter Lucille wrote me sometime in May of 1969 and informed me that I would be welcome to stay with her and her family if I wanted to come for a visit to Ontario. In the early fall of 1969 I decided to take her up on her offer and came to Scarborough for a holiday. This was the first time that I had left the country of my birth — and what a delightful surprise was awaiting me."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "As we drove along from the airport to Scarborough, I could not help observing the many cars that travel along the highway, the high-rise buildings, the beautiful homes and the overall cleanliness of the city. I was informed later that as long as one was willing to work and to live frugally, obtaining the necessities of life was not very difficult."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "As I visited the shopping plazas and saw the clothing and shoe stores, as well as the grocery stores, I could not help noticing the abundance of merchandise. I was overwhelmed by the packaging and the display of food and the manner in which it was presented to the public. It was a pity that I had not had the opportunity in my earlier years to see and learn these procedures."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "One morning in late October my grandchildren could not get over their enthusiasm to show me my first snowfall. As I looked out the window and saw white flurries cascading downwards I had a sudden urge to reach out and touch them. So the children and I got dressed in our winter clothes and stepped onto the apartment balcony. I felt and played with the snow. I was overjoyed! When we came back inside I could not help expressing myself: O Canada! I am so happy to be here in this delightful country!"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In the spring of 1970 I was sponsored as an immigrant. After staying for almost a year I decided to return to Guyana — I was slightly homesick for relatives and friends still living there."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-can-b1-sup",
+            "blocks": [
+              {
+                "id": "s-can-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Canada flag",
+                "caption": "CanadaFlag.png — Canada flag"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-independence",
+      "title": "Guyana Independence and After",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-ind-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 30,
+          "text": {
+            "id": "s-ind-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "After 135 years of colonial rule, and struggling with political and racial problems, British Guiana gained its independence from Britain in 1966. The country was renamed Guyana — an Amerindian name meaning \"land of many waters\". In that year Guyana's national anthem and flag were chosen. The insignia on the Coat-of-Arms reads \"One People, One Nation, One Destiny.\""
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "During the 1970s Guyana received international attention when the Reverend Jim Jones, a self-styled religious dictator, led over 1,000 Americans to his jungle settlement called Jonestown, in Guyana. There he subjected these people to his will and was instrumental in their death by poison in 1978."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The Guyana government restricted the flow of money leaving the country after gaining independence. As a result, when I finally left Guyana I was unable to take any money with me. In 1977 I returned to Guyana and sold my properties. I deposited my life's worth in the Royal Bank of Canada in Guyana and made them my trustees, with the authority to lend the government my money and send me the interest in Canadian funds."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Needless to say this was short lived. The government of Guyana was strapped for money and the interest would not be sent outside the country. After discussion with my son I decided to dispose of the money among relatives, friends and the church in Guyana."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-ind-b1-sup",
+            "blocks": [
+              {
+                "id": "s-ind-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Guyana flag",
+                "caption": "GuyanaFlag.png — Flag of Guyana"
+              },
+              {
+                "id": "s-ind-b1-sup-b2",
+                "type": "media",
+                "mediaId": null,
+                "label": "Guyana coat of arms",
+                "caption": "GuyanaCoA.png — Coat of arms of Guyana"
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-ind-b2",
+          "type": "richText",
+          "preset": "heading",
+          "headingLevel": 3,
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "The National Anthem of Guyana"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-ind-b3",
+          "type": "richText",
+          "preset": "verse",
+          "verseTitle": "",
+          "verseContent": "Dear land of Guyana, of rivers and plains,\nMade rich by the sunshine, and lush by the rains,\nSet gem like and fair between mountains and sea,\nYour children salute you, dear land of the free.\n\nGreen land of Guyana, our heroes of yore,\nBoth bondsmen and free, laid their bones on your shores,\nThis soil so they hallowed, and from them are we,\nAll sons of one mother, Guyana the free.\n\nGreat land of Guyana, diverse through our strains,\nWe are born of their sacrifice, heirs of their pains,\nAnd ours is the glory their eyes did not see,\nOne land of six people, united and free.\n\nGreen land of Guyana, to you will we give,\nOur homage, our service, each day that we live,\nGod guard you, great Mother, and make us to be,\nMore worthy our heritage — land of the free.",
+          "verseContentAlign": "left",
+          "doc": {
+            "type": "doc",
+            "content": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-new-beginning",
+      "title": "New Beginning",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-new-b1",
+          "type": "splitContent",
+          "supportingSide": "right",
+          "supportingWidthPct": 40,
+          "text": {
+            "id": "s-new-b1-text",
+            "type": "richText",
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "After ten years in Scarborough, Ontario, it was a new beginning for me to receive a reduced old age pension and not have to depend on my children for support. During 1986 I became ill and was hospitalized. For a period of three months I recuperated in a nursing home, while awaiting admission to Cedarbrook Lodge, located in Scarborough, Ontario. In August of 1986 I was transferred from the nursing home to Cedarbrook Lodge."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Later that year, a new resident named Ivy Hiscock came to Cedarbrook. She was a widow, with a large family. She was also a diabetic and a double amputee. We became friends and she was a companion to me."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Ivy was a remarkable person. She was able to rise above her disability and remained cheerful. We fell in love and shared some memorable times together. We were both involved in the Cedarbrook Follies, a group comprising about twenty residents, with ages ranging from seventy to one hundred years of age. We entertained families and friends, and we would go on tour to other residential homes, sharing with them the joys of song and laughter."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Ivy's diabetic problem became worse and she was unable to remain at Cedarbrook Lodge. A move was made to Bendale Acres nursing home, where she died in 1994."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Now I am 102 years of age and I am no longer living at Cedarbrook Lodge. I required extra health and nursing care. So, at the end of August 1994 I was transferred to the Wexford. At the anniversary of admission to this nursing home a complete medical examination is done, and the family is invited to review the results. The results from my tests were very positive with no obvious problems."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "So far I have lived a rich and full life. I have been blessed with a large family — my total offspring are six children, four of them live in Scarborough, Ontario; one is in Peterborough, Ontario; and Edward, who never emigrated, still lives in Guyana. I also have forty-two grandchildren, over seventy great-grandchildren and three great-great-grandchildren."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "supporting": {
+            "id": "s-new-b1-sup",
+            "blocks": [
+              {
+                "id": "s-new-b1-sup-b1",
+                "type": "media",
+                "mediaId": null,
+                "label": "Celebrating the companionship of A.T. and Ivy",
+                "caption": "ATIvyWed1988.jpg — Celebrating the companionship of A.T. and Ivy"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "s-poem",
+      "title": "My Valentine",
+      "isChapter": true,
+      "blocks": [
+        {
+          "id": "s-poem-b1",
+          "type": "richText",
+          "preset": "paragraph",
+          "doc": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "1914–1967. Fifty-three years of marriage. Lucy and I, from the time we were married, faced many problems. We were young and did not have the blessings of our parents. We lived in an area of many diseases, a lack of medical facilities and inadequate living conditions. Most of all we were ambitious — not only for ourselves, but also for our children."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "My life in this story seems to be a shining example of what hard work and a loving wife can accomplish. I have always been a strict disciplinarian, and perhaps unduly harsh in many of my decisions affecting the family. Lucy played an important part in our lives. She was softer and more gentle in her handling of me and the children. She always appeared to agree with me but acted as a foil in dealing with family matters. She was conscientious, supportive and strong, working shoulder to shoulder with me."
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "At age 90, I decided that her memory should live on. I wrote the following poem for her."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "s-poem-b2",
+          "type": "richText",
+          "preset": "verse",
+          "verseTitle": "My Valentine",
+          "verseContent": "Once when I was young\n  I met a girl\nBoth of us were young\n  she was\nMy beloved friend\n    My Valentine\n\nWe used to hold each others' hand\n  And run along on the railway track\nTo school and back\n  I was born February 18, 1894\nShe was born February 14, 1896\n    On Valentine day\n\nMany years after that\n  She was taken from me\nNever to return\n  When I am gone\nI will seek and find\n    My Valentine",
+          "verseContentAlign": "center",
+          "verseLineLayout": "staggered",
+          "doc": {
+            "type": "doc",
+            "content": []
+          }
+        },
+        {
+          "id": "s-poem-b3",
+          "type": "media",
+          "mediaId": null,
+          "label": "Lucy & Augustinho Gonsalves",
+          "caption": "ATLucy.png — Lucy & Augustinho Gonsalves",
+          "rowLayout": {
+            "widthMode": "narrow",
+            "alignment": "center"
+          }
+        }
+      ]
+    }
+  ]
+}
