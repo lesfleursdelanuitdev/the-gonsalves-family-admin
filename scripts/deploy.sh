@@ -1,7 +1,7 @@
 #!/bin/bash
 # Deploy script for admin.gonsalvesfamily.com
 # Applies Prisma migrations, ensures production build completes and static files exist before restart.
-# Run from app root so PM2 (ecosystem cwd) serves this .next.
+# The site runs under systemd as gonsalves-admin.service (WorkingDirectory=this app root).
 #
 # Requires DATABASE_URL (Postgres, writable user) for migrate deploy. Typical server setup:
 #   export DATABASE_URL=...   # or place it in .env.production / .env.local in this directory.
@@ -10,7 +10,7 @@ set -e
 APP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$APP_ROOT"
 
-PM2_NAME="admin-gonsalvesfamily"
+SERVICE="gonsalves-admin.service"
 PRISMA_ROOT="$(cd "$APP_ROOT/../packages/ligneous-prisma" && pwd)"
 
 # Load DATABASE_URL if not already set (same files as local migrate:all, plus plain .env)
@@ -47,13 +47,9 @@ if [ ! -d ".next/static/chunks" ] || [ -z "$(ls -A .next/static/chunks 2>/dev/nu
   exit 1
 fi
 
-echo "Static files OK. Restarting PM2 (${PM2_NAME})..."
-if ! pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  echo "ERROR: PM2 app '${PM2_NAME}' is not registered."
-  echo "First time: cd $APP_ROOT && pm2 start deployment/ecosystem.config.cjs && pm2 save"
-  exit 1
-fi
-pm2 restart "$PM2_NAME"
+echo "Static files OK. Restarting $SERVICE (sudo may prompt for a password)..."
+sudo systemctl restart "$SERVICE"
+sudo systemctl --no-pager --lines=0 status "$SERVICE" || true
 
 echo "Deploy complete. Site: https://admin.gonsalvesfamily.com"
 echo "If CSS/code still stale: hard-refresh (Ctrl+Shift+R) or clear site data; ensure nginx is not caching the HTML response."
