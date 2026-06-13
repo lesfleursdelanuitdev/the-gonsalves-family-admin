@@ -1,6 +1,6 @@
 # Deploy admin.gonsalvesfamily.com (+ storycreator.gonsalvesfamily.com)
 
-Production stack: **Next.js** (`next start` on **port 3040**) behind **nginx**, managed with **PM2**.
+Production stack: **Next.js** (`next start` on **port 3040**) behind **nginx**, managed with **systemd** (`gonsalves-admin.service`).
 
 Canonical app path on the server (adjust if yours differs):
 
@@ -32,9 +32,9 @@ On the server, in the app root, create or update **`.env`** / **`.env.production
 | `AUTH_COOKIE_NAME` | Shared auth cookie name used by admin + public adapters. Must match in all apps (example: `gonsalves_session`). |
 | `AUTH_COOKIE_DOMAIN` | Optional but recommended in production. Set `.gonsalvesfamily.com` so login is shared across `admin`/`storycreator`/public hosts. Leave unset in localhost/dev. |
 | `AUTH_COOKIE_SECURE` | Optional override (`true`/`false`) for cookie `Secure`. Defaults by `NODE_ENV`. |
-| `ADMIN_MEDIA_FILES_ROOT` | **Production:** absolute path under **`/mnt/`** to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Default in code if unset: `/mnt/storage/uploads`. Example: `/mnt/storage/uploads` → files in `…/gedcom-admin/`. Must be **writable** by the user running PM2 (see §9). |
-| `LIB_API_URL` | Base URL for **ligneous-gedcom-lib-api** (server-side `fetch` from Next). Required for **Admin → Export** (`/api/admin/export`). If unset, the app defaults to `http://localhost:8092` (fine for local dev). **Production on this host:** run the lib API on loopback **8092** and set `LIB_API_URL=http://127.0.0.1:8092` (also the default in `deployment/ecosystem.config.cjs`). **Remote API:** set to your HTTPS origin, e.g. `https://gedcom-api.example.com`. Install/always-on: [`../../ligneous-gedcom-lib-api/deploy/README.md`](../../ligneous-gedcom-lib-api/deploy/README.md). |
-| `PYTHON_API_URL` | Base URL for **ligneous-python-api** (server-side proxy `/api/research/*`). **Production on this host:** `http://127.0.0.1:5001` with Gunicorn bound to loopback (default in `deployment/ecosystem.config.cjs`). Public TLS hostname (e.g. `analytics.gonsalvesfamily.com`) is for browsers hitting nginx; Next should prefer loopback when colocated. Install: [`../../ligneous-python-api/deploy/README.md`](../../ligneous-python-api/deploy/README.md). |
+| `ADMIN_MEDIA_FILES_ROOT` | **Production:** absolute path under **`/mnt/`** to the **parent** of the `gedcom-admin` upload folder (same layout as `public/uploads`). Default in code if unset: `/mnt/storage/uploads`. Example: `/mnt/storage/uploads` → files in `…/gedcom-admin/`. Must be **writable** by the user running the service (see §9). |
+| `LIB_API_URL` | Base URL for **ligneous-gedcom-lib-api** (server-side `fetch` from Next). Required for **Admin → Export** (`/api/admin/export`). If unset, the app defaults to `http://localhost:8092` (fine for local dev). **Production on this host:** run the lib API on loopback **8092** and set `LIB_API_URL=http://127.0.0.1:8092` (in the service's environment or `.env.production`). **Remote API:** set to your HTTPS origin, e.g. `https://gedcom-api.example.com`. Install/always-on: [`../../ligneous-gedcom-lib-api/deploy/README.md`](../../ligneous-gedcom-lib-api/deploy/README.md). |
+| `PYTHON_API_URL` | Base URL for **ligneous-python-api** (server-side proxy `/api/research/*`). **Production on this host:** `http://127.0.0.1:5001` with Gunicorn bound to loopback (set in the service's environment or `.env.production`). Public TLS hostname (e.g. `analytics.gonsalvesfamily.com`) is for browsers hitting nginx; Next should prefer loopback when colocated. Install: [`../../ligneous-python-api/deploy/README.md`](../../ligneous-python-api/deploy/README.md). |
 
 Run `npm run build` only after required env vars are present; some Next builds read them.
 
@@ -93,7 +93,7 @@ sudo ln -sf /etc/nginx/sites-available/storycreator.gonsalvesfamily.com /etc/ngi
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-- **Upstream:** `http://127.0.0.1:3040` (must match PM2 / `start:prod`).
+- **Upstream:** `http://127.0.0.1:3040` (must match the service / `start:prod`).
 - **Logs:** `/var/log/nginx/admin.gonsalvesfamily.com.*.log`
 - **StoryCreator logs:** `/var/log/nginx/storycreator.gonsalvesfamily.com.*.log`
 
@@ -101,23 +101,41 @@ If `nginx -t` fails because SSL files are not there yet, obtain the certificate 
 
 ---
 
-## 6. PM2 (first start)
+## 6. systemd (first start)
 
-```bash
-cd /apps/gonsalves-genealogy/the-gonsalves-family-admin
-pm2 start deployment/ecosystem.config.cjs
-pm2 save
-pm2 startup    # run the command it prints once, so processes survive reboot
+Create the unit at `/etc/systemd/system/gonsalves-admin.service` (adjust `User`, paths, and `DATABASE_URL`):
+
+```ini
+[Unit]
+Description=Gonsalves admin (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=momolig
+WorkingDirectory=/apps/gonsalves-genealogy/the-gonsalves-family-admin
+EnvironmentFile=/apps/gonsalves-genealogy/the-gonsalves-family-admin/.env.production
+ExecStart=/usr/bin/npm run start:prod
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-Process name: **`admin-gonsalvesfamily`**.
-
-If you later change **`deployment/ecosystem.config.cjs`** (for example `LIB_API_URL`), reload from disk:
+Then enable and start it (survives reboot via `enable`):
 
 ```bash
-cd /apps/gonsalves-genealogy/the-gonsalves-family-admin
-pm2 startOrReload deployment/ecosystem.config.cjs
-pm2 save
+sudo systemctl daemon-reload
+sudo systemctl enable --now gonsalves-admin.service
+```
+
+Service name: **`gonsalves-admin.service`**.
+
+If you change env (for example `LIB_API_URL`), edit the unit / `.env.production` and restart:
+
+```bash
+sudo systemctl daemon-reload   # only if you edited the unit file
+sudo systemctl restart gonsalves-admin.service
 ```
 
 ---
@@ -131,13 +149,13 @@ cd /apps/gonsalves-genealogy/the-gonsalves-family-admin
 npm run deploy
 ```
 
-This runs `scripts/deploy.sh`: production **build**, checks **`.next/static`**, then **`pm2 restart admin-gonsalvesfamily`**.
+This runs `scripts/deploy.sh`: applies **Prisma migrations**, production **build**, checks **`.next/static`**, then **`sudo systemctl restart gonsalves-admin.service`**.
 
 ---
 
 ## 8. Verify
 
-- `pm2 status` — `admin-gonsalvesfamily` online  
+- `systemctl status gonsalves-admin.service` — active (running)  
 - `curl -sI https://admin.gonsalvesfamily.com` — `200` or redirect to login  
 - `curl -sI https://storycreator.gonsalvesfamily.com` — `200` or redirect to login  
 - **GEDCOM lib API** (export and any server route that calls it):  
@@ -161,13 +179,13 @@ GEDCOM media files from the admin UI are stored on disk and referenced in the DB
 
 **Production checklist**
 
-1. **Persist uploads under `/mnt`** — Production uploads must live under **`/mnt/`** (enforced at runtime). Create the tree and ensure the PM2 user can write:
+1. **Persist uploads under `/mnt`** — Production uploads must live under **`/mnt/`** (enforced at runtime). Create the tree and ensure the service user can write:
    ```bash
    sudo mkdir -p /mnt/storage/uploads/gedcom-admin
    sudo chown -R "$USER:$USER" /mnt/storage/uploads
    ```
-   Set **`ADMIN_MEDIA_FILES_ROOT=/mnt/storage/uploads`** (or another path under `/mnt/`) if you do not want the built-in default, then restart PM2 (`pm2 restart … --update-env`).
-   Use the same user that runs `pm2` (often your deploy user).
+   Set **`ADMIN_MEDIA_FILES_ROOT=/mnt/storage/uploads`** (or another path under `/mnt/`) if you do not want the built-in default, then restart the service (`sudo systemctl restart gonsalves-admin.service`).
+   Use the same user that runs the service (the unit's `User=`, often your deploy user).
 
 2. **Permissions** — If uploads fail with 500 or empty thumbnails, the Node process cannot write `gedcom-admin`. Fix ownership/permissions on that folder.
 
